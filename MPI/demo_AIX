@@ -2,14 +2,14 @@
 cd $TMPDIR
 echo current directory is $(pwd -P)
 #rm -f mpi_ctest.c mpi_ftest.f90
-[[ -f mpi_ctest.c ]] || ln -s /users/dor/armn/mfv/public/mpi_ctest.c mpi_ctest.c
-[[ -f mpi_ftest.f90 ]] || ln -s /users/dor/armn/mfv/public/mpi_ftest.f90 mpi_ftest.f90
+[[ -f mpi_ctest.c ]] || ln -s /users/dor/armn/mfv/GITHUB/wrapper-code/MPI/mpi_ctest.c mpi_ctest.c
+[[ -f mpi_ftest.f90 ]] || ln -s /users/dor/armn/mfv/GITHUB/wrapper-code/MPI/mpi_ftest.f90 mpi_ftest.f90
 set -x
-mpcc -o a_AIX.out mpi_ctest.c -L/users/dor/armn/mfv/public  -lpmpi_r
+mpcc -o a_AIX.out mpi_ctest.c -L/users/dor/armn/mfv/GITHUB/wrapper-code/MPI  -lpmpi_r
 echo localhost >./hostfile_poe
 echo localhost >>./hostfile_poe
 export MP_PROCS=2; export MP_HOSTFILE=./hostfile_poe ; poe ./a_AIX.out
 rm a_AIX.out
-mpxlf90_r -o a_AIX.out mpi_ftest.f90 -L/users/dor/armn/mfv/public  -lpmpi_r
+mpxlf90_r -o a_AIX.out mpi_ftest.f90 -L/users/dor/armn/mfv/GITHUB/wrapper-code/MPI  -lpmpi_r
 export MP_PROCS=2; export MP_HOSTFILE=./hostfile_poe ; poe ./a_AIX.out
 rm a_AIX.out ./hostfile_poe
