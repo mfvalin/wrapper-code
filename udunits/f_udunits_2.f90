@@ -539,7 +539,7 @@
 	end interface
 
 	buflen=len(buffer)
-	opt = options + UT_ASCII
+	opt = options
 	temp=" "
 	blen = ut_format(ut_unit%ptr,c_loc(temp),buflen,opt)
 	f_ut_format = blen
@@ -548,9 +548,10 @@
 	  return
 	endif
 	buffer = ""
-	do i=1,blen
-	  buffer(i:i)=temp(i)
-	enddo
+!	do i=1,blen
+!	  buffer(i:i)=temp(i)
+!	enddo
+	buffer(1:blen)=transfer(temp(1:blen),buffer)
 
 	end function f_ut_format
 !=============================================================================
@@ -574,8 +575,8 @@
 	end function ut_parse
 	end interface
 
-	encoding = UT_ASCII
-!	encoding = charset
+!	encoding = UT_ASCII
+	encoding = charset
 	temp = transfer( trim(symbol)//achar(0) , temp )
 	f_ut_parse%ptr = ut_parse(ut_system%ptr,c_loc(temp),encoding)
 
