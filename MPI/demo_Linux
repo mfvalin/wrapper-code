@@ -1,0 +1,14 @@
+#!/bin/bash
+cd $TMPDIR
+echo current directory is $(pwd -P)
+#rm -f mpi_ctest.c mpi_ftest.f90
+[[ -f mpi_ctest.c ]] || ln -s /users/dor/armn/mfv/public/mpi_ctest.c mpi_ctest.c
+[[ -f mpi_ftest.f90 ]] || ln -s /users/dor/armn/mfv/public/mpi_ftest.f90 mpi_ftest.f90
+set -x
+mpicc -o a_Linux.out mpi_ctest.c 
+export LD_PRELOAD=/users/dor/armn/mfv/public/libpmpi.so 
+mpirun -n 2  --mca btl tcp,self ./a_Linux.out
+rm a_Linux.out
+mpif90 -o a_Linux.out mpi_ftest.f90
+mpirun -n 2  --mca btl tcp,self ./a_Linux.out
+rm a_Linux.out

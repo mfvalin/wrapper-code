@@ -1,0 +1,34 @@
+all: libpmpi_r.a
+
+libpmpi_r.a: /opt/ibmhpc/pecurrent/ppe.poe/lib/libmpi_r.a libmyprof_r.a
+	ar xv /opt/ibmhpc/pecurrent/ppe.poe/lib/libmpi_r.a mpifort64_r.o
+	mv libmyprof_r.a libpmpi_r.a
+	rtl_enable -o newmpifort64_r.o -s mpifort64_r.o -L. -L/opt/ibmhpc/pecurrent/ppe.poe/lib -lpmpi_r -lmpi_r -lc_r -lpthreads
+#	sed "s/-bI:mpifort64_r.imp//" < mpifort64_r.sh > mpifort64_r.newsh
+	mv mpifort64_r.sh mpifort64_r.newsh
+	chmod +x mpifort64_r.newsh
+	./mpifort64_r.newsh
+	rm -f mpifort64_r.newsh mpifort64_r.sh mpifort64_r.exp mpifort64_r.imp mpifort64_r.o
+	ar rv libpmpi_r.a newmpifort64_r.o
+	rm newmpifort64_r.o
+
+libmyprof_r.a: mpi_profiler.c myprof64_r.exp
+	mpcc_r -c mpi_profiler.c -o myprof64_r.o
+	ld -o newmyprof64_r.o myprof64_r.o -bM:SRE -H512 -T512 -bnoentry -bE:myprof64_r.exp -lc -lmpi_r -L/opt/ibmhpc/pecurrent/ppe.poe/lib -lpthreads
+	rm myprof64_r.o
+	ar rv libmyprof_r.a newmyprof64_r.o
+	rm newmyprof64_r.o
+
+test:
+	echo localhost >./hostfile_poe
+	echo localhost >>./hostfile_poe
+	rm -f a.out
+	mpcc -o a.out mpi_ctest.c -L. -lpmpi_r
+	export MP_PROCS=2; export MP_HOSTFILE=./hostfile_poe ; poe ./a.out
+	rm -f a.out
+	mpxlf90_r -o a.out mpi_ftest.f90 -L. -lpmpi_r
+	export MP_PROCS=2; export MP_HOSTFILE=./hostfile_poe ; poe ./a.out
+	rm -f a.out ./hostfile_poe
+clean:
+	rm -f *.o *.a a.out ./hostfile_poe .nfs*
+	rm -rf .fo

@@ -1,0 +1,16 @@
+all: libpmpi.so
+
+libpmpi.so: mpi_profiler.c
+	s.cc -mpi -shared -o libpmpi.so mpi_profiler.c
+
+test:
+	rm -f a.out
+	s.cc -mpi -o a.out mpi_ctest.c
+	LD_PRELOAD=./libpmpi.so mpirun -n 2  --mca btl tcp,self ./a.out
+	rm -f a.out
+	s.f90 -mpi -o a.out mpi_ftest.f90
+	LD_PRELOAD=./libpmpi.so mpirun -n 2  --mca btl tcp,self ./a.out
+	rm -f a.out
+clean:
+	rm -f *.o *.so a.out .nfs*
+	rm -rf .fo

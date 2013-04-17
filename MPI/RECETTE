@@ -1,0 +1,11 @@
+#!/bin/bash
+set -x
+mpcc_r -c mpi_profiler.c -o myprof64_r.o
+ld -o newmyprof64_r.o myprof64_r.o -bM:SRE -H512 -T512 -bnoentry -bE:myprof64_r.exp -lc -lmpi_r -L/opt/ibmhpc/pe1110/ppe.poe/lib -lpthreads
+ar rv libmyprof_r.a newmyprof64_r.o
+ar xv /opt/ibmhpc/pe1110/ppe.poe/lib/libmpi_r.a mpifort64_r.o
+rtl_enable -o newmpifort64_r.o -s mpifort64_r.o -L. -L/opt/ibmhpc/pe1110/ppe.poe/lib -lmyprof_r -lmpi_r -lc_r -lpthreads
+sed "s/-bI:mpifort64_r.imp//" < mpifort64_r.sh > mpifort64_r.newsh
+chmod +x mpifort64_r.newsh
+./mpifort64_r.newsh
+ar rv libpmpi_r.a newmpifort64_r.o newmyprof64_r.o
