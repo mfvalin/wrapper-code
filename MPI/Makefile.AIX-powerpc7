@@ -20,6 +20,7 @@ libmyprof_r.a: mpi_profiler.c myprof64_r.exp
 	rm newmyprof64_r.o
 
 test:
+	[[ -r libpmpi_r.a ]] || make all
 	echo localhost >./hostfile_poe
 	echo localhost >>./hostfile_poe
 	rm -f a.out
@@ -30,5 +31,5 @@ test:
 	export MP_PROCS=2; export MP_HOSTFILE=./hostfile_poe ; poe ./a.out
 	rm -f a.out ./hostfile_poe
 clean:
-	rm -f *.o *.a a.out ./hostfile_poe .nfs*
+	rm -f *.o *.a a.out ./hostfile_poe .nfs* test
 	rm -rf .fo
