@@ -12,8 +12,8 @@
         call mpi_bcast(buf,9,MPI_INTEGER,0,MPI_COMM_WORLD,error)
         call mpi_reduce(buf,status,5,MPI_INTEGER,MPI_BOR,0,MPI_COMM_WORLD,error)
         call mpi_allreduce(buf,status,7,MPI_INTEGER,MPI_BOR,MPI_COMM_WORLD,error)
-        call mpi_alltoall(buf,3,MPI_INTEGER,buf2,3,MPI_INTEGER,MPI_COMM_WORLD)
-        call mpi_alltoall(buf,5,MPI_INTEGER,buf2,5,MPI_INTEGER,MPI_COMM_WORLD)
+        call mpi_alltoall(buf,3,MPI_INTEGER,buf2,3,MPI_INTEGER,MPI_COMM_WORLD,error)
+        call mpi_alltoall(buf,5,MPI_INTEGER,buf2,5,MPI_INTEGER,MPI_COMM_WORLD,error)
         if(nid==0)then
           call mpi_send(buf,10,MPI_INTEGER,1,0,MPI_COMM_WORLD,error)
           call mpi_send(buf,8,MPI_INTEGER,1,0,MPI_COMM_WORLD,error)
@@ -34,7 +34,6 @@
         call mpi_bcast(buf,9,MPI_INTEGER,1,MPI_COMM_WORLD,error)
         call mpi_reduce(buf,status,7,MPI_INTEGER,MPI_BOR,1,MPI_COMM_WORLD,error)
         call mpi_allreduce(buf,status,9,MPI_INTEGER,MPI_BOR,MPI_COMM_WORLD,error)
-!        call dump_mpi_stats
 777     call MPI_Finalize(error)
         stop
         end
