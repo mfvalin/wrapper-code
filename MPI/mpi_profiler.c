@@ -15,22 +15,26 @@ static int MPI_Send_elem=0;
 
 typedef struct {
   char *name;          /* name of tracked function */
-  long long bytes;          /* sum of bytes moved */
+  long long sbytes;          /* sum of bytes moved */
   double sbytes2;      /* sum of squares for bytes moved */
-  double sbytes_coll;  /* sum of bytes * communicator_size for collectives */
+  long long sbytes_coll;  /* sum of bytes * communicator_size for collectives */
   double sbytes_coll2; /* sum of squares for collectives */
   double time;         /* time spent in routine */
   int calls;           /* number of calls to function*/
 } stat_table_entry;
 
 static stat_table_entry stat_table[]={
-  {"MPI_Init" ,0,0.0,0.0,0.0,0.0,0},
-  {"MPI_Recv" ,0,0.0,0.0,0.0,0.0,0},
-  {"MPI_Irecv",0,0.0,0.0,0.0,0.0,0},
-  {"MPI_Send" ,0,0.0,0.0,0.0,0.0,0},
-  {"MPI_Isend",0,0.0,0.0,0.0,0.0,0},
-  {NULL       ,0,0.0,0.0,0.0,0.0,0}
+  {"MPI_Recv"   ,0,0.0,0,0.0,0.0,0},
+  {"MPI_Irecv"  ,0,0.0,0,0.0,0.0,0},
+  {"MPI_Send"   ,0,0.0,0,0.0,0.0,0},
+  {"MPI_Isend"  ,0,0.0,0,0.0,0.0,0},
+  {"MPI_Waitall",0,0.0,0,0.0,0.0,0},
+  {"MPI_Testall",0,0.0,0,0.0,0.0,0},
+  {"MPI_Bcast"  ,0,0.0,0,0.0,0.0,0},
+  {NULL         ,0,0.0,0,0.0,0.0,0}
 };
+
+static FILE *listfile=stdout;
 
 static int find_table_entry(const char *name){
   int i=0;
@@ -45,7 +49,7 @@ static void add_to_entry(int me,int bytes,int commsize,double time){
   float rbytes;
   if(me<0)return;
   stat_table[me].calls++;
-  stat_table[me].bytes+=bytes;
+  stat_table[me].sbytes+=bytes;
   stat_table[me].time+=time;
   rbytes=bytes;
   stat_table[me].sbytes2+=(rbytes*rbytes);
@@ -55,6 +59,22 @@ static void add_to_entry(int me,int bytes,int commsize,double time){
     stat_table[me].sbytes_coll2+=(rbytes*rbytes);
   }
 }
+
+void reset_mpi_stats()
+{
+ int i=0;
+ while(stat_table[i].name != NULL){
+   stat_table[i].sbytes=0;
+   stat_table[i].calls=0;
+   stat_table[i].time=0;
+   stat_table[i].sbytes2=0;
+   stat_table[i].sbytes_coll=0;
+   stat_table[i].sbytes_coll2=0;
+   i++;
+ }
+}
+void reset_mpi_stats_(){ reset_mpi_stats();}
+void reset_mpi_stats__(){ reset_mpi_stats();}
 
 void dump_mpi_stats()
 {
@@ -70,17 +90,24 @@ void dump_mpi_stats()
  MPI_Comm_size(MPI_COMM_WORLD , &size);
  while(stat_table[i].name != NULL){
    if(stat_table[i].calls>0) {
-     AVG=stat_table[i].bytes;
+     AVG=stat_table[i].sbytes;
      AVG=AVG/stat_table[i].calls;
-     printf("%4.4d: %-20s %6d messages %9Ld bytes (avg=%f), %12.6f seconds\n",
-	    my_rank,stat_table[i].name,stat_table[i].calls,stat_table[i].bytes,AVG,stat_table[i].time);
+     fprintf(listfile,"%5.5d: %-20s %6d messages %9Ld [%9Ld] bytes (avg=%f), %12.6f seconds\n",
+	    my_rank,stat_table[i].name,stat_table[i].calls,stat_table[i].sbytes,
+	    stat_table[i].sbytes_coll,AVG,stat_table[i].time);
+   }
+   i++;
+ }
+ i=0;
+ while(stat_table[i].name != NULL){
+   if(stat_table[i].calls>0) {
      MPI_Reduce(&stat_table[i].calls,&tcalls,1,MPI_INTEGER,MPI_SUM,0,MPI_COMM_WORLD);
-     MPI_Reduce(&stat_table[i].bytes,&tbytes,1,MPI_INTEGER8,MPI_SUM,0,MPI_COMM_WORLD);
+     MPI_Reduce(&stat_table[i].sbytes,&tbytes,1,MPI_INTEGER8,MPI_SUM,0,MPI_COMM_WORLD);
      MPI_Reduce(&stat_table[i].time,&tmax,1,MPI_REAL8,MPI_MAX,0,MPI_COMM_WORLD);
      MPI_Reduce(&stat_table[i].time,&tmin,1,MPI_REAL8,MPI_MIN,0,MPI_COMM_WORLD);
      MPI_Reduce(&stat_table[i].time,&tmean,1,MPI_REAL8,MPI_SUM,0,MPI_COMM_WORLD);
      if(my_rank==0) {
-       printf("TOTAL: %-20s %6d messages %9Ld bytes, min/max/avg= %f/%f/%f seconds\n",
+       fprintf(listfile,"TOTAL: %-20s %6d messages %9Ld bytes, min/max/avg= %f/%f/%f seconds\n",
 	      stat_table[i].name,tcalls,tbytes,tmin,tmax,tmean/size);
      }
    }
@@ -91,12 +118,67 @@ void dump_mpi_stats()
 void dump_mpi_stats_(){ dump_mpi_stats();}
 void dump_mpi_stats__(){ dump_mpi_stats();}
 
+static int my_rank=-1;
+
 int MPI_Init(int *argc, char ***argv) {
   int rc;
+  char fname[4096];
+  char *Fname = &fname[0] ;
+  char *envfile;
+  char *mode="w";
 
-  printf("INFO: entering profiling layer MPI_Init...\n");
   rc = PMPI_Init(argc, argv);
+  MPI_Comm_rank(MPI_COMM_WORLD , &my_rank);
+  envfile=getenv("PMPI_OUT_FILE");
+  if(envfile != NULL) {
+    sprintf(Fname,"%s_%5.5d",envfile,my_rank);
+    if( *Fname == '+' ) { Fname++ ; mode="a"; }
+    listfile=fopen(Fname,mode);
+    if(listfile == NULL ) listfile=stdout;
+  }
+  if(my_rank==0) printf("INFO: entering profiling layer MPI_Init...\n");
   return(rc);
+}
+
+int MPI_Bcast(void* buffer, int count, MPI_Datatype datatype,int root, MPI_Comm comm){
+  int dsize, size;
+  int status;
+  double t0;
+  static int me=-1;
+  
+  if(me==-1) me=find_table_entry("MPI_Bcast");
+  PMPI_Type_size( datatype, &dsize );
+  MPI_Comm_size(comm,&size);
+  t0=MPI_Wtime();
+  status=PMPI_Bcast(buffer,count,datatype,root,comm);
+  add_to_entry(me,count*dsize,size,MPI_Wtime()-t0);
+  return status;
+}
+
+int MPI_Testall(int count,MPI_Request *array_of_requests,int *flag,MPI_Status *array_of_statuses){
+  int dsize=1;
+  int status;
+  double t0;
+  static int me=-1;
+  
+  if(me==-1) me=find_table_entry("MPI_Testall");
+  t0=MPI_Wtime();
+  status=PMPI_Testall(count,array_of_requests,flag,array_of_statuses);
+  add_to_entry(me,count*dsize,1,MPI_Wtime()-t0);
+  return status;
+}
+
+int MPI_Waitall(int count,MPI_Request *array_of_requests,MPI_Status *array_of_statuses){
+  int dsize=1;
+  int status;
+  double t0;
+  static int me=-1;
+  
+  if(me==-1) me=find_table_entry("MPI_Waitall");
+  t0=MPI_Wtime();
+  status=PMPI_Waitall(count,array_of_requests,array_of_statuses);
+  add_to_entry(me,count*dsize,1,MPI_Wtime()-t0);
+  return status;
 }
 
 int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
@@ -121,6 +203,7 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
   int status;
   double t0;
   static int me=-1;
+  
   if(me==-1) me=find_table_entry("MPI_Irecv");
   PMPI_Type_size( datatype, &dsize );
   t0=MPI_Wtime();
@@ -162,7 +245,7 @@ int MPI_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag,
 int MPI_Finalize( void )
 {
   dump_mpi_stats();
-  printf("INFO: exiting from profiling layer MPI_Init...\n");
+  fprintf(listfile,"INFO: exiting from profiling layer MPI_Init...\n====================================================================\n");
   return(PMPI_Finalize());
 }
 
@@ -170,7 +253,6 @@ int MPI_Finalize( void )
                                                                                                                                                                                                                                                                         
 void main(int argc, char **argv)                                                                                                                                                                                                                                        
 {                                                                                                                                                                                                                                                                       
- int my_rank=-1;                                                                                                                                                                                                                                                        
  char hostname[1204];                                                                                                                                                                                                                                                   
  char *MP_CHILD=getenv("MP_CHILD");                                                                                                                                                                                                                                     
  int buf[10];
@@ -182,8 +264,8 @@ void main(int argc, char **argv)
                                                                                                                                                                                                                                                                         
  if(MP_CHILD==NULL) MP_CHILD="-1";                                                                                                                                                                                                                                      
  gethostname(hostname, 1023);                                                                                                                                                                                                                                           
- MPI_Init(&argc,&argv);                                                                                                                                                                                                                                                 
- MPI_Comm_rank(MPI_COMM_WORLD , &my_rank);                                                                                                                                                                                                                              
+ MPI_Init(&argc,&argv);    
+ MPI_Bcast(&buf,9,MPI_INTEGER,0,MPI_COMM_WORLD);
  if(my_rank==0) {
    MPI_Send(&buf,10,MPI_INTEGER,1,0,MPI_COMM_WORLD);
    MPI_Send(&buf,8,MPI_INTEGER,1,0,MPI_COMM_WORLD);
@@ -195,6 +277,7 @@ void main(int argc, char **argv)
    MPI_Send(&buf,6,MPI_INTEGER,0,0,MPI_COMM_WORLD);
    MPI_Send(&buf,4,MPI_INTEGER,0,0,MPI_COMM_WORLD);
  }
+ MPI_Bcast(&buf,7,MPI_INTEGER,0,MPI_COMM_WORLD);
  printf("host = %s, rank = %d, MP_CHILD=%s\n",hostname,my_rank,MP_CHILD);
  MPI_Finalize();
 }

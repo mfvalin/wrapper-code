@@ -1,4 +1,7 @@
 MPI_Init
+MPI_Bcast
+MPI_Waitall
+MPI_Testall
 MPI_Recv
 MPI_Irecv
 MPI_Isend
@@ -8,3 +11,6 @@ MPI_Finalize
 dump_mpi_stats
 dump_mpi_stats_
 dump_mpi_stats__
+reset_mpi_stats
+reset_mpi_stats_
+reset_mpi_stats__

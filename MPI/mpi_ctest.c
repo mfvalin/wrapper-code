@@ -16,6 +16,7 @@ void main(int argc, char **argv)
  gethostname(hostname, 1023);                                                                                                                                                                                                                                           
  MPI_Init(&argc,&argv);                                                                                                                                                                                                                                                 
  MPI_Comm_rank(MPI_COMM_WORLD , &my_rank);                                                                                                                                                                                                                              
+MPI_Bcast(&buf,9,MPI_INTEGER,0,MPI_COMM_WORLD);
  if(my_rank==0) {
    MPI_Send(&buf,10,MPI_INTEGER,1,0,MPI_COMM_WORLD);
    MPI_Send(&buf,8,MPI_INTEGER,1,0,MPI_COMM_WORLD);
@@ -27,6 +28,7 @@ void main(int argc, char **argv)
    MPI_Send(&buf,6,MPI_INTEGER,0,0,MPI_COMM_WORLD);
    MPI_Send(&buf,4,MPI_INTEGER,0,0,MPI_COMM_WORLD);
  }
+MPI_Bcast(&buf,7,MPI_INTEGER,0,MPI_COMM_WORLD);
 
  printf("host = %s, rank = %d, MP_CHILD=%s\n",hostname,my_rank,MP_CHILD);
  MPI_Finalize();
