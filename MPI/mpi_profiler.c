@@ -100,17 +100,15 @@ void dump_mpi_stats()
  }
  i=0;
  while(stat_table[i].name != NULL){
-   if(stat_table[i].calls>0) {
-     MPI_Reduce(&stat_table[i].calls,&tcalls,1,MPI_INTEGER,MPI_SUM,0,MPI_COMM_WORLD);
-     MPI_Reduce(&stat_table[i].sbytes,&tbytes,1,MPI_INTEGER8,MPI_SUM,0,MPI_COMM_WORLD);
-     MPI_Reduce(&stat_table[i].time,&tmax,1,MPI_REAL8,MPI_MAX,0,MPI_COMM_WORLD);
-     MPI_Reduce(&stat_table[i].time,&tmin,1,MPI_REAL8,MPI_MIN,0,MPI_COMM_WORLD);
-     MPI_Reduce(&stat_table[i].time,&tmean,1,MPI_REAL8,MPI_SUM,0,MPI_COMM_WORLD);
-     if(my_rank==0) {
+     MPI_Allreduce(&stat_table[i].calls,&tcalls,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD);
+     MPI_Allreduce(&stat_table[i].sbytes,&tbytes,1,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD);
+     MPI_Allreduce(&stat_table[i].time,&tmax,1,MPI_REAL8,MPI_MAX,MPI_COMM_WORLD);
+     MPI_Allreduce(&stat_table[i].time,&tmin,1,MPI_REAL8,MPI_MIN,MPI_COMM_WORLD);
+     MPI_Allreduce(&stat_table[i].time,&tmean,1,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD);
+     if(my_rank>=0 && tcalls>0) {
        fprintf(listfile,"TOTAL: %-20s %6d messages %9Ld bytes, min/max/avg= %f/%f/%f seconds\n",
 	      stat_table[i].name,tcalls,tbytes,tmin,tmax,tmean/size);
      }
-   }
    i++;
  }
  return;
@@ -246,6 +244,7 @@ int MPI_Finalize( void )
 {
   dump_mpi_stats();
   fprintf(listfile,"INFO: exiting from profiling layer MPI_Init...\n====================================================================\n");
+  fclose(listfile);
   return(PMPI_Finalize());
 }
 
