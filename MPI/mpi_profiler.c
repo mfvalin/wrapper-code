@@ -24,17 +24,21 @@ typedef struct {
 } stat_table_entry;
 
 static stat_table_entry stat_table[]={
-  {"MPI_Recv"   ,0,0.0,0,0.0,0.0,0},
-  {"MPI_Irecv"  ,0,0.0,0,0.0,0.0,0},
-  {"MPI_Send"   ,0,0.0,0,0.0,0.0,0},
-  {"MPI_Isend"  ,0,0.0,0,0.0,0.0,0},
-  {"MPI_Waitall",0,0.0,0,0.0,0.0,0},
-  {"MPI_Testall",0,0.0,0,0.0,0.0,0},
-  {"MPI_Bcast"  ,0,0.0,0,0.0,0.0,0},
-  {NULL         ,0,0.0,0,0.0,0.0,0}
+  {"MPI_Recv"     ,0,0.0,0,0.0,0.0,0},
+  {"MPI_Irecv"    ,0,0.0,0,0.0,0.0,0},
+  {"MPI_Send"     ,0,0.0,0,0.0,0.0,0},
+  {"MPI_Sendrecv" ,0,0.0,0,0.0,0.0,0},
+  {"MPI_Isend"    ,0,0.0,0,0.0,0.0,0},
+  {"MPI_Waitall"  ,0,0.0,0,0.0,0.0,0},
+  {"MPI_Testall"  ,0,0.0,0,0.0,0.0,0},
+  {"MPI_Alltoall" ,0,0.0,0,0.0,0.0,0},
+  {"MPI_Reduce"   ,0,0.0,0,0.0,0.0,0},
+  {"MPI_Allreduce",0,0.0,0,0.0,0.0,0},
+  {"MPI_Bcast"    ,0,0.0,0,0.0,0.0,0},
+  {NULL           ,0,0.0,0,0.0,0.0,0}
 };
 
-static FILE *listfile=stdout;
+static FILE *listfile=NULL;
 
 static int find_table_entry(const char *name){
   int i=0;
@@ -100,12 +104,12 @@ void dump_mpi_stats()
  }
  i=0;
  while(stat_table[i].name != NULL){
-     MPI_Allreduce(&stat_table[i].calls,&tcalls,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD);
-     MPI_Allreduce(&stat_table[i].sbytes,&tbytes,1,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD);
-     MPI_Allreduce(&stat_table[i].time,&tmax,1,MPI_REAL8,MPI_MAX,MPI_COMM_WORLD);
-     MPI_Allreduce(&stat_table[i].time,&tmin,1,MPI_REAL8,MPI_MIN,MPI_COMM_WORLD);
-     MPI_Allreduce(&stat_table[i].time,&tmean,1,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD);
-     if(my_rank>=0 && tcalls>0) {
+     PMPI_Allreduce(&stat_table[i].calls,&tcalls,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD);
+     PMPI_Allreduce(&stat_table[i].sbytes,&tbytes,1,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD);
+     PMPI_Allreduce(&stat_table[i].time,&tmax,1,MPI_REAL8,MPI_MAX,MPI_COMM_WORLD);
+     PMPI_Allreduce(&stat_table[i].time,&tmin,1,MPI_REAL8,MPI_MIN,MPI_COMM_WORLD);
+     PMPI_Allreduce(&stat_table[i].time,&tmean,1,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD);
+     if(my_rank==0 && tcalls>0) {
        fprintf(listfile,"TOTAL: %-20s %6d messages %9Ld bytes, min/max/avg= %f/%f/%f seconds\n",
 	      stat_table[i].name,tcalls,tbytes,tmin,tmax,tmean/size);
      }
@@ -132,8 +136,8 @@ int MPI_Init(int *argc, char ***argv) {
     sprintf(Fname,"%s_%5.5d",envfile,my_rank);
     if( *Fname == '+' ) { Fname++ ; mode="a"; }
     listfile=fopen(Fname,mode);
-    if(listfile == NULL ) listfile=stdout;
   }
+  if(listfile == NULL ) listfile=stdout;
   if(my_rank==0) printf("INFO: entering profiling layer MPI_Init...\n");
   return(rc);
 }
@@ -149,6 +153,38 @@ int MPI_Bcast(void* buffer, int count, MPI_Datatype datatype,int root, MPI_Comm 
   MPI_Comm_size(comm,&size);
   t0=MPI_Wtime();
   status=PMPI_Bcast(buffer,count,datatype,root,comm);
+  add_to_entry(me,count*dsize,size,MPI_Wtime()-t0);
+  return status;
+}
+
+int MPI_Reduce(void *sendbuf, void *recvbuf, int count,
+            MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm){
+  int dsize, size;
+  int status;
+  double t0;
+  static int me=-1;
+  
+  if(me==-1) me=find_table_entry("MPI_Reduce");
+  PMPI_Type_size( datatype, &dsize );
+  MPI_Comm_size(comm,&size);
+  t0=MPI_Wtime();
+  status=PMPI_Reduce(sendbuf,recvbuf,count,datatype,op,root,comm);
+  add_to_entry(me,count*dsize,size,MPI_Wtime()-t0);
+  return status;
+}
+
+int MPI_Allreduce(void *sendbuf, void *recvbuf, int count,
+            MPI_Datatype datatype, MPI_Op op, MPI_Comm comm){
+  int dsize, size;
+  int status;
+  double t0;
+  static int me=-1;
+  
+  if(me==-1) me=find_table_entry("MPI_Allreduce");
+  PMPI_Type_size( datatype, &dsize );
+  MPI_Comm_size(comm,&size);
+  t0=MPI_Wtime();
+  status=PMPI_Allreduce(sendbuf,recvbuf,count,datatype,op,comm);
   add_to_entry(me,count*dsize,size,MPI_Wtime()-t0);
   return status;
 }
@@ -240,11 +276,49 @@ int MPI_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag,
   return status;
 }
 
+int MPI_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype,
+            int dest, int sendtag, void *recvbuf, int recvcount,
+            MPI_Datatype recvtype, int source, int recvtag,
+            MPI_Comm comm, MPI_Status *Status)
+{
+  int rsize,ssize;
+  int status;
+  double t0;
+  static int me=-1;
+  if(me==-1) me=find_table_entry("MPI_Sendrecv");
+  PMPI_Type_size( sendtype, &ssize );
+  PMPI_Type_size( recvtype, &rsize );
+  t0=MPI_Wtime();
+  status = PMPI_Sendrecv(sendbuf,sendcount,sendtype,dest,sendtag,recvbuf,recvcount,recvtype,source,recvtag,comm,Status);
+  add_to_entry(me,sendcount*ssize+recvcount*rsize,1,MPI_Wtime()-t0);
+  return status;
+}
+
+int MPI_Alltoall(void *sendbuf, int sendcount,
+            MPI_Datatype sendtype, void *recvbuf, int recvcount,
+            MPI_Datatype recvtype, MPI_Comm comm)
+{
+  int rsize,ssize;
+  int status;
+  double t0;
+  static int me=-1;
+  int size;
+  
+  MPI_Comm_size(comm,&size);
+  if(me==-1) me=find_table_entry("MPI_Alltoall");
+  PMPI_Type_size( sendtype, &ssize );
+  PMPI_Type_size( recvtype, &rsize );
+  t0=MPI_Wtime();
+  status = PMPI_Alltoall(sendbuf,sendcount,sendtype,recvbuf,recvcount,recvtype,comm);
+  add_to_entry(me,sendcount*ssize+recvcount*rsize,size,MPI_Wtime()-t0);
+  return status;
+}
+
 int MPI_Finalize( void )
 {
   dump_mpi_stats();
   fprintf(listfile,"INFO: exiting from profiling layer MPI_Init...\n====================================================================\n");
-  fclose(listfile);
+  if(listfile!=stdout) fclose(listfile);
   return(PMPI_Finalize());
 }
 
