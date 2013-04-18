@@ -322,6 +322,10 @@ int MPI_Finalize( void )
   return(PMPI_Finalize());
 }
 
+void mpi_finalize(int *error){ *error=MPI_Finalize() ;}
+void mpi_finalize_(int *error){ *error=MPI_Finalize() ;}
+void mpi_finalize__(int *error){ *error=MPI_Finalize() ;}
+
 #ifdef TEST
                                                                                                                                                                                                                                                                         
 void main(int argc, char **argv)                                                                                                                                                                                                                                        
