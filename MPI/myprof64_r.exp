@@ -9,7 +9,12 @@ MPI_Irecv
 MPI_Isend
 MPI_Send
 MPI_Sendrecv
+MPI_Gather
+MPI_Gatherv
+MPI_Scatter
+MPI_Scatterv
 MPI_Alltoall
+MPI_Alltoallv
 MPI_Finalize
 
 dump_mpi_stats
