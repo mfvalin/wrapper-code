@@ -1,6 +1,9 @@
 module convert_ip123
 use ISO_C_BINDING
 
+private :: swap
+public  :: encode_ip_1, encode_ip_2, decode_ip_1, decode_ip_2
+
 type, BIND(C) :: float_ip
 real(C_FLOAT) :: lo, hi
 integer(C_INT) :: kind
@@ -20,8 +23,31 @@ module procedure decode_ip_1
 module procedure decode_ip_2
 end interface
 
+integer, parameter :: Max_Kind=31
+!  1 means coordinate of type kind is ascending ( larger value = higher in the atmosphere )
+! -1 means coordinate of type kind is descending ( larger value = lower in the atmosphere )
+!  0 means coordinate of type kind cannot be deemed ascending nor descending
+! kind = 0, 4, 10, 21 ascending ( meters above ground/msl, time, galchen meters )
+! kind = 1, 2 descending (pressure, sigma)
+integer, private, save, dimension(0:Max_Kind) :: order = &
+  (/  1, -1, -1,  0,  1,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0, &
+      0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0  /)
+
 contains
 
+subroutine swap(a,b)  ! swap a pair of real values
+  real(C_FLOAT), intent(INOUT) :: a,b
+  real(C_FLOAT) :: t
+  t = a ; a = b ; b = t
+  return
+end subroutine swap
+!
+! produce a valid (ip1,ip2,ip3) triplet from (real value,kind) pairs
+! RP1%kind must be a level (or a pair of levels) in the atmosphere
+! RP2%kind must be a time (or a pair of times)
+! RP3%kind may be anything, RP3%hi will be ignored
+! this routine i C interoperable
+!
 function encode_ip_1(IP1,IP2,IP3,RP1,RP2,RP3) result(status) BIND (C,name='EncodeIp')
   implicit none  ! coupled (rp1,rp2,rp3) to (ip1,ip2,ip3) conversion with type enforcement
 
@@ -44,6 +70,8 @@ function encode_ip_1(IP1,IP2,IP3,RP1,RP2,RP3) result(status) BIND (C,name='Encod
     P(1)=RP1%lo ; kind(1)=RP1%kind ; i=i+1
     if (RP1%hi /= RP1%lo) then       ! RP1 is a range
       P(3)=RP1%hi ; kind(3)=RP1%kind ; i=i+1
+      if(RP1%hi < RP1%lo .and. order(RP1%kind) ==  1) call swap(P(1),p(3))  ! keep lo, hi in atmospheric ascending order
+      if(RP1%hi > RP1%lo .and. order(RP1%kind) == -1) call swap(P(1),p(3))  ! i.e. level lo lower in atmosphere than level hi
     endif
   endif
   
@@ -51,6 +79,7 @@ function encode_ip_1(IP1,IP2,IP3,RP1,RP2,RP3) result(status) BIND (C,name='Encod
     P(2)=RP2%lo ; kind(2)=RP2%kind ; i=i+1
     if (RP2%hi /= RP2%lo) then  ! time range
       P(3)=RP2%hi ; kind(3)=RP2%kind ; i=i+1
+      if(RP2%hi < RP2%lo) call swap(P(2),P(3)) ! keep in ascending order
     endif
   endif
   
@@ -65,7 +94,7 @@ function encode_ip_1(IP1,IP2,IP3,RP1,RP2,RP3) result(status) BIND (C,name='Encod
   call convip(IP3,P(3),kind(3),+2,dummy,.false.)
   status=CONVERT_OK
 
-return
+  return
 end function encode_ip_1
 
 function decode_ip_1(RP1,RP2,RP3,IP1,IP2,IP3) result(status) BIND (C,name='DecodeIp')
@@ -78,7 +107,6 @@ function decode_ip_1(RP1,RP2,RP3,IP1,IP2,IP3) result(status) BIND (C,name='Decod
   real*4, dimension(6) :: P
   integer, dimension(6) ::kind
   character(len=1) :: dummy
-  integer :: i
 
   status=-1
   call convip(IP1,P(1),kind(1),-1,dummy,.false.)  ! kind of ip1 must be level
@@ -92,9 +120,12 @@ function decode_ip_1(RP1,RP2,RP3,IP1,IP2,IP3) result(status) BIND (C,name='Decod
   
   if(kind(3)==10 .and. kind(1)==kind(2)) then   ! time, same kind as ip2
     RP2%hi=P(3)
+    if(RP2%hi < RP2%lo) call swap(RP2%lo,RP2%hi)
 !    RP3%kind=-1
   elseif(kind(3)<=6 .and. kind(1)==kind(3)) then ! same level type as ip1
     RP1%hi=P(3)
+    if(RP1%hi < RP1%lo .and. order(kind(3)) ==  1) call swap(RP1%lo,RP1%hi)
+    if(RP1%hi > RP1%lo .and. order(kind(3)) == -1) call swap(RP1%lo,RP1%hi)
 !    RP3%kind=-1
   endif
   if(kind(1) <=6 .and. kind(2)==10) then  ! ip1 must be a level, ip2 must be a time
