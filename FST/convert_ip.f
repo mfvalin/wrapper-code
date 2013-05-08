@@ -145,8 +145,10 @@
 !      CHARACTER(len=2), PARAMETER :: kinds(0:Max_Kind) =
 !     %     (/ 'm ', 'sg', 'mb', '  ', 'M ', 'hy', 'th', 25*'??' /)
       data kinds
-     %     / 'm ', 'sg', 'mb', '  ', 'M ', 'hy', 'th', 14*'??',
-     %       'mp', 10*'??' /
+     %     / 'm ', 'sg', 'mb', '  ', 'M ', 'hy', 'th', '??',
+     %       '??', '??', 'H ', '??', '??', '??', '??', '  ',
+     %       '??', '[]', '??', '??', '??', 'mp', '??', '??',
+     %       '??', '??', '??', '??', '??', '??', '??', '  '/
 
       if (mode .eq.0) then
          NEWSTYLE = .true.
@@ -167,10 +169,10 @@
 *        Conversion P a IP
 *
        if ( kind.lt.0 .or. kind.gt.maxkind ) then
-	  write(6,6004) kind
+          write(6,6004) kind
 !          ip = -1     ! verifier avant d'activer ceci
-	  call qqexit(1)    !  force excessive ?
-	  return
+          call qqexit(1)    !  force excessive ?
+          return
        elseif ( .not. validkind(kind) ) then
 *          write(6,6007) kind
 !          ip = -1     ! verifier avant d'activer ceci
@@ -278,7 +280,7 @@ c     %         goto 101
 
 *           ... ou de code arbitraire
 
-	    ip = nint( p )
+            ip = nint( p )
             if ( 0 .le. ip .and. ip .le. 100 ) then
                ip = 1200 - ip
             else
@@ -303,7 +305,7 @@ c     %         goto 101
 
             write(6,6004) kind
             ip = -999999
-	    return
+            return
          endif
 
        endif
@@ -486,7 +488,7 @@ c     %         goto 101
      %       ,e10.5,' returned ip is -999999')
  6006 format(' Error in convip: p is out of bounds =',e10.5,' min=',
      %       e10.5,' max=',e10.5,' returned ip is -999999')
- 6007 format(' Warning in convip: undetermined kind used =',I10)
+! 6007 format(' Warning in convip: undetermined kind used =',I10)
 
       end
       
