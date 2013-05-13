@@ -17,7 +17,7 @@
 * * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 * * Boston, MA 02111-1307, USA.
 * */
-      subroutine C_CONV_IP( ip, p, kind, mode ) BIND(C,name='ConvIp') ! C language inteerface with no string option
+      subroutine C_CONV_IP( ip, p, kind, mode ) BIND(C,name='ConvertIp') ! C language inteerface with no string option
 !     void ConvIp(int *ip, float *p, int *kind, int mode)
       use ISO_C_BINDING
       implicit none
