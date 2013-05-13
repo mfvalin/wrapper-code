@@ -7,8 +7,8 @@
 int Cmain()  /* called by Fortran test */
 {
   float p;
-  int ip =850;
-  int kind=-1;
+  int ip;
+  int kind;
   int mode;
   int status;
   int ip1,ip2,ip3,kind1,kind2,kind3;
@@ -18,17 +18,35 @@ int Cmain()  /* called by Fortran test */
   float_ip fp1, fp2, fp3;
   float_ip fp123[3];
 
+  fprintf(stderr,"old style ip -> p,kind single value conversion\n");
+  ip=850;
+  p=0.0;
+  kind=-1;
   ConvertIp(&ip,&p,&kind,-1);
-  fprintf(stderr," p=%g, kind=%d, ip=%d \n",p,kind,ip);
+  fprintf(stderr,"ip=%d, p=%g, kind=%d\n\n",ip,p,kind);
+
+  ip=-1;
+  fprintf(stderr,"p,kind -> ip single value conversion\n");
+  ConvertIp(&ip,&p,&kind,2);
+  fprintf(stderr,"p=%g, kind=%d, ip=%d\n\n",p,kind,ip);
+
+  fprintf(stderr,"p,kind -> ip single value conversion\n");
   p=850.0;
   kind=0;
+  ip=-1;
   mode = 2;
   ConvertIp(&ip,&p,&kind,mode);
-  fprintf(stderr," p=%g, kind=%d, ip=%d \n",p,kind,ip);
+  fprintf(stderr,"p=%g, kind=%d, ip=%d\n\n",p,kind,ip);
+
+  fprintf(stderr,"ip -> p,kind single value conversion\n");
   p=-1.0;
   kind=-1;
   ConvertIp(&ip,&p,&kind,-1);
-  fprintf(stderr," p=%g, kind=%d, ip=%d \n\n",p,kind,ip);
+  fprintf(stderr,"ip=%d, p=%g, kind=%d\n\n",ip,p,kind);
+  
+  fprintf(stderr,"==============================================================\n\n");
+  
+  fprintf(stderr,"multi value conversion, 1 level, 2 times in the wrong order\n");
   
   p1=950.0 ; kind1 = 2 ; fp1.v1=950.0 ; fp1.v2=950.0 ; fp1.kind=2 ;
   p2=48.0  ; kind2 = 10; fp2.v1= 48.0 ; fp2.v2= 24.0 ; fp2.kind=10;
@@ -53,6 +71,8 @@ int Cmain()  /* called by Fortran test */
   
   fprintf(stderr,"==============================================================\n\n");
   
+  fprintf(stderr,"multi value conversion, 2 pressure levels in the wrong order, 1 time\n");
+  
   p1=850.0 ; kind1 = 2 ; fp1.v1=850.0 ; fp1.v2=950.0 ; fp1.kind=2 ;
   p2=950.0 ; kind2 = 2 ; fp2.v1= 24.0 ; fp2.v2= 24.0 ; fp2.kind=10 ;
   p3=24.0  ; kind3 = 10; fp3.v1=  0.0 ; fp3.v2=  0.0 ; fp3.kind=-1;
@@ -75,6 +95,8 @@ int Cmain()  /* called by Fortran test */
 	    fp1.v1,fp1.v2,fp1.kind,fp2.v1,fp2.v2,fp2.kind,fp3.v1,fp3.v2,fp3.kind,status);
   
   fprintf(stderr,"==============================================================\n\n");
+  
+  fprintf(stderr,"multi value conversion, 2 heights in the wrong order, 1 time\n");
   
   p1=950.0 ; kind1 = 0 ; fp1=(float_ip){950.0,850.0,0};
   p2=850.0 ; kind2 = 0 ; fp2=(float_ip){24.0,24.0,10};
