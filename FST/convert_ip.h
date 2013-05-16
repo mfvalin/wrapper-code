@@ -1,6 +1,7 @@
 #ifndef CONVERT_IP_DEFS
 #define CONVERT_IP_DEFS
 
+#include <memory.h>
 #define COMVERT_IP_OK 0
 #define COMVERT_IP_ERROR -1
 
@@ -9,6 +10,10 @@ typedef struct {
   float v2;
   int kind;
 } float_ip;
+
+static float_ip invalid_float_ip={0.0,0.0,-1};
+#define NULL_float_ip &invalid_float_ip
+#define INIT_float_ip(a) memcpy( (void *) &a, (void *) &invalid_float_ip, sizeof(float_ip) )
 
 void ConvIp(int *ip, float *p, int *kind, int mode);
 
