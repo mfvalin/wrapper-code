@@ -27,10 +27,10 @@
       character (len=1) :: string
       integer :: mode2
       mode2 = mode
-      call CONVIP( ip, p, kind, mode2,string,.false.)
+      call CONVIP_plus( ip, p, kind, mode2,string,.false.)
       end subroutine C_CONV_IP
 !
-      SUBROUTINE CONVIP( ip, p, kind, mode, string, flag )
+      SUBROUTINE CONVIP_plus( ip, p, kind, mode, string, flag )
       implicit none
       integer, intent(INOUT) :: ip, kind
       integer, intent(IN) :: mode
@@ -43,7 +43,7 @@
 *     necessaire avant de lire/ecrire un enregistrement
 *     sur un fichier standard.
 *
-*     Etendu des valeurs encodes: 10e-5 -> 10e10
+*     Etendue des valeurs encodes: 10e-5 -> 10e10
 *     1024x1024-1 = 1048575    1048001 -> 1048575 non utilise
 *
 *     Auteurs: N. Ek et B. Dugas - Mars 1996
@@ -61,8 +61,8 @@
 *                               introduction de zero_val2 pour la conversion ip->p
 *     Revision 010  M. Lepine - Mai 2010 traitement des valeurs en dehors des intervals connus
 *                               comme valeurs arbitraires
-*     Revision 011  M. Valin  - Avril 2013 activation du code 15, ajout de la conversion groupee
-*                               et un peu de manage dans le code
+*     Revision 011  M. Valin  - Mai 2013 activation du code 15, ajout de la conversion groupee,
+*                               menage dans le code, changement de nom
 *
 *     Input:    MODE = -1, de IP -->  P
 *               MODE =  0, forcer conversion pour ip a 31 bits
@@ -108,7 +108,7 @@
 
       INTEGER :: i
 
-      LOGICAL :: validkind(0:Max_Kind) =
+      LOGICAL, PARAMETER, DIMENSION(0:Max_Kind) :: validkind =
      %  (/ (.true.,i=0,6), (.false.,i=7,9), .true., (.false.,i=11,14),
      %     .true., .false.,                                           ! kind 15 valide
      %     .true., (.false., i=18,20), .true., (.false., i=22,30),
@@ -118,17 +118,17 @@
      %   (/ -20 000., 0., 0.,    -4.8e+8, -20 000., 0.,
      %      1.0, (-4.8e+8,i=7,9), 0.0, (-4.8e+8,i=11,16), 
      %      1.0, (-4.8e+8,i=18,20), 0., (-4.8e+8,i=22,31) /)
-      REAL, PARAMETER :: hi_val(0:Max_Kind) =
+      REAL, PARAMETER, DIMENSION(0:Max_Kind) :: hi_val =
      %   (/  100 000., 1., 1100., 1.0e+10, 100 000., 1.,
      %       200 000., (1.0e+10,i=7,9), 1.0e+10, (1.0e+10,i=11,16),
      %       1.0e+10, (1.0e+10,i=18,20), 1000000., (1.0e+10,i=22,31) /)
-      REAL, PARAMETER :: zero_val(0:Max_Kind) =
+      REAL, PARAMETER, DIMENSION(0:Max_Kind) :: zero_val =
      %   (/ 0., 0., 0., 0., 0., 0., 1., (0.0,i=7,16),
      %      1.0, (0.0,i=18,20), 1.001e-4, (0.0,i=22,31) /)
-      REAL, PARAMETER :: zero_val2(0:Max_Kind) =
+      REAL, PARAMETER, DIMENSION(0:Max_Kind) :: zero_val2 =
      %   (/ 0., 0., 0., 0., 0., 0., 1., (0.0,i=7,16),
      %      1.0, (0.0,i=18,20), 0.0, (0.0,i=22,31) /)
-      REAL, PARAMETER :: fact_val(0:Max_Kind) =
+      REAL, PARAMETER, DIMENSION(0:Max_Kind) :: fact_val =
      %   (/ 1., 1., 1., 1., 1., 1., 1., (1.0,i=7,16),
      %      -1.0, (1.0,i=18,20), 1.0e+4, (1.0,i=22,31) /)
 
@@ -142,10 +142,8 @@
      %   1000.0, 10000.0, 100000.0, 1000000.0, 10000000.0,
      %   100000000.0, 1000000000.0, 10000000000.0, 100000000000.0 /
 
-!      CHARACTER(len=2), PARAMETER :: kinds(0:Max_Kind) =
-!     %     (/ 'm ', 'sg', 'mb', '  ', 'M ', 'hy', 'th', 25*'??' /)
       data kinds
-     %     / 'm ', 'sg', 'mb', '  ', 'M ', 'hy', 'th', '??',
+     %     / 'm ', 'sg', 'mb', '##', 'M ', 'hy', 'th', '??',
      %       '??', '??', 'H ', '??', '??', '??', '??', '  ',
      %       '??', '[]', '??', '??', '??', 'mp', '??', '??',
      %       '??', '??', '??', '??', '??', '??', '??', '  '/
@@ -164,18 +162,12 @@
       endif
       if(flag)lstring=len(string)
 *
-      if (mode.gt.0) then
-*
-*        Conversion P a IP
-*
-       if ( kind.lt.0 .or. kind.gt.maxkind ) then
-          write(6,6004) kind
-!          ip = -1     ! verifier avant d'activer ceci
-          call qqexit(1)    !  force excessive ?
-          return
-       elseif ( .not. validkind(kind) ) then
-*          write(6,6007) kind
-!          ip = -1     ! verifier avant d'activer ceci
+      if (mode.gt.0) then  ! .... Conversion P,KIND a IP  ....
+
+       if ( is_invalid_kind(kind) ) then
+           write(6,6004) kind
+           call qqexit(1)    !  force excessive ?
+           ip = -1 
            return  ! erreur si kind pas valide
        endif
        if (kind .eq. 2 .and. p .eq. 0.) then  ! ou ajouter .and. .not. NEWENCODING
@@ -232,15 +224,11 @@ c     %         goto 101
          ip = ior (ip,ishft(iand(15,kind),24))
        else ! .not NEWENCODING
 
-         if (kind.eq.0) then
-
-*           ... de hauteur ...
+         if (kind.eq.0) then   ! ...  hauteur ...
 
             ip = max( 12001,min( 32000,nint( p/5.0 + 12001 ) ) )
 
-         elseif (kind.eq.1) then
-
-*           ... de sigma ...
+         elseif (kind.eq.1) then  ! ...  sigma ...
 
             if ( .not. (  0.0 .le. p .and. p .le. 1.0 ) ) then
                write(6,6001) p
@@ -250,9 +238,7 @@ c     %         goto 101
 
             ip = nint( p * 10000. ) + 2000
 
-         elseif (kind.eq.2) then
-
-*           ... de pression ...
+         elseif (kind.eq.2) then  ! ...  pression ...
 
             if (  .not. (0.0 .le. p .and. p .lt. 1100. ) ) then
                write(6,6002) p
@@ -276,9 +262,7 @@ c     %         goto 101
                endif
             endif
 
-         elseif (kind.eq.3) then
-
-*           ... ou de code arbitraire
+         elseif (kind.eq.3) then  ! ...  code arbitraire
 
             ip = nint( p )
             if ( 0 .le. ip .and. ip .le. 100 ) then
@@ -289,34 +273,18 @@ c     %         goto 101
                return
             endif
 
-         elseif (kind.eq.10) then
-
-*           ... temps en heure
-            ip = nint( p )
-            if (ip > 32767) then
-               write(6,6005) p
-               ip = -999999
-               return
-            endif
- 
-         else
-
-*           Valeur illegale de kind.
+         else  !  Valeur illegale de kind.
 
             write(6,6004) kind
             ip = -999999
             return
          endif
 
-       endif
+       endif! .not NEWENCODING
 
-      elseif (mode.lt.0) then
+      elseif (mode.lt.0) then  ! ....  Conversion de ip a p,kind .....
 
-*        Conversion de ip .....
-
-         if ( ip .gt. 32767 ) then
-
-*           a valeur reelle , nouveau codage
+         if ( ip .gt. 32767 ) then  !   tous types, nouveau codage
 
             kind = iand(15,ishft(ip,-24))
             if(kind == 15) then  ! type 15 et associes traite a part
@@ -365,12 +333,12 @@ c     %         goto 101
 !           endif
 !
             if (p < low_val(kind)) p = low_val(kind)     ! clipping a la valeur minimale
-            if (p > hi_val(kind)) p = hi_val(kind)       ! clipping a la valeur maximale
+            if (p > hi_val(kind))  p = hi_val(kind)      ! clipping a la valeur maximale
             if (abs(p) .lt. 1.001*zero_val(kind)) p = zero_val2(kind)   ! mise a "zero" si valeur absolue trop faible
   666       abs_p = abs(p)
             if (flag) then
                if (len(string) .ge. 15) then
-                  if(abs_p .eq. int(abs_p) .and. abs_p.lt.1000000.) then
+                  if(abs_p.eq.int(abs_p) .and. abs_p.lt.20000000.) then
                      write(var_fmt,'(i12,1x,a2)')int(p),kinds(kind)
                   elseif (abs_p.ge. 1000000.) then
                      write(var_fmt,'(e12.6,1x,a2)')p,kinds(kind)
@@ -415,27 +383,21 @@ c     %         goto 101
                string=var_fmt
             endif
 
-         elseif (  12000 .lt. ip .and. ip .le. 32000) then
-
-*           ... a hauteur ...
+         elseif (  12000 .lt. ip .and. ip .le. 32000) then  !  ...  hauteur old style ...
 
             kind = 0
             p = 5 * ( ip -12001)
             if (flag) write(string,'(i6,1x,a1)') nint(p),'m'
 
 
-         elseif (  2000 .le. ip .and. ip .le. 12000 ) then
-
-*           ... a sigma ...
+         elseif (  2000 .le. ip .and. ip .le. 12000 ) then  !  ...  sigma old style ...
 
             kind = 1
             p = float (ip - 2000) / 10000.
             if (flag) write(string,'(f6.4,1x,a2)') p,'sg'
 
          elseif (( 0    .le. ip .and. ip .lt. 1100 )  .or.
-     +           ( 1200 .lt. ip .and. ip .lt. 2000 )) then
-
-*           ... a pression ...
+     +           ( 1200 .lt. ip .and. ip .lt. 2000 )) then  !  ... pression old style ...
      
             kind = 2
             if ( 0 .le. ip .and. ip .lt. 1100 ) then
@@ -455,18 +417,15 @@ c     %         goto 101
                   if (flag) write(string,'(f6.2,1x,a2)') p,'mb'
             endif
 
-         elseif ( 1100 .le. ip .and. ip .le. 1200) then
-
-*           ... ou a code arbitraire.
+         elseif ( 1100 .le. ip .and. ip .le. 1200) then  ! ...  code arbitraire old style ...
 
             kind = 3
             p = float( ip )
             p = 1200. - p
             if (flag) write(string,'(i6,3x)') nint(p)
 
-         else
+         else  !  Valeur inderminee de ip  old style
 
-*           Valeur inderminee de ip.
             kind = 3
             p = float( ip )
 
@@ -490,51 +449,15 @@ c     %         goto 101
      %       e10.5,' max=',e10.5,' returned ip is -999999')
 ! 6007 format(' Warning in convip: undetermined kind used =',I10)
 
-      end
-      
-      subroutine igapg(grtyp,pg1,pg2,pg3,pg4,ig1,ig2,ig3,ig4)
-      implicit none
-      character *1 grtyp
-      character *(*) pg1,pg2,pg3,pg4
-      integer ig1,ig2,ig3,ig4
-*
-      real xg1,xg2,xg3,xg4
-      external cigaxg
-*
-      if ((grtyp .eq. 'Y') .or. (grtyp .eq. 'Z')
-     %    .or. (grtyp .eq. '!')) then
-         write(pg1,'(i6)') ig1
-         write(pg2,'(i6)') ig2
-         write(pg3,'(i7)') ig3
-         write(pg4,'(i7)') ig4
-         return
-      else if ((grtyp .eq. 'A') .or. (grtyp .eq. 'B') .or.
-     %         (grtyp .eq. 'G') .or. (grtyp .eq. 'N') .or.
-     %         (grtyp .eq. 'S') .or. (grtyp .eq. 'E')) then
-         call cigaxg(grtyp,xg1,xg2,xg3,xg4,ig1,ig2,ig3,ig4)
-      else
-         write(pg1,'(i6)') ig1
-         write(pg2,'(i6)') ig2
-         write(pg3,'(i7)') ig3
-         write(pg4,'(i7)') ig4
-         return
-      endif
-      if ((grtyp .eq. 'N') .or. (grtyp .eq. 'S')) then
-         write(pg1,'(f6.1)') xg1
-         write(pg2,'(f6.1)') xg2
-         write(pg3,'(f5.1,a2)') (xg3/1000.), 'Km'
-         write(pg4,'(f7.3)') xg4
-      else if ((grtyp .eq. 'A') .or. (grtyp .eq. 'B') .or.
-     %         (grtyp .eq. 'G')) then
-         write(pg1,'(i6)') int(xg1)
-         write(pg2,'(i6)') int(xg2)
-         write(pg3,'(i7)') int(xg3)
-         write(pg4,'(i7)') int(xg4)
-      else
-         write(pg1,'(f6.2)') xg1
-         write(pg2,'(f6.2)') xg2
-         write(pg3,'(f7.3)') xg3
-         write(pg4,'(f7.3)') xg4
-      endif
-      return
-      end
+      contains
+
+      function is_invalid_kind(kind) result(status)
+      logical :: status
+      integer, intent(IN) :: kind
+      status=.true.
+      if(kind<0) return
+      if(kind>maxkind .and. iand(kind,15)/=15) return
+      if (validkind(kind) ) status=.false.      
+      end function is_invalid_kind
+
+      end SUBROUTINE CONVIP_plus

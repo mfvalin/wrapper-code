@@ -12,8 +12,8 @@ function conv_kind_15(p,mykind,ip,mode) result(status) ! convert kind = 15 and s
   end type
   type(e15), dimension(2), save :: t15 = & 
          (/ &
-         e15(       1000000,  0,     -1), &     ! values between -1 and 999 999    (kind 15) ! entries swapped to deactivate
-         e15(16000000, 15000001,  -1000)  &     ! values between -1000 and 998 999 (kind 31) ! entries swapped to deactivate
+         e15(       0, 20000000,      0), &     ! values between 0 and 1 999 999    (kind 15)
+         e15(16000000, 15000001,  -1000)  &      ! values between -1000 and 998 999 (kind 31) ! entries swapped to deactivate
          /)
   integer :: i, subt, ipv
   integer, parameter :: FFFFFF=Z'FFFFFF'
