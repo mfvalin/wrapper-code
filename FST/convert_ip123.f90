@@ -133,7 +133,7 @@ function encode_ip_0(IP1,IP2,IP3,RP1,RP2,RP3) result(status) BIND (C,name='Encod
     P(2)=RP2%lo ; kind(2)=RP2%kind ; i=i+1
     if (RP2%hi /= RP2%lo) then  ! time range
       P(3)=RP2%hi ; kind(3)=RP2%kind ; i=i+1
-      if(RP2%hi < RP2%lo) call swap(P(2),P(3)) ! keep in ascending order
+      if(RP2%hi > RP2%lo) call swap(P(2),P(3)) ! keep times in descending order p(2) > p(3) => ip2 > ip3
     endif
   else
     return  ! ERROR, RP2 must be a time
@@ -146,9 +146,9 @@ function encode_ip_0(IP1,IP2,IP3,RP1,RP2,RP3) result(status) BIND (C,name='Encod
     P(3)=RP3%lo ; kind(3)=RP3%kind ; i=i+1
   endif
   
-  call convip(IP1,P(1),kind(1),+2,dummy,.false.)  ! NEW style encoding not negotiable
-  call convip(IP2,P(2),kind(2),+2,dummy,.false.)
-  call convip(IP3,P(3),kind(3),+2,dummy,.false.)
+  call convip_plus(IP1,P(1),kind(1),+2,dummy,.false.)  ! NEW style encoding not negotiable
+  call convip_plus(IP2,P(2),kind(2),+2,dummy,.false.)
+  call convip_plus(IP3,P(3),kind(3),+2,dummy,.false.)
   status=CONVERT_OK
 
   return
@@ -171,7 +171,7 @@ function decode_ip_0(RP1,RP2,RP3,IP1,IP2,IP3) result(status) BIND (C,name='Decod
   endif
 
   status=CONVERT_OK
-  call convip(IP1,P(1),kind(1),-1,dummy,.false.)  ! kind of ip1 should be a level
+  call convip_plus(IP1,P(1),kind(1),-1,dummy,.false.)  ! kind of ip1 should be a level
   RP1%lo=P(1) ; RP1%hi=P(1) ; RP1%kind=kind(1)
   
   if(IP2 < 32768) then                          ! IP2 is old style, probably a time value
@@ -179,7 +179,7 @@ function decode_ip_0(RP1,RP2,RP3,IP1,IP2,IP3) result(status) BIND (C,name='Decod
     RP2%kind = 10                               ! time in hours ?
     status = status + CONVERT_GOOD_GUESS        ! reasonable guess
   else
-    call convip(IP2,P(2),kind(2),-1,dummy,.false.)  ! kind of ip2 should be new style time
+    call convip_plus(IP2,P(2),kind(2),-1,dummy,.false.)  ! kind of ip2 should be new style time
     RP2%lo=P(2) ; RP2%hi=P(2) ; RP2%kind=kind(2)
   endif
 
@@ -193,7 +193,7 @@ function decode_ip_0(RP1,RP2,RP3,IP1,IP2,IP3) result(status) BIND (C,name='Decod
       status = status + CONVERT_TERRIBLE_GUESS  ! highly unreliable guess
     endif
   else
-    call convip(IP3,P(3),kind(3),-1,dummy,.false.)  ! kind of ip3 may be anything new style
+    call convip_plus(IP3,P(3),kind(3),-1,dummy,.false.)  ! kind of ip3 may be anything new style
     RP3%lo=P(3) ; RP3%hi=P(3) ; RP3%kind=kind(3)
   endif
   
@@ -239,7 +239,7 @@ function decode_ip_1(RP,IP) result(status) BIND (C,name='DecodeIp_v')
 return
 end function decode_ip_1
 
-function encode_ip_2(IP1,IP2,IP3,P1,P2,P3,kkind1,kkind2,kkind3) result(status) BIND(C,name='ConvertPKtoIP')
+function encode_ip_2(IP1,IP2,IP3,P1,kkind1,P2,kkind2,P3,kkind3) result(status) BIND(C,name='ConvertPKtoIP')
 implicit none  ! explicit, almost independent (rp,kind) to (ip) conversion
 
   integer(C_INT) :: status
@@ -267,9 +267,9 @@ implicit none  ! explicit, almost independent (rp,kind) to (ip) conversion
     if(kind2/=10) goto 777          ! ip2 must be a time if not a level
   endif
 
-  call convip(IP1,RP1,kind1,+2,dummy,.false.)  ! NEW style encoding not negotiable
-  call convip(IP2,RP2,kind2,+2,dummy,.false.)
-  call convip(IP3,RP3,kind3,+2,dummy,.false.)
+  call convip_plus(IP1,RP1,kind1,+2,dummy,.false.)  ! NEW style encoding not negotiable
+  call convip_plus(IP2,RP2,kind2,+2,dummy,.false.)
+  call convip_plus(IP3,RP3,kind3,+2,dummy,.false.)
 
   if(kind1==kind2 .and. is_level(kind1) .and. kind3==10) then  ! level/level/time
     call swapi(ip2,ip3)  ! second level into ip3, time flag into ip2
@@ -277,7 +277,7 @@ implicit none  ! explicit, almost independent (rp,kind) to (ip) conversion
     if(rp1>rp3 .and.  ascending(kind1)) call swapi(ip1,ip3)  ! ip1, ip3 in atmospheric ascending order
     if(rp1<rp3 .and. descending(kind1)) call swapi(ip1,ip3)
   else
-    if(kind2==10 .and. kind3==10 .and. rp2>rp3) call swapi(ip2,ip3)  ! level/time/time, put times in ascending order
+    if(kind2==10 .and. kind3==10 .and. rp2<rp3) call swapi(ip2,ip3)  ! level/time/time, put times in descending order
   endif
   return
 
@@ -285,7 +285,7 @@ implicit none  ! explicit, almost independent (rp,kind) to (ip) conversion
   return
 end function encode_ip_2
 
-function decode_ip_2(RP1,RP2,RP3,kind1,kind2,kind3,IP1,IP2,IP3) result(status) BIND(C,name='ConvertIPtoPK')
+function decode_ip_2(RP1,kind1,RP2,kind2,RP3,kind3,IP1,IP2,IP3) result(status) BIND(C,name='ConvertIPtoPK')
 implicit none ! explicit, independent (ip) to (rp,kind) conversion
 
   integer(C_INT) :: status
@@ -298,13 +298,13 @@ implicit none ! explicit, independent (ip) to (rp,kind) conversion
   status=CONVERT_OK
   if(ip1 < 0 .or. ip2 < 0 .or. ip3 < 0 ) goto 777
 
-  call convip(IP1,RP1,kind1,-1,dummy,.false.)   ! IP1 old style translation should be a safe bet
+  call convip_plus(IP1,RP1,kind1,-1,dummy,.false.)   ! IP1 old style translation should be a safe bet
   if(IP2 < 32768) then                          ! IP2 is old style, probably a time value
     RP2 = IP2
     kind2 = 10                                  ! time in hours ?
     status = ior(status,CONVERT_GOOD_GUESS)     ! reasonable guess
   else
-    call convip(IP2,RP2,kind2,-1,dummy,.false.)
+    call convip_plus(IP2,RP2,kind2,-1,dummy,.false.)
   endif
   if(IP3 < 32768) then                          ! IP3 is old style,
     RP3 = IP3
@@ -316,14 +316,14 @@ implicit none ! explicit, independent (ip) to (rp,kind) conversion
       status = ior(status,CONVERT_TERRIBLE_GUESS) ! highly unreliable guess
     endif
   else
-    call convip(IP3,RP3,kind3,-1,dummy,.false.)
+    call convip_plus(IP3,RP3,kind3,-1,dummy,.false.)
   endif
   if(kind1 == kind3) then   ! level range
     if(ascending(kind1)  .and. RP1>RP3) call swap(RP1,RP3)   ! force increasing values
     if(descending(kind1) .and. RP1<RP3) call swap(RP1,RP3)   ! force decreasing values
   endif
   if(kind2 == kind3) then   ! time range
-    if(RP2 > RP3) call swap(RP2,RP3)    ! force increasing time values
+    if(RP2 < RP3) call swap(RP2,RP3)    ! force decreasing time values
   endif
 
   return
@@ -340,7 +340,7 @@ implicit none  ! explicit, independent (rp,kind) to (ip) conversion
   real(C_FLOAT), dimension(3), intent(IN)   :: RP
   integer(C_INT), dimension(3), intent(IN)  :: kind
 
-  status=encode_ip_2(IP(1),IP(2),IP(3),RP(1),RP(2),RP(3),kind(1),kind(2),kind(3))
+  status=encode_ip_2(IP(1),IP(2),IP(3),RP(1),kind(1),RP(2),kind(2),RP(3),kind(3))
 
 return
 end function encode_ip_3
@@ -353,7 +353,7 @@ implicit none ! explicit, independent (ip) to (rp,kind) conversion
   integer(C_INT), dimension(3), intent(OUT) :: kind
   integer(C_INT), dimension(3), intent(IN)  :: IP
 
-  status=decode_ip_2(RP(1),RP(2),RP(3),kind(1),kind(2),kind(3),IP(1),IP(2),IP(3))
+  status=decode_ip_2(RP(1),kind(1),RP(2),kind(2),RP(3),kind(3),IP(1),IP(2),IP(3))
 
 return
 end function decode_ip_3

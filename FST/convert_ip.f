@@ -45,6 +45,7 @@
 *
 *     Etendue des valeurs encodes: 10e-5 -> 10e10
 *     1024x1024-1 = 1048575    1048001 -> 1048575 non utilise
+*                              1000000 -> 1048000 utilise pour valeurs negatives
 *
 *     Auteurs: N. Ek et B. Dugas - Mars 1996
 *     Revision 001  M. Lepine - juin 1997 convpr devient convip
@@ -314,29 +315,11 @@ c     %         goto 101
                 endif
               endif
             endif
-!
-!           if (kind .eq. 5) then
-!              if ((p .lt. low_val(kind)) .or. 
-!    %             (p .gt. hi_val(kind))) then
-!                 kind = 21         !  (en dehors du range, on essaye code partage avec kind=5)
-!                  print *,'Debug+ o.b. kind 5 --> 21'
-!                 goto 555  
-!              endif
-!           endif
-!           if (kind .eq. 1) then
-!              if ((p .lt. low_val(kind)) .or. 
-!    %             (p .gt. hi_val(kind))) then
-!                 kind = 17         !  (en dehors du range, on essaye code partage avec kind=2)
-!                  print *,'Debug+ o.b. kind 1 --> 17'
-!                 goto 555  
-!              endif
-!           endif
-!
             if (p < low_val(kind)) p = low_val(kind)     ! clipping a la valeur minimale
             if (p > hi_val(kind))  p = hi_val(kind)      ! clipping a la valeur maximale
             if (abs(p) .lt. 1.001*zero_val(kind)) p = zero_val2(kind)   ! mise a "zero" si valeur absolue trop faible
   666       abs_p = abs(p)
-            if (flag) then
+            if (flag) then  ! convert P into a formatted string with appropriate units for kind
                if (len(string) .ge. 15) then
                   if(abs_p.eq.int(abs_p) .and. abs_p.lt.20000000.) then
                      write(var_fmt,'(i12,1x,a2)')int(p),kinds(kind)
