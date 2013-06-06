@@ -76,19 +76,22 @@ contains
 function is_level(kind) result(status)
   logical :: status
   integer, intent(IN) :: kind
-  status = islevel(kind)==1
+  status = 0
+  if(kind < 31 .or. kind < 0) status = islevel(kind)==1
 end function is_level
 
 function ascending(kind) result(status)
   logical :: status
   integer, intent(IN) :: kind
-  status = order(kind)==1
+  status = 0
+  if(kind < 31 .or. kind < 0) status = order(kind)==1
 end function ascending
 
 function descending(kind) result(status)
   logical :: status
   integer, intent(IN) :: kind
-  status = order(kind)==-1
+  status = 0
+  if(kind < 31 .or. kind < 0) status = order(kind)==-1
 end function descending
 
 function is_invalid_kind(kind) result(status)
@@ -323,6 +326,7 @@ implicit none ! explicit, independent (ip) to (rp,kind) conversion
   if(ip1 < 0 .or. ip2 < 0 .or. ip3 < 0 ) goto 777
 
   call convip_plus(IP1,RP1,kind1,-1,dummy,.false.)   ! IP1 old style translation should be a safe bet
+  if( .not. is_level(kind1)) status = ior(status,CONVERT_WARNING)  ! ip1 is supposed to be a level
   if(IP2 < 32768) then                          ! IP2 is old style, probably a time value
     RP2 = IP2
     kind2 = 10                                  ! time in hours ?
@@ -330,6 +334,7 @@ implicit none ! explicit, independent (ip) to (rp,kind) conversion
   else
     call convip_plus(IP2,RP2,kind2,-1,dummy,.false.)
   endif
+  if(kind2 /= 10) status = ior(status,CONVERT_WARNING)  ! ip2 is supposed to be a TIME
   if(IP3 < 32768) then                          ! IP3 is old style,
     RP3 = IP3
     if(IP3 <= 240) then                         ! time in hours ?
