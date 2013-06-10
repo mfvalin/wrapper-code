@@ -1,6 +1,15 @@
 #ifndef CONVERT_IP_DEFS
 #define CONVERT_IP_DEFS
 
+/* C++ needs to know that types and declarations are C, not C++.  */
+#ifdef    __cplusplus
+# define __DEB_DECL    extern "C" {
+# define __FIN_DECL    }
+#else
+# define __DEB_DECL
+# define __FIN_DECL
+#endif
+
 #define TO_IP 1
 #define TO_RP -1
 #define CONVERT_OK 0
@@ -10,15 +19,6 @@
 #define CONVERT_TERRIBLE_GUESS 8
 #define CONVERT_WARNING 32
 #define CONVERT_ERROR 64
-
-/* C++ needs to know that types and declarations are C, not C++.  */
-#ifdef    __cplusplus
-# define __DEB_DECL    extern "C" {
-# define __FIN_DECL    }
-#else
-# define __DEB_DECL
-# define __FIN_DECL
-#endif
 
 /*
 KIND = 0, hauteur (m) par rapport au niveau de la mer (-20,000 -> 100,000)
@@ -35,6 +35,17 @@ KIND =17, indice x de la matrice de conversion (1.0 -> 1.0e10)
 KIND =21, p est en metres-pression  (partage avec kind=5 a cause du range exclusif)
                                                                        (0 -> 1,000,000) fact=1e4
 */
+#define KIND_ABOVE_SEA 0
+#define KIND_SIGMA 1
+#define KIND_PRESSURE 2
+#define KIND_ARBITRARY 3
+#define KIND_ABOVE_GND 4
+#define KIND_HYBRID 5
+#define KIND_THETA 6
+#define KIND_HOURS 10
+#define KIND_SAMPLES 15
+#define KIND_MTX_IND 17
+#define KIND_M_PRES 21
 
 typedef struct { /* if v1 == v2, it is not a range but a single value */
   float v1;      /* first value of range */
@@ -45,6 +56,8 @@ typedef struct { /* if v1 == v2, it is not a range but a single value */
 static ip_info invalid_ip_info={0.0,0.0,-1};
 #define NULL_ip_info &invalid_ip_info
 #define INIT_ip_info(a) {(a).v1 = 0.0; (a).v2 = 0.0; (a).kind =-1 ;};
+
+/* see fortran module convert_ip123.f90 for quick documentation of arguments */
 
 __DEB_DECL void ConvertIp(int *ip, float *p, int *kind, int mode); __FIN_DECL
 

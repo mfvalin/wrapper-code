@@ -22,7 +22,8 @@ use ISO_C_BINDING
 
 public  :: encode_ip_0, encode_ip_1, decode_ip_0, decode_ip_1
 public  :: encode_ip_2, encode_ip_3, decode_ip_2, decode_ip_3
-public  :: convip_plus, conv_kind_15, value_to_string
+public  :: convip_plus, value_to_string
+private :: conv_kind_15
 
 type, BIND(C) :: float_ip
 real(C_FLOAT) :: lo, hi
@@ -38,6 +39,18 @@ integer, public, parameter :: CONVERT_BAD_GUESS=4
 integer, public, parameter :: CONVERT_TERRIBLE_GUESS=8
 integer, public, parameter :: CONVERT_WARNING=32
 integer, public, parameter :: CONVERT_ERROR=64
+
+integer, public, parameter :: KIND_ABOVE_SEA=0
+integer, public, parameter :: KIND_SIGMA=1
+integer, public, parameter :: KIND_PRESSURE=2
+integer, public, parameter :: KIND_ARBITRARY=3
+integer, public, parameter :: KIND_ABOVE_GND=4
+integer, public, parameter :: KIND_HYBRID=5
+integer, public, parameter :: KIND_THETA=6
+integer, public, parameter :: KIND_HOURS=10
+integer, public, parameter :: KIND_SAMPLES=15
+integer, public, parameter :: KIND_MTX_IND=17
+integer, public, parameter :: KIND_M_PRES=21
 
 interface encode_ip
 module procedure encode_ip_0
@@ -72,55 +85,66 @@ integer, private, save, dimension(0:Max_Kind) :: islevel = &
 private :: swap, swapi, is_invalid_kind, is_level, ascending, descending
 
 contains
-
-function is_level(kind) result(status)
+!===============================================================================================
+function is_level(kind) result(status)  ! is this kind a level ?
   logical :: status
   integer, intent(IN) :: kind
-  status = 0
+  status = .false.
   if(kind < 31 .or. kind < 0) status = islevel(kind)==1
 end function is_level
-
-function ascending(kind) result(status)
+!===============================================================================================
+function ascending(kind) result(status) ! is this kind "ascending" (larger value higher in atmosphere) ?
   logical :: status
   integer, intent(IN) :: kind
-  status = 0
+  status = .false.
   if(kind < 31 .or. kind < 0) status = order(kind)==1
 end function ascending
-
-function descending(kind) result(status)
+!===============================================================================================
+function descending(kind) result(status) ! is this kind "descending" (larger value lower in atmosphere) ?
   logical :: status
   integer, intent(IN) :: kind
-  status = 0
+  status = .false.
   if(kind < 31 .or. kind < 0) status = order(kind)==-1
 end function descending
-
-function is_invalid_kind(kind) result(status)
+!===============================================================================================
+function is_invalid_kind(kind) result(status) ! is this kind invalid ?
   logical :: status
   integer, intent(IN) :: kind
   status=.false.
   if(kind<0) status=.true.
   if(kind>Max_Kind .and. iand(kind,15)/=15) status=.true.
 end function is_invalid_kind
-
+!===============================================================================================
 subroutine swapi(a,b)  ! swap a pair of integer values
   integer(C_INT), intent(INOUT) :: a,b
   integer(C_INT) :: t
   t = a ; a = b ; b = t
   return
 end subroutine swapi
-
+!===============================================================================================
 subroutine swap(a,b)  ! swap a pair of real values
   real(C_FLOAT), intent(INOUT) :: a,b
   real(C_FLOAT) :: t
   t = a ; a = b ; b = t
   return
 end subroutine swap
+!===============================================================================================
 !
 ! produce a valid (ip1,ip2,ip3) triplet from (real value,kind) pairs
-! RP1%kind must be a level (or a pair of levels) in the atmosphere
-! RP2%kind must be a time (or a pair of times)
-! RP3%kind may be anything, RP3%hi will be ignored
-! this routine i C interoperable
+! RP1 must contain a level (or a pair of levels) in the atmosphere
+! RP2 must contain  a time (or a pair of times)
+! RP3 may contain anything, RP3%hi will be ignored (if RP1 or RP2 contains a pair, RP3 is ignored)
+! this routine is C interoperable
+!
+! the function returns CONVERT_ERROR in case of error, CONVERT_OK otherwise
+!
+!notes: some reordering may take place when RP! or RP@ contains a pair
+!       levels: ip1 will be lower in atmosphere than ip2
+!       times:  ip2 will be the end of the time range, ip3 will be the start of the time range
+!
+!       RP1 not a level or RP2 not a time will be flagged as an error
+!       RP1 and RP2 both containing a range will be flagged as an error
+!       in case of error, ip1,2,3 will be returned as -1
 !
 function encode_ip_0(IP1,IP2,IP3,RP1,RP2,RP3) result(status) BIND (C,name='EncodeIp')
   implicit none  ! coupled (rp1,rp2,rp3) to (ip1,ip2,ip3) conversion with type enforcement
@@ -176,7 +200,31 @@ function encode_ip_0(IP1,IP2,IP3,RP1,RP2,RP3) result(status) BIND (C,name='Encod
 
   return
 end function encode_ip_0
-
+!===============================================================================================
+!
+! produce valid (real value,kind) pairs from (ip1,ip2,ip3) triplet
+! ip1/2/3 should be encoded "new style" but old style encoding is accepted
+! RP1 will contain a level (or a pair of levels in atmospheric ascending order) in the atmosphere
+! RP2 will contain a time (or a pair of times in ascending order)
+! RP3%hi will be the same as RP3%lo (if RP1 or RP2 contains a pair, RP3 is ignoref)
+! this routine is C interoperable
+!
+! function returns:  CONVERT_ERROR        error, (ip1 not level, ip2 not time, etc...)
+!                    CONVERT_OK           everything is OK
+!                    CONVERT_GOOD_GUESS   old style ip1 and/or ip2 are present
+!                    CONVERT_BAD_GUESS    old style ip3, interpreted as time
+!                    CONVERT_TERRIBLE_GUESS old style ip3, interpreted as arbitrary code
+!
+! in case of error, RP1/2/3 are undefined (may contain anything)
+!
+!notes: some reordering may take place when RP1 or RP2 contains a pair
+!       levels: ip1 will be lower in atmosphere than ip2
+!       times:  ip2 will be the end of the time range, ip3 will be the start of the time range
+!
+!       ip1 not a level or ip2 not a time will be flagged as an error
+!       RP1 and RP2 both containing a range will be flagged as an error
+!       in case of error, ip1,2,3 will be returned as -1
+!
 function decode_ip_0(RP1,RP2,RP3,IP1V,IP2V,IP3V) result(status) BIND (C,name='DecodeIp')
   implicit none ! coupled (ip1,ip2,ip3) to (rp1,rp2,rp3) conversion with type enforcement
 
@@ -190,21 +238,21 @@ function decode_ip_0(RP1,RP2,RP3,IP1V,IP2V,IP3V) result(status) BIND (C,name='De
   integer :: IP1, IP2, IP3
 
   IP1=IP1V ; IP2=IP2V ; IP3 = IP3V
-  if(ip1 < 0 .or. ip2 < 0 .or. ip3 < 0 ) then
-    status = CONVERT_ERROR 
-    return
-  endif
-
   status=CONVERT_OK
+  if(ip1 < 0 .or. ip2 < 0 .or. ip3 < 0 ) goto 777
+
   call convip_plus(IP1,P(1),kind(1),-1,dummy,.false.)  ! kind of ip1 should be a level
+  if(.not. is_level(kind(1))) goto 777                   ! ip1 is not a level
+  if(IP1 < 32768) status = ior(status , CONVERT_GOOD_GUESS)  ! reasonable guess if old style level
   RP1%lo=P(1) ; RP1%hi=P(1) ; RP1%kind=kind(1)
   
   if(IP2 < 32768) then                          ! IP2 is old style, probably a time value
     RP2%lo = IP2 ; RP2%hi = IP2 ; 
     RP2%kind = 10                               ! time in hours ?
-    status = status + CONVERT_GOOD_GUESS        ! reasonable guess
+    status = ior(status , CONVERT_GOOD_GUESS)    ! reasonable guess
   else
     call convip_plus(IP2,P(2),kind(2),-1,dummy,.false.)  ! kind of ip2 should be new style time
+    if(kind(2) /= KIND_HOURS) goto 777            ! ip2 not a time
     RP2%lo=P(2) ; RP2%hi=P(2) ; RP2%kind=kind(2)
   endif
 
@@ -212,10 +260,10 @@ function decode_ip_0(RP1,RP2,RP3,IP1V,IP2V,IP3V) result(status) BIND (C,name='De
     RP3%lo = IP3 ; RP3%hi = IP3
     if(IP3 <= 240) then                         ! time in hours ?
       RP3%kind = 10 
-      status = status + CONVERT_BAD_GUESS       ! unreliable guess
+      status = ior(status,CONVERT_BAD_GUESS)      ! unreliable guess
     else                                        ! arbitraty value ?
       RP3%kind = 3
-      status = status + CONVERT_TERRIBLE_GUESS  ! highly unreliable guess
+      status = ior(status,CONVERT_TERRIBLE_GUESS)  ! highly unreliable guess
     endif
   else
     call convip_plus(IP3,P(3),kind(3),-1,dummy,.false.)  ! kind of ip3 may be anything new style
@@ -234,12 +282,16 @@ function decode_ip_0(RP1,RP2,RP3,IP1V,IP2V,IP3V) result(status) BIND (C,name='De
   endif
 
   if(kind(1) >6 .or. kind(2)/=10) then  ! ip1 must be a level, ip2 must be a time
-    status=status + CONVERT_ERROR       ! add bad coding flag
+    status=ior(status,CONVERT_ERROR)       ! add bad coding flag
   endif
 
 return
-end function decode_ip_0
 
+777 status=ior(status,CONVERT_ERROR)
+  return
+end function decode_ip_0
+!===============================================================================================
+! vector version of encode_ip_0 (EncodeIp)
 function encode_ip_1(IP,RP) result(status) BIND (C,name='EncodeIp_v')
   implicit none  ! coupled (rp1,rp2,rp3) to (ip1,ip2,ip3) conversion with type enforcement
 
@@ -251,7 +303,8 @@ function encode_ip_1(IP,RP) result(status) BIND (C,name='EncodeIp_v')
 
   return
 end function encode_ip_1
-
+!===============================================================================================
+! vector version of decode_ip_0 (DecodeIp)
 function decode_ip_1(RP,IP) result(status) BIND (C,name='DecodeIp_v')
   implicit none ! coupled (ip1,ip2,ip3) to (rp1,rp2,rp3) conversion with type enforcement
 
@@ -263,7 +316,19 @@ function decode_ip_1(RP,IP) result(status) BIND (C,name='DecodeIp_v')
 
 return
 end function decode_ip_1
-
+!===============================================================================================
+! encode three (value,kind) pairs into three ip values
+! pair 1 must be a level
+! pair 2 should be a time but a level is accepted (and flagged)
+! pair 3 may be kind
+! function returns: CONVERT_OK           everything is OK
+!                   CONVERT_ERROR        error (kind1 not a level, kind2 not level or time)
+!                   CONVERT_WARNING      coding convention error, corrected
+!
+!notes: tolerated coding deviations: kind2 a level instead of a time (will be pushed to position 3 and flagged as warning)
+!       ip1/ip3 forced to the proper atmospheric ascending order coding (not flagged as warning)
+!       ip2/ip3 forced to proper descending order (not flagged as warning)
+!       in case of error, the contents of ip1/2/3 is undefined (probably -1)
 function encode_ip_2(IP1,IP2,IP3,P1,kkind1,P2,kkind2,P3,kkind3) result(status) BIND(C,name='ConvertPKtoIP')
 implicit none  ! explicit, almost independent (rp,kind) to (ip) conversion
 
@@ -280,9 +345,8 @@ implicit none  ! explicit, almost independent (rp,kind) to (ip) conversion
   RP1 = P1       ; RP2 = P2       ; RP3 = P3
   kind1 = kkind1 ; kind2 = kkind2 ; kind3 = kkind3
 
-  status=CONVERT_ERROR
-  if(is_invalid_kind(kind1) .or. is_invalid_kind(kind2) .or. is_invalid_kind(kind3)) return
   status=CONVERT_OK
+  if(is_invalid_kind(kind1) .or. is_invalid_kind(kind2) .or. is_invalid_kind(kind3)) goto 777
 
   if(.not.is_level(kind1)) goto 777 ! ip1 must be a level
 
@@ -309,7 +373,17 @@ implicit none  ! explicit, almost independent (rp,kind) to (ip) conversion
 777 status=ior(status,CONVERT_ERROR)
   return
 end function encode_ip_2
-
+!===============================================================================================
+!decode ip1/2/3 into three (value,kind) pairs
+! function returns: CONVERT_OK           everything is OK
+!                   CONVERT_ERROR        error (bad kind, ip1 not a level, etc ....)
+!                   CONVERT_WARNING      coding convention violations
+!                   CONVERT_GOOD_GUESS   old style ip1 and/or ip2 are present
+!                   CONVERT_BAD_GUESS    old style ip3, interpreted as time
+!                   CONVERT_TERRIBLE_GUESS old style ip3, interpreted as arbitrary code
+!
+! in case of error, (value,kind) pairs are undefined (may contain anything)
+!notes:
 function decode_ip_2(RP1,kind1,RP2,kind2,RP3,kind3,IP1V,IP2V,IP3V) result(status) BIND(C,name='ConvertIPtoPK')
 implicit none ! explicit, independent (ip) to (rp,kind) conversion
 
@@ -326,15 +400,30 @@ implicit none ! explicit, independent (ip) to (rp,kind) conversion
   if(ip1 < 0 .or. ip2 < 0 .or. ip3 < 0 ) goto 777
 
   call convip_plus(IP1,RP1,kind1,-1,dummy,.false.)   ! IP1 old style translation should be a safe bet
-  if( .not. is_level(kind1)) status = ior(status,CONVERT_WARNING)  ! ip1 is supposed to be a level
+  if(kind1 == KIND_HOURS) then ! try to swap with ip2 is ip1 is time
+    call swapi(ip1,ip2)
+    call convip_plus(IP1,RP1,kind1,-1,dummy,.false.)
+    status = ior(status,CONVERT_WARNING)
+  endif
+  if(is_invalid_kind(kind1)) goto 777  ! bad kind
+  if(IP1 < 32768) status = ior(status,CONVERT_GOOD_GUESS)
+  if( .not. is_level(kind1)) goto 777           ! ip1 must be a level
+
   if(IP2 < 32768) then                          ! IP2 is old style, probably a time value
     RP2 = IP2
     kind2 = 10                                  ! time in hours ?
     status = ior(status,CONVERT_GOOD_GUESS)     ! reasonable guess
   else
     call convip_plus(IP2,RP2,kind2,-1,dummy,.false.)
+    if(is_invalid_kind(kind2)) goto 777  ! bad kind
+    if(kind2 /= 10) then
+      if(is_level(kind2)) then
+        status = ior(status,CONVERT_WARNING)  ! ip2 is supposed to be a TIME, a level is tolerated
+      else
+        goto 777  ! neither time nor level
+      endif
+    endif
   endif
-  if(kind2 /= 10) status = ior(status,CONVERT_WARNING)  ! ip2 is supposed to be a TIME
   if(IP3 < 32768) then                          ! IP3 is old style,
     RP3 = IP3
     if(IP3 <= 240) then                         ! time in hours ?
@@ -346,12 +435,17 @@ implicit none ! explicit, independent (ip) to (rp,kind) conversion
     endif
   else
     call convip_plus(IP3,RP3,kind3,-1,dummy,.false.)
+    if(is_invalid_kind(kind3)) goto 777  ! bad kind
+  endif
+  if(kind1 == kind2 .and. kind3==KIND_HOURS) then   ! level/level/time range in ip1/ip2/ip3
+    call swap(RP2,RP3)       ! level/time/level
+    call swapi(kind2,kind3)
   endif
   if(kind1 == kind3) then   ! level range
     if(ascending(kind1)  .and. RP1>RP3) call swap(RP1,RP3)   ! force increasing values
     if(descending(kind1) .and. RP1<RP3) call swap(RP1,RP3)   ! force decreasing values
   endif
-  if(kind2 == kind3) then   ! time range
+  if(kind2 == kind3 .and. kind2==KIND_HOURS) then   ! time range
     if(RP2 < RP3) call swap(RP2,RP3)    ! force decreasing time values
   endif
 
@@ -360,7 +454,8 @@ implicit none ! explicit, independent (ip) to (rp,kind) conversion
 777 status=ior(status,CONVERT_ERROR)
   return
 end function decode_ip_2
-
+!===============================================================================================
+! vector version of encode_ip_2 (ConvertPKtoIP)
 function encode_ip_3(IP,RP,kind) result(status) BIND(C,name='ConvertPKtoIP_v')
 implicit none  ! explicit, independent (rp,kind) to (ip) conversion
 
@@ -373,7 +468,8 @@ implicit none  ! explicit, independent (rp,kind) to (ip) conversion
 
 return
 end function encode_ip_3
-
+!===============================================================================================
+!vector version of decode_ip_2 (ConvertIPtoPK)
 function decode_ip_3(RP,kind,IP) result(status) BIND(C,name='ConvertIPtoPK_v')
 implicit none ! explicit, independent (ip) to (rp,kind) conversion
 
@@ -386,7 +482,7 @@ implicit none ! explicit, independent (ip) to (rp,kind) conversion
 
 return
 end function decode_ip_3
-
+!===============================================================================================
 subroutine C_CONV_IP( ip, p, kind, mode ) BIND(C,name='ConvertIp') ! C language inteerface with no string option
 !     void ConvIp(int *ip, float *p, int *kind, int mode)
   use ISO_C_BINDING
@@ -399,7 +495,8 @@ subroutine C_CONV_IP( ip, p, kind, mode ) BIND(C,name='ConvertIp') ! C language 
     mode2 = mode
     call CONVIP_plus( ip, p, kind, mode2,string,.false.)
 end subroutine C_CONV_IP
-!
+!===============================================================================================
+! successeur de convip
 SUBROUTINE CONVIP_plus( ip, p, kind, mode, string, flagv )
   implicit none
   integer, intent(INOUT) :: ip, kind
@@ -726,7 +823,7 @@ SUBROUTINE CONVIP_plus( ip, p, kind, mode, string, flagv )
 ! 6007 format(' Warning in convip: undetermined kind used =',I10)
 
 end SUBROUTINE CONVIP_plus
-
+!===============================================================================================
 function conv_kind_15(p,mykind,ip,mode) result(status) ! convert kind = 15 and subkinds
   implicit none
   integer :: status
@@ -946,4 +1043,19 @@ subroutine test_value_to_string
 
 101 format(A15,1X,A2,3X,f6.2)
 return
+end
+!===============================================================================================
+subroutine convip_unit_tests
+interface main1
+ subroutine main1() BIND(C,name='Cmain1')
+ end subroutine main1
+end interface
+interface main2
+ subroutine main2() BIND(C,name='Cmain2')
+ end subroutine main2
+end interface
+
+call main1
+call main2
+stop
 end
