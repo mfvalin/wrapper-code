@@ -22,8 +22,8 @@ use ISO_C_BINDING
 
 public  :: encode_ip_0, encode_ip_1, decode_ip_0, decode_ip_1
 public  :: encode_ip_2, encode_ip_3, decode_ip_2, decode_ip_3
-public  :: convip_plus, value_to_string
-private :: conv_kind_15
+public  :: convip_plus, test_convip_plus, convip_unit_tests, test_value_to_string
+private :: conv_kind_15, value_to_string
 
 type, BIND(C) :: float_ip
 real(C_FLOAT) :: lo, hi
@@ -962,11 +962,58 @@ integer function value_to_string(val,string,maxlen)  ! write value val into stri
 11 format(2H(G,I2,1H.,I1,1H))
 12 format(A,I2,A)
 end function value_to_string
+!===============================================================================================
+subroutine convip_unit_tests
 
-end module convert_ip123
+interface main1
+ subroutine main1() BIND(C,name='Cmain1')
+ end subroutine main1
+end interface
+interface main2
+ subroutine main2() BIND(C,name='Cmain2')
+ end subroutine main2
+end interface
+
+call main1
+call main2
+return
+end subroutine convip_unit_tests
+!===============================================================================================
+subroutine test_value_to_string
+  implicit none
+  character (len=8) :: stringa
+  character (len=12) :: stringb
+  character (len=15) :: stringc
+  integer :: i
+  integer :: status
+  real *4 :: value
+
+  value=1.000001
+  do i=1,9
+    status=value_to_string(real(nint(-value)),stringa,15)
+    print 101,trim(stringa),'mb',status*.01
+    value=value*10.0
+  enddo
+
+  value=1.234567
+  do i=1,12
+    status=value_to_string(-value,stringb,15)
+    print 101,trim(stringb),'mb',status*.01
+    value=value*10.0
+  enddo
+
+  value=1.23456789
+  do i=1,12
+    status=value_to_string(-value,stringc,12)
+    print 101,trim(stringc),'mb',status*.01
+    value=value*0.1
+  enddo
+
+101 format(A15,1X,A2,3X,f6.2)
+return
+end subroutine test_value_to_string
 !===============================================================================================
 subroutine test_convip_plus() ! test routine for convip_plus
-  use convert_ip123
   implicit none
   integer :: ip1, ip2, i, j, nip, nip2, k2, nip3
   real :: p,p2
@@ -1009,54 +1056,15 @@ subroutine test_convip_plus() ! test routine for convip_plus
 113 format(I9,F11.5,I3,A)
   return
 end subroutine test_convip_plus
+
+end module convert_ip123
 !===============================================================================================
-subroutine test_value_to_string
-  use convert_ip123
-  implicit none
-  character (len=8) :: stringa
-  character (len=12) :: stringb
-  character (len=15) :: stringc
-  integer :: i
-  integer :: status
-  real *4 :: value
-
-  value=1.000001
-  do i=1,9
-    status=value_to_string(real(nint(-value)),stringa,15)
-    print 101,trim(stringa),'mb',status*.01
-    value=value*10.0
-  enddo
-
-  value=1.234567
-  do i=1,12
-    status=value_to_string(-value,stringb,15)
-    print 101,trim(stringb),'mb',status*.01
-    value=value*10.0
-  enddo
-
-  value=1.23456789
-  do i=1,12
-    status=value_to_string(-value,stringc,12)
-    print 101,trim(stringc),'mb',status*.01
-    value=value*0.1
-  enddo
-
-101 format(A15,1X,A2,3X,f6.2)
-return
-end subroutine test_value_to_string
-!===============================================================================================
-subroutine convip_unit_tests
-
-interface main1
- subroutine main1() BIND(C,name='Cmain1')
- end subroutine main1
-end interface
-interface main2
- subroutine main2() BIND(C,name='Cmain2')
- end subroutine main2
-end interface
-
-call main1
-call main2
-stop
-end subroutine convip_unit_tests
+subroutine convip_all_tests
+  use convert_ip123, only : convip_unit_tests, test_value_to_string, test_convip_plus
+  print *,'========== convip_unit_tests =========='
+  call convip_unit_tests
+  print *,'========== test_value_to_string =========='
+  call test_value_to_string
+  print *,'========== test_convip_plus =========='
+  call test_convip_plus
+end subroutine convip_all_tests
