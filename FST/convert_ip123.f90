@@ -958,10 +958,10 @@ integer function value_to_string(val,string,maxlen)  ! write value val into stri
   value_to_string=0
   return
 
-10 format(2H(F,I2,1H.I1,1h))
-11 format(2h(G,I2,1H.,I1,1H))
+10 format(2H(F,I2,1H.,I1,1H))
+11 format(2H(G,I2,1H.,I1,1H))
 12 format(A,I2,A)
-end
+end function value_to_string
 
 end module convert_ip123
 !===============================================================================================
@@ -1043,9 +1043,10 @@ subroutine test_value_to_string
 
 101 format(A15,1X,A2,3X,f6.2)
 return
-end
+end subroutine test_value_to_string
 !===============================================================================================
 subroutine convip_unit_tests
+
 interface main1
  subroutine main1() BIND(C,name='Cmain1')
  end subroutine main1
@@ -1058,4 +1059,4 @@ end interface
 call main1
 call main2
 stop
-end
+end subroutine convip_unit_tests
