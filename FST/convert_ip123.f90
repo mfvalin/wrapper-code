@@ -267,6 +267,7 @@ function decode_ip_0(RP1,RP2,RP3,IP1V,IP2V,IP3V) result(status) BIND (C,name='De
     endif
   else
     call convip_plus(IP3,P(3),kind(3),-1,dummy,.false.)  ! kind of ip3 may be anything new style
+    if(kind(3)==-1) goto 777
     RP3%lo=P(3) ; RP3%hi=P(3) ; RP3%kind=kind(3)
   endif
   
