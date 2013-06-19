@@ -1,12 +1,18 @@
         program ftest
+        use ISO_C_BINDING
         implicit none
         include 'mpif.h'
+        common /info/ T,N
+        bind(C,name='pmpi_r_statistics') :: /info/
+        real(C_DOUBLE) :: T
+        integer(C_INT) :: N
         integer error,noprocs,nid
         integer buf(10),status(10),buf2(10)
 
         call MPI_Init(error)
         call MPI_Comm_size(MPI_COMM_WORLD, noprocs, error)
         call MPI_Comm_rank(MPI_COMM_WORLD, nid, error)
+        print *,'T,N=',T,N
         if(noprocs /= 2) goto 777
         print *,'I am PE',nid+1,' of',noprocs
         call mpi_bcast(buf,9,MPI_INTEGER,0,MPI_COMM_WORLD,error)
@@ -34,6 +40,7 @@
         call mpi_bcast(buf,9,MPI_INTEGER,1,MPI_COMM_WORLD,error)
         call mpi_reduce(buf,status,7,MPI_INTEGER,MPI_BOR,1,MPI_COMM_WORLD,error)
         call mpi_allreduce(buf,status,9,MPI_INTEGER,MPI_BOR,MPI_COMM_WORLD,error)
+        print *,'T,N=',T,N
 777     call MPI_Finalize(error)
         stop
         end

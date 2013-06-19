@@ -1,11 +1,11 @@
 all: libpmpi.so
 
-libpmpi.so: mpi_profiler.c
+libpmpi_r.so: mpi_profiler.c
 	s.cc -mpi -shared -o libpmpi_r.so mpi_profiler.c
 
-test: libpmpi.so
+test: libpmpi_r.so
 	rm -f a.out
-	LD_RUN_PATH=. s.cc -mpi -o a.out mpi_ctest.c -L. -lpmpi_r -rpath .
+	LD_RUN_PATH=. s.cc -mpi -o a.out mpi_ctest.c -L. -lpmpi_r 
 	mpirun -n 2  --mca btl tcp,self ./a.out
 	rm -f a.out
 	LD_RUN_PATH=. s.f90 -mpi -o a.out mpi_ftest.f90 -L. -lpmpi_r -Wl,-rpath -Wl,.

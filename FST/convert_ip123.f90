@@ -22,7 +22,7 @@ use ISO_C_BINDING
 
 public  :: encode_ip_0, encode_ip_1, decode_ip_0, decode_ip_1
 public  :: encode_ip_2, encode_ip_3, decode_ip_2, decode_ip_3
-public  :: convip_plus, test_convip_plus, convip_unit_tests, test_value_to_string
+public  :: convip_plus, test_convip_plus, test_value_to_string
 private :: conv_kind_15, value_to_string
 
 type, BIND(C) :: float_ip
@@ -744,14 +744,11 @@ SUBROUTINE CONVIP_plus( ip, p, kind, mode, string, flagv )
           p = 0.0
           kind = iand(15,ishft(ip,-24))
           if(kind == 15) then  ! type 15 et associes traite a part
-            if(conv_kind_15(p,kind,ip,mode) /= 0) return  ! il y a une erreur
+            if(conv_kind_15(p,kind,ip,mode) /= 0) goto 777  ! il y a une erreur de decodage pour ip
             if (flag) goto 666  ! impression dans string
           endif
-          if ( .not. validkind(kind) ) then
- !          write(6,6007) kind
-            kind = -1
-            return
-          endif
+          if ( .not. validkind(kind) ) goto 777
+!
           iexp = iand (15,ishft(ip,-20))
           itemp = iand (1048575, ip)
           if (itemp >= 1000000) itemp = -(itemp - 1000000)
@@ -761,16 +758,20 @@ SUBROUTINE CONVIP_plus( ip, p, kind, mode, string, flagv )
  !
           if (p < low_val(kind) .or. p>hi_val(kind)) then ! hors limite, essayer le type associe si valide
             if(kind+16 <= Max_Kind) then
-              if(validkind(kind)) then
+              if(validkind(kind) .and. validkind(kind+16)) then
                 kind = kind+16
                 goto 555         ! try new kind
+!              else
+!                goto 777  ! invalid kind
               endif
+            else
+              goto 777  ! invalid kind
             endif
           endif
           p = max(p,low_val(kind))     ! clipping a la valeur minimale
           p = min(p,hi_val(kind))      ! clipping a la valeur maximale
           if (abs(p) .lt. 1.001*zero_val(kind)) p = zero_val2(kind)   ! mise a "zero" si valeur absolue trop faible
- 666       abs_p = abs(p)
+666       abs_p = abs(p)
           if (flag) then  ! convert P into a formatted string with appropriate units for kind
              string2=""
              status=value_to_string(p , string2 , min(len(string2),len(string)-3) )
@@ -814,6 +815,11 @@ SUBROUTINE CONVIP_plus( ip, p, kind, mode, string, flagv )
   endif  ! ....  Conversion de xx a yy .....
       
   return
+
+777  continue  ! invalid ip, return kind = -1
+  kind = -1
+  return
+
   6001 format(' Error in convip: sigma value =',e10.5,' returned ip is -999999')
   6002 format(' Error in convip: pressure value =',e10.5,' returned ip is -999999')
   6003 format(' Error in convip: arbitrary value=',e10.5,' returned ip is -999999')
@@ -963,22 +969,6 @@ integer function value_to_string(val,string,maxlen)  ! write value val into stri
 12 format(A,I2,A)
 end function value_to_string
 !===============================================================================================
-subroutine convip_unit_tests
-
-interface main1
- subroutine main1() BIND(C,name='Cmain1')
- end subroutine main1
-end interface
-interface main2
- subroutine main2() BIND(C,name='Cmain2')
- end subroutine main2
-end interface
-
-call main1
-call main2
-return
-end subroutine convip_unit_tests
-!===============================================================================================
 subroutine test_value_to_string
   implicit none
   character (len=8) :: stringa
@@ -1058,13 +1048,3 @@ subroutine test_convip_plus() ! test routine for convip_plus
 end subroutine test_convip_plus
 
 end module convert_ip123
-!===============================================================================================
-subroutine convip_all_tests
-  use convert_ip123, only : convip_unit_tests, test_value_to_string, test_convip_plus
-  print *,'========== convip_unit_tests =========='
-  call convip_unit_tests
-  print *,'========== test_value_to_string =========='
-  call test_value_to_string
-  print *,'========== test_convip_plus =========='
-  call test_convip_plus
-end subroutine convip_all_tests

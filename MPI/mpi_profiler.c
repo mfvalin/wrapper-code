@@ -13,6 +13,11 @@ static int MPI_Recv_elem=0;
 static int MPI_Isend_elem=0;
 static int MPI_Send_elem=0;
 
+struct {
+  double time;
+  int calls;
+} pmpi_r_statistics ={0.0,0};
+
 typedef struct {
   char *name;          /* name of tracked function */
   long long sbytes;          /* sum of bytes moved */
@@ -84,6 +89,8 @@ static int find_table_entry(const char *name){
 static void add_to_entry(int me,int bytes,int commsize,double time){
   float rbytes;
   if(me<0)return;
+  pmpi_r_statistics.time+=time;
+  pmpi_r_statistics.calls++;
   stat_table[me].calls++;
   stat_table[me].sbytes+=bytes;
   stat_table[me].time+=time;
@@ -186,9 +193,9 @@ int MPI_Bcast(void* buffer, int count, MPI_Datatype datatype,int root, MPI_Comm 
   if(me==-1) me=find_table_entry("MPI_Bcast");
   PMPI_Type_size( datatype, &dsize );
   MPI_Comm_size(comm,&size);
-  t0=MPI_Wtime();
+  t0=PMPI_Wtime();
   status=PMPI_Bcast(buffer,count,datatype,root,comm);
-  add_to_entry(me,count*dsize,size,MPI_Wtime()-t0);
+  add_to_entry(me,count*dsize,size,PMPI_Wtime()-t0);
   buf_size_stat(count*dsize);
   return status;
 }
@@ -203,9 +210,9 @@ int MPI_Reduce(void *sendbuf, void *recvbuf, int count,
   if(me==-1) me=find_table_entry("MPI_Reduce");
   PMPI_Type_size( datatype, &dsize );
   MPI_Comm_size(comm,&size);
-  t0=MPI_Wtime();
+  t0=PMPI_Wtime();
   status=PMPI_Reduce(sendbuf,recvbuf,count,datatype,op,root,comm);
-  add_to_entry(me,count*dsize,size,MPI_Wtime()-t0);
+  add_to_entry(me,count*dsize,size,PMPI_Wtime()-t0);
   buf_size_stat(count*dsize);
   return status;
 }
@@ -220,9 +227,9 @@ int MPI_Allreduce(void *sendbuf, void *recvbuf, int count,
   if(me==-1) me=find_table_entry("MPI_Allreduce");
   PMPI_Type_size( datatype, &dsize );
   MPI_Comm_size(comm,&size);
-  t0=MPI_Wtime();
+  t0=PMPI_Wtime();
   status=PMPI_Allreduce(sendbuf,recvbuf,count,datatype,op,comm);
-  add_to_entry(me,count*dsize,size,MPI_Wtime()-t0);
+  add_to_entry(me,count*dsize,size,PMPI_Wtime()-t0);
   buf_size_stat(count*dsize);
   return status;
 }
@@ -234,9 +241,9 @@ int MPI_Barrier( MPI_Comm comm )
   static int me=-1;
   
   if(me==-1) me=find_table_entry("MPI_Barrier");
-  t0=MPI_Wtime();
+  t0=PMPI_Wtime();
   status=PMPI_Barrier( comm );
-  add_to_entry(me,0,1,MPI_Wtime()-t0);
+  add_to_entry(me,0,1,PMPI_Wtime()-t0);
   return status;
 }
 
@@ -247,9 +254,9 @@ int MPI_Testall(int count,MPI_Request *array_of_requests,int *flag,MPI_Status *a
   static int me=-1;
   
   if(me==-1) me=find_table_entry("MPI_Testall");
-  t0=MPI_Wtime();
+  t0=PMPI_Wtime();
   status=PMPI_Testall(count,array_of_requests,flag,array_of_statuses);
-  add_to_entry(me,0,1,MPI_Wtime()-t0);
+  add_to_entry(me,0,1,PMPI_Wtime()-t0);
   return status;
 }
 
@@ -260,9 +267,9 @@ int MPI_Waitall(int count,MPI_Request *array_of_requests,MPI_Status *array_of_st
   static int me=-1;
   
   if(me==-1) me=find_table_entry("MPI_Waitall");
-  t0=MPI_Wtime();
+  t0=PMPI_Wtime();
   status=PMPI_Waitall(count,array_of_requests,array_of_statuses);
-  add_to_entry(me,0,1,MPI_Wtime()-t0);
+  add_to_entry(me,0,1,PMPI_Wtime()-t0);
   return status;
 }
 
@@ -275,9 +282,9 @@ int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
   static int me=-1;
   if(me==-1) me=find_table_entry("MPI_Recv");
   PMPI_Type_size( datatype, &dsize );
-  t0=MPI_Wtime();
+  t0=PMPI_Wtime();
   status = PMPI_Recv(buf,count,datatype,source,tag,comm,Status);
-  add_to_entry(me,count*dsize,1,MPI_Wtime()-t0);
+  add_to_entry(me,count*dsize,1,PMPI_Wtime()-t0);
   buf_size_stat(count*dsize);
   return status;
 }
@@ -292,9 +299,9 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
   
   if(me==-1) me=find_table_entry("MPI_Irecv");
   PMPI_Type_size( datatype, &dsize );
-  t0=MPI_Wtime();
+  t0=PMPI_Wtime();
   status = PMPI_Irecv(buf,count,datatype,source,tag,comm,request);
-  add_to_entry(me,count*dsize,1,MPI_Wtime()-t0);
+  add_to_entry(me,count*dsize,1,PMPI_Wtime()-t0);
   buf_size_stat(count*dsize);
   return status;
 }
@@ -308,9 +315,9 @@ int MPI_Isend(void *buf, int count, MPI_Datatype datatype, int dest, int tag,
   static int me=-1;
   if(me==-1) me=find_table_entry("MPI_Isend");
   PMPI_Type_size( datatype, &dsize );
-  t0=MPI_Wtime();
+  t0=PMPI_Wtime();
   status = PMPI_Isend(buf,count,datatype,dest,tag,comm,request);
-  add_to_entry(me,count*dsize,1,MPI_Wtime()-t0);
+  add_to_entry(me,count*dsize,1,PMPI_Wtime()-t0);
   buf_size_stat(count*dsize);
   return status;
 }
@@ -324,9 +331,9 @@ int MPI_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag,
   static int me=-1;
   if(me==-1) me=find_table_entry("MPI_Send");
   PMPI_Type_size( datatype, &dsize );
-  t0=MPI_Wtime();
+  t0=PMPI_Wtime();
   status = PMPI_Send(buf,count,datatype,dest,tag,comm);
-  add_to_entry(me,count*dsize,1,MPI_Wtime()-t0);
+  add_to_entry(me,count*dsize,1,PMPI_Wtime()-t0);
   buf_size_stat(count*dsize);
   return status;
 }
@@ -343,9 +350,9 @@ int MPI_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype,
   if(me==-1) me=find_table_entry("MPI_Sendrecv");
   PMPI_Type_size( sendtype, &ssize );
   PMPI_Type_size( recvtype, &rsize );
-  t0=MPI_Wtime();
+  t0=PMPI_Wtime();
   status = PMPI_Sendrecv(sendbuf,sendcount,sendtype,dest,sendtag,recvbuf,recvcount,recvtype,source,recvtag,comm,Status);
-  add_to_entry(me,sendcount*ssize+recvcount*rsize,1,MPI_Wtime()-t0);
+  add_to_entry(me,sendcount*ssize+recvcount*rsize,1,PMPI_Wtime()-t0);
   buf_size_stat(sendcount*ssize);
   buf_size_stat(recvcount*rsize);
   return status;
@@ -367,13 +374,13 @@ int MPI_Scatter(void *sendbuf, int sendcnt, MPI_Datatype sendtype,
   if(me==-1) me=find_table_entry("MPI_Scatter");
   PMPI_Type_size( sendtype, &ssize );
   PMPI_Type_size( recvtype, &rsize );
-  t0=MPI_Wtime();
+  t0=PMPI_Wtime();
   status = PMPI_Scatter(sendbuf,sendcnt,sendtype,recvbuf,recvcnt,recvtype,root,comm);
   if(rank!=root){
-    add_to_entry(me,recvcnt*rsize,1,MPI_Wtime()-t0);
+    add_to_entry(me,recvcnt*rsize,1,PMPI_Wtime()-t0);
     buf_size_stat(recvcnt*rsize);
   }else{
-    add_to_entry(me,sendcnt*ssize*size,1,MPI_Wtime()-t0);
+    add_to_entry(me,sendcnt*ssize*size,1,PMPI_Wtime()-t0);
     while(size--) buf_size_stat(sendcnt*ssize);
   }
   return status;
@@ -397,15 +404,15 @@ int MPI_Scatterv( void *sendbuf, int *sendcnts, int *displs,
   if(me==-1) me=find_table_entry("MPI_Scatterv");
   PMPI_Type_size( sendtype, &ssize );
   PMPI_Type_size( recvtype, &rsize );
-  t0=MPI_Wtime();
+  t0=PMPI_Wtime();
   status = PMPI_Scatterv(sendbuf,sendcnts,displs,sendtype,recvbuf,recvcnt,recvtype,root,comm);
   if(rank==root) {
     sendcnt=0;
     for (i=0;i<size;i++) sendcnt+=sendcnts[i];
-    add_to_entry(me,sendcnt*ssize,1,MPI_Wtime()-t0);
+    add_to_entry(me,sendcnt*ssize,1,PMPI_Wtime()-t0);
     while(size--) buf_size_stat(sendcnts[i]*rsize);
   }else{
-    add_to_entry(me,recvcnt*rsize,1,MPI_Wtime()-t0);
+    add_to_entry(me,recvcnt*rsize,1,PMPI_Wtime()-t0);
     buf_size_stat(recvcnt*rsize);
   }
   return status;
@@ -427,13 +434,13 @@ int MPI_Gather(void *sendbuf, int sendcnt, MPI_Datatype sendtype,
   if(me==-1) me=find_table_entry("MPI_Gather");
   PMPI_Type_size( sendtype, &ssize );
   PMPI_Type_size( recvtype, &rsize );
-  t0=MPI_Wtime();
+  t0=PMPI_Wtime();
   status = PMPI_Gather(sendbuf,sendcnt,sendtype,recvbuf,recvcnt,recvtype,root,comm);
   if(rank==root) {
-    add_to_entry(me,recvcnt*rsize*size,1,MPI_Wtime()-t0);
+    add_to_entry(me,recvcnt*rsize*size,1,PMPI_Wtime()-t0);
     while(size--) buf_size_stat(recvcnt*rsize);
   }else{
-    add_to_entry(me,sendcnt*ssize,1,MPI_Wtime()-t0);
+    add_to_entry(me,sendcnt*ssize,1,PMPI_Wtime()-t0);
     buf_size_stat(sendcnt*ssize);
   }
   return status;
@@ -456,15 +463,15 @@ int MPI_Gatherv(void *sendbuf, int sendcnt, MPI_Datatype sendtype,
   if(me==-1) me=find_table_entry("MPI_Gatherv");
   PMPI_Type_size( sendtype, &ssize );
   PMPI_Type_size( recvtype, &rsize );
-  t0=MPI_Wtime();
+  t0=PMPI_Wtime();
   status = PMPI_Gatherv(sendbuf,sendcnt,sendtype,recvbuf,recvcnts,displs,recvtype,root,comm);
   if(rank==root) {
     recvcnt=0;
     for (i=0;i<size;i++) recvcnt+=recvcnts[i];
-    add_to_entry(me,recvcnt*rsize,1,MPI_Wtime()-t0);
+    add_to_entry(me,recvcnt*rsize,1,PMPI_Wtime()-t0);
     while(size--) buf_size_stat(recvcnts[i]*rsize);
   }else{
-    add_to_entry(me,sendcnt*ssize,1,MPI_Wtime()-t0);
+    add_to_entry(me,sendcnt*ssize,1,PMPI_Wtime()-t0);
     buf_size_stat(sendcnt*ssize);
   }
   return status;
@@ -484,9 +491,9 @@ int MPI_Alltoall(void *sendbuf, int sendcount,
   if(me==-1) me=find_table_entry("MPI_Alltoall");
   PMPI_Type_size( sendtype, &ssize );
   PMPI_Type_size( recvtype, &rsize );
-  t0=MPI_Wtime();
+  t0=PMPI_Wtime();
   status = PMPI_Alltoall(sendbuf,sendcount,sendtype,recvbuf,recvcount,recvtype,comm);
-  add_to_entry(me,sendcount*ssize+recvcount*rsize,size,MPI_Wtime()-t0);
+  add_to_entry(me,sendcount*ssize+recvcount*rsize,size,PMPI_Wtime()-t0);
   while(size--) { buf_size_stat(sendcount*ssize); buf_size_stat(recvcount*rsize); }
   return status;
 }
@@ -510,9 +517,9 @@ int MPI_Alltoallv(void *sendbuf, int *sendcnts, int *sdispls,
   for (i=0;i<size;i++) { recvcnt+=recvcnts[i]; buf_size_stat(recvcnts[i]*rsize) ; }
   sendcnt=0;
   for (i=0;i<size;i++) { sendcnt+=sendcnts[i]; buf_size_stat(sendcnts[i]*ssize) ; }
-  t0=MPI_Wtime();
+  t0=PMPI_Wtime();
   status = PMPI_Alltoallv(sendbuf,sendcnts,sdispls,sendtype,recvbuf,recvcnts,rdispls,recvtype,comm);
-  add_to_entry(me,sendcnt*ssize+recvcnt*rsize,1,MPI_Wtime()-t0);
+  add_to_entry(me,sendcnt*ssize+recvcnt*rsize,1,PMPI_Wtime()-t0);
   return status;
 }
 
