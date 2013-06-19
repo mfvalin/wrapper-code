@@ -761,8 +761,8 @@ SUBROUTINE CONVIP_plus( ip, p, kind, mode, string, flagv )
               if(validkind(kind) .and. validkind(kind+16)) then
                 kind = kind+16
                 goto 555         ! try new kind
-!              else
-!                goto 777  ! invalid kind
+              else
+                goto 777  ! invalid kind
               endif
             else
               goto 777  ! invalid kind
