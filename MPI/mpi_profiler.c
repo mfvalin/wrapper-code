@@ -13,9 +13,9 @@ static int MPI_Recv_elem=0;
 static int MPI_Isend_elem=0;
 static int MPI_Send_elem=0;
 
-struct {
-  double time;
-  int calls;
+static struct {
+  double time;  /* cumulative time spent in trapped MPI routines (seconds) */
+  int calls;    /* cumulative number of calls to trapped MPI routines */
 } pmpi_r_statistics ={0.0,0};
 
 typedef struct {
@@ -173,6 +173,7 @@ int MPI_Init(int *argc, char ***argv) {
 
   rc = PMPI_Init(argc, argv);
   MPI_Comm_rank(MPI_COMM_WORLD , &my_rank);
+  if(my_rank==0) printf("INFO: entering profiling layer MPI_Init...\n");
   envfile=getenv("PMPI_OUT_FILE");
   if(envfile != NULL) {
     sprintf(Fname,"%s_%5.5d",envfile,my_rank);
@@ -223,7 +224,15 @@ int MPI_Allreduce(void *sendbuf, void *recvbuf, int count,
   int status;
   double t0;
   static int me=-1;
+  double *s=(double *)sendbuf;
+  double *r=(double *)recvbuf;
   
+  if( op==MPI_MAX && datatype==MPI_DOUBLE && r+2==s  &&  
+      count==2 && s[0]==654321.0 && s[1]==123456.0  ){
+    r[0]=pmpi_r_statistics.time;
+    r[1]=pmpi_r_statistics.calls;
+    return(MPI_SUCCESS);
+  }
   if(me==-1) me=find_table_entry("MPI_Allreduce");
   PMPI_Type_size( datatype, &dsize );
   MPI_Comm_size(comm,&size);

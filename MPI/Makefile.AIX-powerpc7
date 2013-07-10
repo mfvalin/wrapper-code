@@ -1,8 +1,11 @@
-all: libpmpi_r.a
+POE_VERSION=$(shell readlink /opt/ibmhpc/pecurrent | sed 's:.*/::')
 
-libpmpi_r.a: /opt/ibmhpc/pecurrent/ppe.poe/lib/libmpi_r.a libmyprof_r.a
+all: libpmpi_r_$(POE_VERSION).a
+
+libpmpi_r_$(POE_VERSION).a: /opt/ibmhpc/pecurrent/ppe.poe/lib/libmpi_r.a libmyprof_r.a
 	ar xv /opt/ibmhpc/pecurrent/ppe.poe/lib/libmpi_r.a mpifort64_r.o
-	mv libmyprof_r.a libpmpi_r.a
+	mv libmyprof_r.a libpmpi_r_$(POE_VERSION).a
+	ln -sf libpmpi_r_$(POE_VERSION).a libpmpi_r.a
 	rtl_enable -o newmpifort64_r.o -s mpifort64_r.o -L. -L/opt/ibmhpc/pecurrent/ppe.poe/lib -lpmpi_r -lmpi_r -lc_r -lpthreads
 #	sed "s/-bI:mpifort64_r.imp//" < mpifort64_r.sh > mpifort64_r.newsh
 	mv mpifort64_r.sh mpifort64_r.newsh

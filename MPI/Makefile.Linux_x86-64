@@ -1,4 +1,4 @@
-all: libpmpi.so
+all: libpmpi_r.so
 
 libpmpi_r.so: mpi_profiler.c
 	s.cc -mpi -shared -o libpmpi_r.so mpi_profiler.c

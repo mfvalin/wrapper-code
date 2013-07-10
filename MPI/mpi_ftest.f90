@@ -2,19 +2,18 @@
         use ISO_C_BINDING
         implicit none
         include 'mpif.h'
-        common /info/ T,N
-        bind(C,name='pmpi_r_statistics') :: /info/
-        real(C_DOUBLE) :: T
-        integer(C_INT) :: N
         integer error,noprocs,nid
         integer buf(10),status(10),buf2(10)
+        real *8 :: buf8(4)
 
         call MPI_Init(error)
         call MPI_Comm_size(MPI_COMM_WORLD, noprocs, error)
         call MPI_Comm_rank(MPI_COMM_WORLD, nid, error)
-        print *,'T,N=',T,N
-        if(noprocs /= 2) goto 777
+        buf8=-1.0
+        buf8(3)=654321.0
+        buf8(4)=123456.0
         print *,'I am PE',nid+1,' of',noprocs
+        if(noprocs /= 2) goto 777
         call mpi_bcast(buf,9,MPI_INTEGER,0,MPI_COMM_WORLD,error)
         call mpi_reduce(buf,status,5,MPI_INTEGER,MPI_BOR,0,MPI_COMM_WORLD,error)
         call mpi_allreduce(buf,status,7,MPI_INTEGER,MPI_BOR,MPI_COMM_WORLD,error)
@@ -40,7 +39,8 @@
         call mpi_bcast(buf,9,MPI_INTEGER,1,MPI_COMM_WORLD,error)
         call mpi_reduce(buf,status,7,MPI_INTEGER,MPI_BOR,1,MPI_COMM_WORLD,error)
         call mpi_allreduce(buf,status,9,MPI_INTEGER,MPI_BOR,MPI_COMM_WORLD,error)
-        print *,'T,N=',T,N
+        call mpi_allreduce(buf8(3),buf8(1),2,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD,error)
+        print *,'MPI routines time, error=',buf8,error
 777     call MPI_Finalize(error)
         stop
         end
