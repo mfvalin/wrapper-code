@@ -4,7 +4,7 @@ implicit none
 external :: ccard
 integer, parameter :: MAXARGS=9
 character (len=64), dimension(MAXARGS), save :: liste, def, val
-character (len=64),warn_text
+character (len=64) :: warn_text
 integer :: i, npos, ip1, ip2, ip3, iostat
 integer :: k1, k2, k3
 real :: v1, v2, v3
@@ -55,7 +55,7 @@ if(npos==6) then
   read(val(9),*,iostat=iostat)k3
   if(iostat/=0 .or. k1<0)goto 444
   if(debug) write(0,103)'converting: ',v1,k1,v2,k2,v3,k3
-103 format(a,3(G12.5,' ',i3))
+103 format(a,3(G12.6,' ',i3))
   iostat = encode_ip(ip1,ip2,ip3,v1,k1,v2,k2,v3,k3)
   if(debug) write(0,102)'result: ',ip1,ip2,ip3
   if(iand(iostat,CONVERT_ERROR)==CONVERT_ERROR) goto 555
