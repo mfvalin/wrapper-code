@@ -124,7 +124,6 @@ linux_platform_debian() {
 	plat_ver=`cat /etc/debian_version`
 	#plat_ver=${plat_ver%*.*} # major and minor only
 	plat_arch=`get_plat_arch ${plat_dist} ${plat_ver}`
-
 	echo "${plat_dist}-${plat_ver}-${plat_arch}" | tr '[A-Z]' '[a-z]'
 }
 
@@ -164,7 +163,7 @@ linux_platform_suse() {
 linux_platform() {
 	local platform
 
-        if [[ "$1" == legacy || "${UNAME_R}" == 2.6* ]] ; then
+        if [[ "$1" == legacy && "${UNAME_R}" == 2.6* ]] ; then
                 platform=linux26-$(get_plat_arch linux 26 | sed 's/amd64/x86/' )
 	elif [[ -e /etc/redhat-release ]]; then
 		platform=`linux_platform_redhat`
