@@ -1,0 +1,107 @@
+#!/bin/ksh
+# setup function borrowed from original SSM script ssmprep
+setup() {
+        # directories to create
+        relDirPaths=".ssm.d
+                etc
+                etc/profile.d"
+
+        # files to create/touch
+        relFilePaths=".ssm.d/control
+                .ssm.d/pre-install
+                .ssm.d/post-install
+                .ssm.d/pre-uninstall
+                .ssm.d/post-uninstall
+                .ssm.d/pre-publish
+                .ssm.d/post-publish
+                .ssm.d/pre-unpublish
+                .ssm.d/post-unpublish
+                etc/profile.d/${packageName}.sh
+                etc/profile.d/${packageName}.csh"
+
+        # templates
+        controlTemplate="Package: `echo ${packageName} | cut -d'_' -f1`
+Version: `echo ${packageName} | \cut -d'_' -f2`
+Platform:
+Maintainer: `whoami`
+BuildInfo:
+Description:
+"
+}
+
+#
+# prepare skeleton of SSM package for local platform
+#
+[[ "$1" = -h || "$1" = --help ]] && echo "usage: ${0##*/} package version [legacy]" && exit 0
+package=${1:-demo}_${2:-0.0}_$(${0%/*}/u.ssm_local_platform ${3} )
+echo CREATING package template ${package}
+#set -x
+for TarGet in maint bin lib include share 
+do
+  mkdir -p ./${package}/${TarGet}
+  echo "Creating directory: ${package}/${TarGet}"
+done
+
+setup
+basePath=${package}
+# create directories
+for relDirPath in ${relDirPaths}; do
+        dirPath=${basePath}/${relDirPath}
+        echo "Creating directory: ${dirPath}"
+        mkdir -p ${dirPath}
+done
+
+# set up files
+for relFilePath in ${relFilePaths}; do
+        # create files
+        filePath=${basePath}/${relFilePath}
+        touch ${filePath}
+        chmod a+x ${filePath}
+
+        # insert default info if new/empty
+        if [ ! -s ${filePath} ]; then
+                case ${relFilePath} in
+                ".ssm.d/control")
+                        echo "${controlTemplate}" >> ${filePath}
+                        ;;
+                esac
+        fi
+done
+
+#
+# create s.ssm-make_ssm necessary guide files
+#
+echo --exclude do_not_tar --exclude-tag=.ignore > ${package}/maint/excludes
+echo ${package}/. >${package}/maint/include
+echo do_not_tar >${package}/maint/excludes.list
+#
+# create pre-publish
+#
+[[ ! -s ${package}/.ssm.d/pre-publish ]] && cat > ${package}/.ssm.d/pre-publish  <<EOT
+#!/bin/bash
+domainHome=\$1
+packageHome=\$2
+profileDirPath=\${packageHome}/etc/profile.d
+packageName=\${packageHome##*/}
+profilePath=\${profileDirPath}/\${packageName}.sh
+mkdir -p \${profileDirPath}
+#echo "#\${packageName%%_*}_HOME=\${packageHome}" >> \${profilePath}
+EOT
+chmod 755  ${package}/.ssm.d/pre-publish
+#
+# create post-install and others
+#
+rm -f ${package}/.ssm.d/pre-install
+for relFilePath in post-install post-publish pre-uninstall pre-unpublish post-unpublish 
+do
+  if [[ -s ${package}/.ssm.d/${relFilePath} ]] ; then
+    echo "${package}/.ssm.d/${relFilePath} exists and is left untouched"
+  else
+    cp ${package}/.ssm.d/pre-publish ${package}/.ssm.d/${relFilePath}
+  fi
+done
+[[ -s ${package}/.ssm.d/exclude ]] && echo "${package}/.ssm.d/exclude exists and is left untouched"
+[[ ! -s ${package}/.ssm.d/exclude ]] && echo '.*/[.]svn$' >${package}/.ssm.d/exclude && echo '.*/[.]git$' >>${package}/.ssm.d/exclude
+chmod 755  ${package}/.ssm.d/p*
+#
+echo do not forget: vi ${package}/.ssm.d/control
