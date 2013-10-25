@@ -10,6 +10,8 @@
 # and architecture in accordance with the ssm
 # platform specification: <OS><release>-<architecture>
 #
+# modified code for redhat enterprise
+#
 # GPL--start
 # This script is derived from a script borrowed from ssm (Simple Software Manager)
 # Copyright (C) 2005-2012 Environment/Environnement Canada
@@ -131,8 +133,8 @@ linux_platform_redhat() {
 
 	line=`cat /etc/redhat-release`
 	plat_dist="rhel"
-	plat_ver=${line#* * }
-	plat_ver=${plat_ver% *}
+	plat_ver=${line% *}       # suppress everything to the right of last blank
+	plat_ver=${plat_ver##* }  # suppress everything up to the last blank
 	plat_arch=`get_plat_arch ${plat_dist} ${plat_ver}`
 
 	echo "${plat_dist}-${plat_ver}-${plat_arch}"
