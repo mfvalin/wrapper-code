@@ -11,6 +11,7 @@
 # platform specification: <OS><release>-<architecture>
 #
 # modified code for redhat enterprise
+# added generic option if called with argument1=legacy (intended for linux only)
 #
 # GPL--start
 # This script is derived from a script borrowed from ssm (Simple Software Manager)
@@ -163,13 +164,15 @@ linux_platform_suse() {
 linux_platform() {
 	local platform
 
-	if [ -e /etc/redhat-release ]; then
+        if [[ "$1" == legacy || "${UNAME_R}" == 2.6* ]] ; then
+                platform=linux26-$(get_plat_arch linux 26 | sed 's/amd64/x86/' )
+	elif [[ -e /etc/redhat-release ]]; then
 		platform=`linux_platform_redhat`
-	elif [ -e /etc/SuSE-release ]; then
+	elif [[ -e /etc/SuSE-release ]]; then
 		platform=`linux_platform_suse`
-	elif [ -e /etc/lsb-release ]; then
+	elif [[ -e /etc/lsb-release ]]; then
 		platform=`linux_platform_lsb`
-	elif [ -e /etc/debian_version ]; then
+	elif [[ -e /etc/debian_version ]]; then
 		# after /etc/lsb-release (for ubuntu)
 		platform=`linux_platform_debian`
 	else
@@ -207,7 +210,7 @@ get_base_platform() {
 		platform=`freebsd_platform`
 		;;
 	Linux)
-		platform=`linux_platform`
+		platform=`linux_platform ${1}`
 		;;
 	CYGWIN_NT-5.1)
 		platform=`cygwin_platform`
@@ -237,6 +240,9 @@ while [ $# -gt 0 ]; do
 		print_usage
 		exit 0
 		;;
+	legacy)
+                break
+		;;
 	*)
 		print_usage
                 exit 0
@@ -248,4 +254,4 @@ UNAME_S=`uname -s`
 UNAME_M=`uname -m`
 UNAME_R=`uname -r`
 
-get_base_platform
+get_base_platform ${1}
