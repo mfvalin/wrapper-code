@@ -666,7 +666,7 @@ SUBROUTINE CONVIP_plus( ip, p, kind, mode, string, flagv )
               limit2 = 4800
               offset = 1000000
           endif
-          temp=temp*1.00000005D0
+!          temp=temp*1.00000005D0
           do while ( iexp .gt. 0 .and. iexp .lt. 15 )  ! must keep pseudo exponent in range
               if (temp .ge. limit1 ) then        ! too big, divide by 10 and adjust pseudo exponent
                 temp = temp / TEN
@@ -752,7 +752,7 @@ SUBROUTINE CONVIP_plus( ip, p, kind, mode, string, flagv )
 !
           iexp = iand (15,ishft(ip,-20))
           itemp = iand (1048575, ip)
-          if (itemp >= 1000000) itemp = -(itemp - 1000000)
+          if (itemp > 1000000) itemp = -(itemp - 1000000)
  555        continue
           p = itemp / exptab(iexp)             ! apply pseudo exponent
           p = p / fact_val(kind)               ! apply scaling factor
