@@ -23,7 +23,8 @@ use ISO_C_BINDING
 public  :: encode_ip_0, encode_ip_1, decode_ip_0, decode_ip_1
 public  :: encode_ip_2, encode_ip_3, decode_ip_2, decode_ip_3
 public  :: convip_plus, test_convip_plus, test_value_to_string
-private :: conv_kind_15, value_to_string
+public  :: value_to_string
+private :: conv_kind_15
 
 type, BIND(C) :: float_ip
 real(C_FLOAT) :: lo, hi
