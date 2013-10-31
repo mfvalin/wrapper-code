@@ -984,32 +984,35 @@ subroutine test_value_to_string
   value=1.000001
   do i=1,9
     status=value_to_string(real(nint(value)),stringa,15)
-    print 101,trim(stringa),'',status*.01
+    stringc = stringa
+    print 101,stringc,trim(stringa),'',status*.01
     value=value*10.0
   enddo
 
   value=1.000001
   do i=1,9
     status=value_to_string(real(nint(-value)),stringa,15)
-    print 101,trim(stringa),'mb',status*.01
+    stringc = stringa
+    print 101,stringc,trim(stringa),'mb',status*.01
     value=value*10.0
   enddo
 
   value=1.234567
   do i=1,12
     status=value_to_string(-value,stringb,15)
-    print 101,trim(stringb),'mb',status*.01
+    stringc = stringb
+    print 101,stringc,trim(stringb),'mb',status*.01
     value=value*10.0
   enddo
 
   value=1.23456789
   do i=1,12
     status=value_to_string(-value,stringc,12)
-    print 101,trim(stringc),'mb',status*.01
+    print 101,stringc,trim(stringc),'mb',status*.01
     value=value*0.1
   enddo
 
-101 format(1H|,A15,1H|,1X,A2,3X,f6.2)
+101 format(1H|,A15,1H|,A15,1H|,1X,A2,3X,f6.2)
 return
 end subroutine test_value_to_string
 !===============================================================================================
