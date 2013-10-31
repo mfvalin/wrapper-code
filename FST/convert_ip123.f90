@@ -908,6 +908,7 @@ integer function value_to_string(val,string,maxlen)  ! write value val into stri
       grosint=grosint*10  ! largest integer value that will fit in maxc characters
     enddo
     if(value >= grosint) goto 444   ! try something else
+    if(val>0) intdig = intdig - 1   ! one less character if number is positive
     write(fstring,12)'(I',min(maxc,intdig),')'    ! use I format
     value_to_string=min(maxc,intdig)
     goto 777
