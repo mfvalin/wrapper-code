@@ -35,7 +35,7 @@ fi
 
 [[ "$1" == --start-monitor ]] && return
 
-echo JIO  Diag profiling "'""$@""'" >>${JIO_DIAG:-${TMPDIR}/JIO_DIAG_TEMP}
+echo JIO Version 1.0.1 2013/11/05 Diag profiling "'""$@""'" >>${JIO_DIAG:-${TMPDIR}/JIO_DIAG_TEMP}
 
 JIO_ENV=${JIO_ENV:-SUMMARY} JIO_DIAG=${JIO_DIAG:-${TMPDIR}/JIO_DIAG_TEMP} OMP_NUM_THREADS=${OMP_NUM_THREADS:-1} "$@"
 
