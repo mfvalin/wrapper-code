@@ -1,0 +1,42 @@
+#echo USING s.jio-prof.dot , BASE_ARCH=${BASE_ARCH} 1>&2
+[[ "$1" == --help || "$1" == -h ]] && \
+  printf "s.jio-prof.dot [-h | --help]\n" && \
+  printf "s.jio-prof.dot [--start-monitor | --stop-monitor | --delete | --dump | --summary]\n" && \
+  printf "               monitor, stop monitoring, delete report file, copy report to stderr, summarize report file\n" && \
+  printf "s.jio-prof.dot [-32] command arg1 arg2 ... argn\n" && \
+  printf "               I/O report for single command\n" && \
+  printf "uses environment variables: \n" && \
+  printf "   JIO_ENV=JIO_SUMMARY|JIO_DETAILED|JIO_TRACE\n" && \
+  printf "   JIO_DIAG=path/to/diag/file\n" && \
+  printf "uses \$TMPDIR/JIO_DIAG for monitoring (unless defined by JIO_DIAG)\n" && \
+  printf "uses \$TMPDIR/JIO_DIAG_TEMP for single command analysis (unless defined by JIO_DIAG)\n" && \
+  return
+
+[[ "$1" == --stop-monitor ]] && LDR_PRELOAD64="" && unset LDR_PRELOAD64 && \
+				LD_PRELOAD="" && unset LD_PRELOAD && \
+				return
+[[ "$1" == --start-monitor ]] && export JIO_DIAG=${JIO_DIAG:-${TMPDIR}/JIO_DIAG} && export JIO_ENV=JIO_SUMMARY
+[[ "$1" == --delete ]] && rm -f ${JIO_DIAG} ${JIO_DIAG}_* && return
+[[ "$1" == --dump ]] && cat ${JIO_DIAG} && return
+[[ "$1" == --full-dump ]] && cat ${JIO_DIAG} ${JIO_DIAG}_* 1>&2 && return
+[[ "$1" == --summary ]] && echo REPORT from ${JIO_DIAG} && cat ${JIO_DIAG} | s.jio_report.pl && return
+[[ "$1" == --full-summary ]] && echo REPORT from ${JIO_DIAG} ${JIO_DIAG}_* && cat ${JIO_DIAG} ${JIO_DIAG}_* 2>/dev/null | s.jio_report.pl && return
+
+if [[ ${BASE_ARCH} == Linux* ]]
+then
+  export LD_PRELOAD="$(s.jio-prof).so"
+elif [[ ${BASE_ARCH} == AIX ]]
+then
+  export LDR_PRELOAD64="$(s.jio-prof).a(jio.so)"
+elif [[ ${BASE_ARCH} == AIX-powerpc7 ]]
+then
+  export LDR_PRELOAD64="$(s.jio-prof).a(jio.so)"
+fi
+
+[[ "$1" == --start-monitor ]] && return
+
+echo JIO  Diag profiling "'""$@""'" >>${JIO_DIAG:-${TMPDIR}/JIO_DIAG_TEMP}
+JIO_DIAG=${JIO_DIAG:-${TMPDIR}/JIO_DIAG_TEMP} OMP_NUM_THREADS=${OMP_NUM_THREADS:-1} "$@"
+printf -- "\n\n"
+LDR_PRELOAD64="" && unset LDR_PRELOAD64 && LD_PRELOAD="" && unset LD_PRELOAD
+[[ -f  ${TMPDIR}/JIO_DIAG_TEMP ]] && cat ${TMPDIR}/JIO_DIAG_TEMP && rm -f ${TMPDIR}/JIO_DIAG_TEMP

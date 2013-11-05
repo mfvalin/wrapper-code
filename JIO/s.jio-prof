@@ -1,0 +1,2 @@
+#!/bin/ksh
+echo $(true_path ${0})-${BASE_ARCH}
