@@ -36,7 +36,9 @@ fi
 [[ "$1" == --start-monitor ]] && return
 
 echo JIO  Diag profiling "'""$@""'" >>${JIO_DIAG:-${TMPDIR}/JIO_DIAG_TEMP}
-JIO_DIAG=${JIO_DIAG:-${TMPDIR}/JIO_DIAG_TEMP} OMP_NUM_THREADS=${OMP_NUM_THREADS:-1} "$@"
-printf -- "\n\n"
+
+JIO_ENV=${JIO_ENV:-SUMMARY} JIO_DIAG=${JIO_DIAG:-${TMPDIR}/JIO_DIAG_TEMP} OMP_NUM_THREADS=${OMP_NUM_THREADS:-1} "$@"
+
+printf -- "END of profile\n\n"
 LDR_PRELOAD64="" && unset LDR_PRELOAD64 && LD_PRELOAD="" && unset LD_PRELOAD
 [[ -f  ${TMPDIR}/JIO_DIAG_TEMP ]] && cat ${TMPDIR}/JIO_DIAG_TEMP && rm -f ${TMPDIR}/JIO_DIAG_TEMP
