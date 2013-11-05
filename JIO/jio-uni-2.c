@@ -5,8 +5,6 @@
 #endif
 
 /*
-   jio.c
-
    Original Author: John Hague, ECMWF, 09-Jul-2010
    Thanks to Paul Burton and Will Weir for useful suggestions. 
 
