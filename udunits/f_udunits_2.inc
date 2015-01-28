@@ -1,3 +1,5 @@
+! documentation for c code : 
+! http://www.unidata.ucar.edu/software/udunits/udunits-2.0.4/udunits2lib.html
 	type, bind(C) :: UT_SYSTEM_PTR
 	type(C_PTR) :: ptr
 	end type

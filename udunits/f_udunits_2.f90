@@ -39,8 +39,11 @@
 !
 !	NOTES:
 !
-!	FORTRAN interface for functions returning char * (ut_get_name, ut_trim, ut_get_symbol) 
-!	are not implemented (yet) (unsure as to which method to use)
+!   documentation for c code : 
+!   http://www.unidata.ucar.edu/software/udunits/udunits-2.0.4/udunits2lib.html
+!
+!	FORTRAN interface for function returning char * (ut_trim) not implemented
+!	one should use FORTRAN trim function (may not work in all cases)
 !
 !	"visitor" functions FORTRAN interfaces are not implemented
 !	
@@ -61,18 +64,18 @@
 	character (len=1), dimension(len_trim(path)+1), target :: temp
 
 	interface
-	type(C_PTR) function ut_read_xml(mypath) bind(C,name='ut_read_xml')
+	type(C_PTR) function c_ut_read_xml(mypath) bind(C,name='ut_read_xml')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: mypath
-	end function ut_read_xml
+	end function c_ut_read_xml
 	end interface
 
 	if(path == "" )then
-	  f_ut_read_xml%ptr = ut_read_xml(C_NULL_PTR)
+	  f_ut_read_xml%ptr = c_ut_read_xml(C_NULL_PTR)
 	else
           temp = transfer( trim(path)//achar(0) , temp )
-	  f_ut_read_xml%ptr = ut_read_xml(c_loc(temp))
+	  f_ut_read_xml%ptr = c_ut_read_xml(c_loc(temp))
 	endif
 
 	return
@@ -83,13 +86,13 @@
 	implicit none
 
 	interface
-	type(C_PTR) function ut_new_system() bind(C,name='ut_new_system')
+	type(C_PTR) function c_ut_new_system() bind(C,name='ut_new_system')
 	use ISO_C_BINDING
 	implicit none
-	end function ut_new_system
+	end function c_ut_new_system
 	end interface
 
-	f_ut_new_system%ptr = ut_new_system()
+	f_ut_new_system%ptr = c_ut_new_system()
 
 	end function f_ut_new_system
 !=============================================================================
@@ -98,13 +101,13 @@
 	implicit none
 
 	interface
-	integer(C_INT) function ut_get_status() bind(C,name='ut_get_status')
+	integer(C_INT) function c_ut_get_status() bind(C,name='ut_get_status')
 	use ISO_C_BINDING
 	implicit none
-	end function ut_get_status
+	end function c_ut_get_status
 	end interface
 
-	f_ut_get_status = ut_get_status()
+	f_ut_get_status = c_ut_get_status()
 
 	end function f_ut_get_status
 !=============================================================================
@@ -114,14 +117,14 @@
 	integer(C_INT), intent(IN) :: status
 
 	interface
-	subroutine ut_set_status(status) bind(C,name='ut_set_status')
+	subroutine c_ut_set_status(status) bind(C,name='ut_set_status')
 	use ISO_C_BINDING
 	implicit none
 	integer(C_INT), value :: status
-	end subroutine ut_set_status
+	end subroutine c_ut_set_status
 	end interface
 
-	call ut_set_status(status)
+	call c_ut_set_status(status)
 
 	end subroutine f_ut_set_status
 !=============================================================================
@@ -131,14 +134,14 @@
 	type(UT_UNIT_PTR), intent(IN) :: unit1
 
 	interface
-	type(C_PTR) function ut_get_system(unit1) bind(C,name='ut_get_system')
+	type(C_PTR) function c_ut_get_system(unit1) bind(C,name='ut_get_system')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: unit1
-	end function ut_get_system
+	end function c_ut_get_system
 	end interface
 
-	f_ut_get_system%ptr = ut_get_system(unit1%ptr)
+	f_ut_get_system%ptr = c_ut_get_system(unit1%ptr)
 
 	end function f_ut_get_system
 !=============================================================================
@@ -148,14 +151,14 @@
 	type(UT_SYSTEM_PTR), intent(IN) :: ut_system
 
 	interface
-	type(C_PTR) function ut_new_base_unit(system) bind(C,name='ut_new_base_unit')
+	type(C_PTR) function c_ut_new_base_unit(system) bind(C,name='ut_new_base_unit')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: system
-        end function ut_new_base_unit
+        end function c_ut_new_base_unit
 	end interface
 
-	f_ut_new_base_unit%ptr = ut_new_base_unit(ut_system%ptr)
+	f_ut_new_base_unit%ptr = c_ut_new_base_unit(ut_system%ptr)
 	return
 	end function f_ut_new_base_unit
 !=============================================================================
@@ -165,14 +168,14 @@
 	type(UT_SYSTEM_PTR), intent(IN) :: ut_system
 
 	interface
-	type(C_PTR) function ut_new_dimensionless_unit(system) bind(C,name='ut_new_dimensionless_unit')
+	type(C_PTR) function c_ut_new_dimensionless_unit(system) bind(C,name='ut_new_dimensionless_unit')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: system
-        end function ut_new_dimensionless_unit
+        end function c_ut_new_dimensionless_unit
 	end interface
 
-	f_ut_new_dimensionless_unit%ptr = ut_new_dimensionless_unit(ut_system%ptr)
+	f_ut_new_dimensionless_unit%ptr = c_ut_new_dimensionless_unit(ut_system%ptr)
 	return
 	end function f_ut_new_dimensionless_unit
 !=============================================================================
@@ -182,14 +185,14 @@
 	type(UT_SYSTEM_PTR), intent(IN) :: ut_system
 
 	interface
-	type(C_PTR) function ut_get_dimensionless_unit_one(system) bind(C,name='ut_get_dimensionless_unit_one')
+	type(C_PTR) function c_ut_get_dimensionless_unit_one(system) bind(C,name='ut_get_dimensionless_unit_one')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: system
-        end function ut_get_dimensionless_unit_one
+        end function c_ut_get_dimensionless_unit_one
 	end interface
 
-	f_ut_get_dimensionless_unit_one%ptr = ut_get_dimensionless_unit_one(ut_system%ptr)
+	f_ut_get_dimensionless_unit_one%ptr = c_ut_get_dimensionless_unit_one(ut_system%ptr)
 	return
 	end function f_ut_get_dimensionless_unit_one
 !=============================================================================
@@ -199,14 +202,14 @@
 	type(UT_SYSTEM_PTR), intent(IN) :: ut_system
 
 	interface
-	subroutine ut_free_system(system) bind(C,name='ut_free_system')
+	subroutine c_ut_free_system(system) bind(C,name='ut_free_system')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: system
-        end subroutine ut_free_system
+        end subroutine c_ut_free_system
 	end interface
 
-	call ut_free_system(ut_system%ptr)
+	call c_ut_free_system(ut_system%ptr)
 	return
 	end subroutine f_ut_free_system
 !=============================================================================
@@ -219,16 +222,16 @@
 	character (len=1), dimension(len_trim(name)+1), target :: temp
 
 	interface
-	type(C_PTR) function ut_get_unit_by_name(ut_system,name) bind(C,name='ut_get_unit_by_name')
+	type(C_PTR) function c_ut_get_unit_by_name(ut_system,name) bind(C,name='ut_get_unit_by_name')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: ut_system
 	type(C_PTR), value :: name
-	end function ut_get_unit_by_name
+	end function c_ut_get_unit_by_name
 	end interface
 
 	temp = transfer( trim(name)//achar(0) , temp )
-	f_ut_get_unit_by_name%ptr = ut_get_unit_by_name(ut_system%ptr,c_loc(temp))
+	f_ut_get_unit_by_name%ptr = c_ut_get_unit_by_name(ut_system%ptr,c_loc(temp))
 
 	end function f_ut_get_unit_by_name
 !=============================================================================
@@ -241,16 +244,16 @@
 	character (len=1), dimension(len_trim(symbol)+1), target :: temp
 
 	interface
-	type(C_PTR) function ut_get_unit_by_symbol(ut_system,symbol) bind(C,name='ut_get_unit_by_symbol')
+	type(C_PTR) function c_ut_get_unit_by_symbol(ut_system,symbol) bind(C,name='ut_get_unit_by_symbol')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: ut_system
 	type(C_PTR), value :: symbol
-	end function ut_get_unit_by_symbol
+	end function c_ut_get_unit_by_symbol
 	end interface
 
 	temp = transfer( trim(symbol)//achar(0) , temp )
-	f_ut_get_unit_by_symbol%ptr = ut_get_unit_by_symbol(ut_system%ptr,c_loc(temp))
+	f_ut_get_unit_by_symbol%ptr = c_ut_get_unit_by_symbol(ut_system%ptr,c_loc(temp))
 
 	end function f_ut_get_unit_by_symbol
 !=============================================================================
@@ -264,17 +267,17 @@
 	character (len=1), dimension(len_trim(symbol)+1), target :: temp
 
 	interface
-	integer(C_INT) function ut_map_name_to_unit(symbol,encoding,ut_unit) bind(C,name='ut_map_name_to_unit')
+	integer(C_INT) function c_ut_map_name_to_unit(symbol,encoding,ut_unit) bind(C,name='ut_map_name_to_unit')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: symbol
 	integer(C_INT), value :: encoding
 	type(C_PTR), value :: ut_unit
-	end function ut_map_name_to_unit
+	end function c_ut_map_name_to_unit
 	end interface
 
 	temp = transfer( trim(symbol)//achar(0) , temp )
-	f_ut_map_name_to_unit = ut_map_name_to_unit(c_loc(temp),encoding,ut_unit%ptr)
+	f_ut_map_name_to_unit = c_ut_map_name_to_unit(c_loc(temp),encoding,ut_unit%ptr)
 
 	end function f_ut_map_name_to_unit
 !=============================================================================
@@ -288,17 +291,17 @@
 	character (len=1), dimension(len_trim(symbol)+1), target :: temp
 
 	interface
-	integer(C_INT) function ut_map_unit_to_name(ut_unit,symbol,encoding) bind(C,name='ut_map_unit_to_name')
+	integer(C_INT) function c_ut_map_unit_to_name(ut_unit,symbol,encoding) bind(C,name='ut_map_unit_to_name')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: ut_unit
 	type(C_PTR), value :: symbol
 	integer(C_INT), value :: encoding
-	end function ut_map_unit_to_name
+	end function c_ut_map_unit_to_name
 	end interface
 
 	temp = transfer( trim(symbol)//achar(0) , temp )
-	f_ut_map_unit_to_name = ut_map_unit_to_name(ut_unit%ptr,c_loc(temp),encoding)
+	f_ut_map_unit_to_name = c_ut_map_unit_to_name(ut_unit%ptr,c_loc(temp),encoding)
 
 	end function f_ut_map_unit_to_name
 !=============================================================================
@@ -312,17 +315,17 @@
 	character (len=1), dimension(len_trim(symbol)+1), target :: temp
 
 	interface
-	integer(C_INT) function ut_unmap_name_to_unit(ut_system,symbol,encoding) bind(C,name='ut_unmap_name_to_unit')
+	integer(C_INT) function c_ut_unmap_name_to_unit(ut_system,symbol,encoding) bind(C,name='ut_unmap_name_to_unit')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: ut_system
 	type(C_PTR), value :: symbol
 	integer(C_INT), value :: encoding
-	end function ut_unmap_name_to_unit
+	end function c_ut_unmap_name_to_unit
 	end interface
 
 	temp = transfer( trim(symbol)//achar(0) , temp )
-	f_ut_unmap_name_to_unit = ut_unmap_name_to_unit(ut_system%ptr,c_loc(temp),encoding)
+	f_ut_unmap_name_to_unit = c_ut_unmap_name_to_unit(ut_system%ptr,c_loc(temp),encoding)
 
 	end function f_ut_unmap_name_to_unit
 !=============================================================================
@@ -333,15 +336,15 @@
 	integer(C_INT), intent(IN) :: encoding
 
 	interface
-	integer(C_INT) function ut_unmap_unit_to_name(ut_unit,encoding) bind(C,name='ut_unmap_unit_to_name')
+	integer(C_INT) function c_ut_unmap_unit_to_name(ut_unit,encoding) bind(C,name='ut_unmap_unit_to_name')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: ut_unit
 	integer(C_INT), value :: encoding
-	end function ut_unmap_unit_to_name
+	end function c_ut_unmap_unit_to_name
 	end interface
 
-	f_ut_unmap_unit_to_name = ut_unmap_unit_to_name(ut_unit%ptr,encoding)
+	f_ut_unmap_unit_to_name = c_ut_unmap_unit_to_name(ut_unit%ptr,encoding)
 
 	end function f_ut_unmap_unit_to_name
 !=============================================================================
@@ -355,17 +358,17 @@
 	character (len=1), dimension(len_trim(symbol)+1), target :: temp
 
 	interface
-	integer(C_INT) function ut_map_symbol_to_unit(symbol,encoding,ut_unit) bind(C,name='ut_map_symbol_to_unit')
+	integer(C_INT) function c_ut_map_symbol_to_unit(symbol,encoding,ut_unit) bind(C,name='ut_map_symbol_to_unit')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: symbol
 	integer(C_INT), value :: encoding
 	type(C_PTR), value :: ut_unit
-	end function ut_map_symbol_to_unit
+	end function c_ut_map_symbol_to_unit
 	end interface
 
 	temp = transfer( trim(symbol)//achar(0) , temp )
-	f_ut_map_symbol_to_unit = ut_map_symbol_to_unit(c_loc(temp),encoding,ut_unit%ptr)
+	f_ut_map_symbol_to_unit = c_ut_map_symbol_to_unit(c_loc(temp),encoding,ut_unit%ptr)
 
 	end function f_ut_map_symbol_to_unit
 !=============================================================================
@@ -379,17 +382,17 @@
 	character (len=1), dimension(len_trim(symbol)+1), target :: temp
 
 	interface
-	integer(C_INT) function ut_map_unit_to_symbol(ut_unit,symbol,encoding) bind(C,name='ut_map_unit_to_symbol')
+	integer(C_INT) function c_ut_map_unit_to_symbol(ut_unit,symbol,encoding) bind(C,name='ut_map_unit_to_symbol')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: ut_unit
 	type(C_PTR), value :: symbol
 	integer(C_INT), value :: encoding
-	end function ut_map_unit_to_symbol
+	end function c_ut_map_unit_to_symbol
 	end interface
 
 	temp = transfer( trim(symbol)//achar(0) , temp )
-	f_ut_map_unit_to_symbol = ut_map_unit_to_symbol(ut_unit%ptr,c_loc(temp),encoding)
+	f_ut_map_unit_to_symbol = c_ut_map_unit_to_symbol(ut_unit%ptr,c_loc(temp),encoding)
 
 	end function f_ut_map_unit_to_symbol
 !=============================================================================
@@ -403,17 +406,17 @@
 	character (len=1), dimension(len_trim(symbol)+1), target :: temp
 
 	interface
-	integer(C_INT) function ut_unmap_symbol_to_unit(ut_system,symbol,encoding) bind(C,name='ut_unmap_symbol_to_unit')
+	integer(C_INT) function c_ut_unmap_symbol_to_unit(ut_system,symbol,encoding) bind(C,name='ut_unmap_symbol_to_unit')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: ut_system
 	type(C_PTR), value :: symbol
 	integer(C_INT), value :: encoding
-	end function ut_unmap_symbol_to_unit
+	end function c_ut_unmap_symbol_to_unit
 	end interface
 
 	temp = transfer( trim(symbol)//achar(0) , temp )
-	f_ut_unmap_symbol_to_unit = ut_unmap_symbol_to_unit(ut_system%ptr,c_loc(temp),encoding)
+	f_ut_unmap_symbol_to_unit = c_ut_unmap_symbol_to_unit(ut_system%ptr,c_loc(temp),encoding)
 
 	end function f_ut_unmap_symbol_to_unit
 !=============================================================================
@@ -424,15 +427,15 @@
 	integer(C_INT), intent(IN) :: encoding
 
 	interface
-	integer(C_INT) function ut_unmap_unit_to_symbol(ut_unit,encoding) bind(C,name='ut_unmap_unit_to_symbol')
+	integer(C_INT) function c_ut_unmap_unit_to_symbol(ut_unit,encoding) bind(C,name='ut_unmap_unit_to_symbol')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: ut_unit
 	integer(C_INT), value :: encoding
-	end function ut_unmap_unit_to_symbol
+	end function c_ut_unmap_unit_to_symbol
 	end interface
 
-	f_ut_unmap_unit_to_symbol = ut_unmap_unit_to_symbol(ut_unit%ptr,encoding)
+	f_ut_unmap_unit_to_symbol = c_ut_unmap_unit_to_symbol(ut_unit%ptr,encoding)
 
 	end function f_ut_unmap_unit_to_symbol
 !=============================================================================
@@ -442,14 +445,14 @@
 	type(UT_UNIT_PTR), intent(IN) :: unit1
 
 	interface
-	integer(C_INT) function ut_set_second(unit1) bind(C,name='ut_set_second')
+	integer(C_INT) function c_ut_set_second(unit1) bind(C,name='ut_set_second')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: unit1
-	end function ut_set_second
+	end function c_ut_set_second
 	end interface
 
-	f_ut_set_second = ut_set_second(unit1%ptr)
+	f_ut_set_second = c_ut_set_second(unit1%ptr)
 
 	end function f_ut_set_second
 !=============================================================================
@@ -463,17 +466,17 @@
 	character (len=1), dimension(len_trim(name)+1), target :: temp
 
 	interface
-	integer(C_INT) function ut_add_name_prefix(ut_system,name,value) bind(C,name='ut_add_name_prefix')
+	integer(C_INT) function c_ut_add_name_prefix(ut_system,name,value) bind(C,name='ut_add_name_prefix')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: ut_system
 	type(C_PTR), value :: name
 	real(C_DOUBLE), value :: value
-	end function ut_add_name_prefix
+	end function c_ut_add_name_prefix
 	end interface
 
 	temp = transfer( trim(name)//achar(0) , temp )
-	f_ut_add_name_prefix = ut_add_name_prefix(ut_system%ptr,c_loc(temp),value)
+	f_ut_add_name_prefix = c_ut_add_name_prefix(ut_system%ptr,c_loc(temp),value)
 
 	end function f_ut_add_name_prefix
 !=============================================================================
@@ -487,17 +490,17 @@
 	character (len=1), dimension(len_trim(name)+1), target :: temp
 
 	interface
-	integer(C_INT) function ut_add_symbol_prefix(ut_system,name,value) bind(C,name='ut_add_symbol_prefix')
+	integer(C_INT) function c_ut_add_symbol_prefix(ut_system,name,value) bind(C,name='ut_add_symbol_prefix')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: ut_system
 	type(C_PTR), value :: name
 	real(C_DOUBLE), value :: value
-	end function ut_add_symbol_prefix
+	end function c_ut_add_symbol_prefix
 	end interface
 
 	temp = transfer( trim(name)//achar(0) , temp )
-	f_ut_add_symbol_prefix = ut_add_symbol_prefix(ut_system%ptr,c_loc(temp),value)
+	f_ut_add_symbol_prefix = c_ut_add_symbol_prefix(ut_system%ptr,c_loc(temp),value)
 
 	end function f_ut_add_symbol_prefix
 !=============================================================================
@@ -508,15 +511,15 @@
 	real(C_DOUBLE), intent(IN) :: origin
 
 	interface
-	type(C_PTR) function ut_offset_by_time(unit1,origin) bind(C,name='ut_offset_by_time')
+	type(C_PTR) function c_ut_offset_by_time(unit1,origin) bind(C,name='ut_offset_by_time')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: unit1
 	real(C_DOUBLE), value :: origin
-	end function ut_offset_by_time
+	end function c_ut_offset_by_time
 	end interface
 
-	f_ut_offset_by_time%ptr = ut_offset_by_time(unit1%ptr,origin)
+	f_ut_offset_by_time%ptr = c_ut_offset_by_time(unit1%ptr,origin)
 
 	end function f_ut_offset_by_time
 !=============================================================================
@@ -533,19 +536,19 @@
 	integer :: i, blen
 
 	interface
-	integer(C_INT) function ut_format(ut_unit,buffer,buflen,options)  bind(C,name='ut_format')
+	integer(C_INT) function c_ut_format(ut_unit,buffer,buflen,options)  bind(C,name='ut_format')
 	use ISO_C_BINDING
 	type(C_PTR), value :: ut_unit
 	type(C_PTR), value :: buffer
 	integer(C_SIZE_T), value :: buflen
 	integer(C_INT), value :: options
-	end function ut_format
+	end function c_ut_format
 	end interface
 
 	buflen=len(buffer)
 	opt = options
 	temp=" "
-	blen = ut_format(ut_unit%ptr,c_loc(temp),buflen,opt)
+	blen = c_ut_format(ut_unit%ptr,c_loc(temp),buflen,opt)
 	f_ut_format = blen
 	if(blen <= 0) then
 	  buffer="ERROR"
@@ -570,19 +573,19 @@
 	character (len=1), dimension(len_trim(symbol)+1), target :: temp
 
 	interface
-	type(C_PTR) function ut_parse(ut_system,symbol,encoding) bind(C,name='ut_parse')
+	type(C_PTR) function c_ut_parse(ut_system,symbol,encoding) bind(C,name='ut_parse')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: ut_system
 	type(C_PTR), value :: symbol
 	integer(C_INT), value :: encoding
-	end function ut_parse
+	end function c_ut_parse
 	end interface
 
 !	encoding = UT_ASCII
 	encoding = charset
 	temp = transfer( trim(symbol)//achar(0) , temp )
-	f_ut_parse%ptr = ut_parse(ut_system%ptr,c_loc(temp),encoding)
+	f_ut_parse%ptr = c_ut_parse(ut_system%ptr,c_loc(temp),encoding)
 
 	end function f_ut_parse
 !=============================================================================
@@ -592,14 +595,14 @@
 	type(UT_UNIT_PTR), intent(IN) :: ut_unit
 
 	interface
-	subroutine ut_free(ut_unit) bind(C,name='ut_free')
+	subroutine c_ut_free(ut_unit) bind(C,name='ut_free')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: ut_unit
-        end subroutine ut_free
+        end subroutine c_ut_free
 	end interface
 
-	call ut_free(ut_unit%ptr)
+	call c_ut_free(ut_unit%ptr)
 	return
 	end subroutine f_ut_free
 !=============================================================================
@@ -609,15 +612,15 @@
 	type(UT_UNIT_PTR), intent(IN) :: unit1,unit2
 
 	interface
-	integer(C_INT) function ut_compare(unit1,unit2) bind(C,name='ut_compare')
+	integer(C_INT) function c_ut_compare(unit1,unit2) bind(C,name='ut_compare')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: unit1
 	type(C_PTR), value :: unit2
-	end function ut_compare
+	end function c_ut_compare
 	end interface
 
-	f_ut_compare = ut_compare(unit1%ptr,unit2%ptr)
+	f_ut_compare = c_ut_compare(unit1%ptr,unit2%ptr)
 
 	end function f_ut_compare
 !=============================================================================
@@ -627,15 +630,15 @@
 	type(UT_UNIT_PTR), intent(IN) :: unit1,unit2
 
 	interface
-	integer(C_INT) function ut_same_system(unit1,unit2) bind(C,name='ut_same_system')
+	integer(C_INT) function c_ut_same_system(unit1,unit2) bind(C,name='ut_same_system')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: unit1
 	type(C_PTR), value :: unit2
-	end function ut_same_system
+	end function c_ut_same_system
 	end interface
 
-	f_ut_same_system = ut_same_system(unit1%ptr,unit2%ptr) .ne. 0
+	f_ut_same_system = c_ut_same_system(unit1%ptr,unit2%ptr) .ne. 0
 
 	end function f_ut_same_system
 !=============================================================================
@@ -645,14 +648,14 @@
 	type(UT_UNIT_PTR), intent(IN) :: unit1
 
 	interface
-	integer(C_INT) function ut_is_dimensionless(unit1) bind(C,name='ut_is_dimensionless')
+	integer(C_INT) function c_ut_is_dimensionless(unit1) bind(C,name='ut_is_dimensionless')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: unit1
-	end function ut_is_dimensionless
+	end function c_ut_is_dimensionless
 	end interface
 
-	f_ut_is_dimensionless = ut_is_dimensionless(unit1%ptr) .ne. 0
+	f_ut_is_dimensionless = c_ut_is_dimensionless(unit1%ptr) .ne. 0
 
 	end function f_ut_is_dimensionless
 !=============================================================================
@@ -662,15 +665,15 @@
 	type(UT_UNIT_PTR), intent(IN) :: unit1,unit2
 
 	interface
-	integer(C_INT) function ut_are_convertible(unit1,unit2) bind(C,name='ut_are_convertible')
+	integer(C_INT) function c_ut_are_convertible(unit1,unit2) bind(C,name='ut_are_convertible')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: unit1
 	type(C_PTR), value :: unit2
-	end function ut_are_convertible
+	end function c_ut_are_convertible
 	end interface
 
-	f_ut_are_convertible = ut_are_convertible(unit1%ptr,unit2%ptr) .ne. 0
+	f_ut_are_convertible = c_ut_are_convertible(unit1%ptr,unit2%ptr) .ne. 0
 
 	end function f_ut_are_convertible
 !=============================================================================
@@ -681,15 +684,15 @@
 	integer(C_INT), intent(IN) :: base
 
 	interface
-	type(C_PTR) function ut_root(unit1,base) bind(C,name='ut_root')
+	type(C_PTR) function c_ut_root(unit1,base) bind(C,name='ut_root')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: unit1
 	integer(C_INT), value :: base
-	end function ut_root
+	end function c_ut_root
 	end interface
 
-	f_ut_root%ptr = ut_root(unit1%ptr,base)
+	f_ut_root%ptr = c_ut_root(unit1%ptr,base)
 
 	end function f_ut_root
 !=============================================================================
@@ -700,15 +703,15 @@
 	integer(C_INT), intent(IN) :: base
 
 	interface
-	type(C_PTR) function ut_raise(unit1,base) bind(C,name='ut_raise')
+	type(C_PTR) function c_ut_raise(unit1,base) bind(C,name='ut_raise')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: unit1
 	integer(C_INT), value :: base
-	end function ut_raise
+	end function c_ut_raise
 	end interface
 
-	f_ut_raise%ptr = ut_raise(unit1%ptr,base)
+	f_ut_raise%ptr = c_ut_raise(unit1%ptr,base)
 
 	end function f_ut_raise
 !=============================================================================
@@ -719,15 +722,15 @@
 	real(C_DOUBLE), intent(IN) :: base
 
 	interface
-	type(C_PTR) function ut_offset(unit1,base) bind(C,name='ut_offset')
+	type(C_PTR) function c_ut_offset(unit1,base) bind(C,name='ut_offset')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: unit1
 	real(C_DOUBLE), value :: base
-	end function ut_offset
+	end function c_ut_offset
 	end interface
 
-	f_ut_offset%ptr = ut_offset(unit1%ptr,base)
+	f_ut_offset%ptr = c_ut_offset(unit1%ptr,base)
 
 	end function f_ut_offset
 !=============================================================================
@@ -738,15 +741,15 @@
 	real(C_DOUBLE), intent(IN) :: base
 
 	interface
-	type(C_PTR) function ut_scale(base,unit1) bind(C,name='ut_scale')
+	type(C_PTR) function c_ut_scale(base,unit1) bind(C,name='ut_scale')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: unit1
 	real(C_DOUBLE), value :: base
-	end function ut_scale
+	end function c_ut_scale
 	end interface
 
-	f_ut_scale%ptr = ut_scale(base,unit1%ptr)
+	f_ut_scale%ptr = c_ut_scale(base,unit1%ptr)
 
 	end function f_ut_scale
 !=============================================================================
@@ -757,15 +760,15 @@
 	real(C_DOUBLE), intent(IN) :: base
 
 	interface
-	type(C_PTR) function ut_log(base,unit1) bind(C,name='ut_log')
+	type(C_PTR) function c_ut_log(base,unit1) bind(C,name='ut_log')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: unit1
 	real(C_DOUBLE), value :: base
-	end function ut_log
+	end function c_ut_log
 	end interface
 
-	f_ut_log%ptr = ut_log(base,unit1%ptr)
+	f_ut_log%ptr = c_ut_log(base,unit1%ptr)
 
 	end function f_ut_log
 !=============================================================================
@@ -775,14 +778,14 @@
 	type(UT_UNIT_PTR), intent(IN) :: unit1
 
 	interface
-	type(C_PTR) function ut_clone(unit1) bind(C,name='ut_clone')
+	type(C_PTR) function c_ut_clone(unit1) bind(C,name='ut_clone')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: unit1
-	end function ut_clone
+	end function c_ut_clone
 	end interface
 
-	f_ut_clone%ptr = ut_clone(unit1%ptr)
+	f_ut_clone%ptr = c_ut_clone(unit1%ptr)
 
 	end function f_ut_clone
 !=============================================================================
@@ -792,14 +795,14 @@
 	type(UT_UNIT_PTR), intent(IN) :: unit1
 
 	interface
-	type(C_PTR) function ut_invert(unit1) bind(C,name='ut_invert')
+	type(C_PTR) function c_ut_invert(unit1) bind(C,name='ut_invert')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: unit1
-	end function ut_invert
+	end function c_ut_invert
 	end interface
 
-	f_ut_invert%ptr = ut_invert(unit1%ptr)
+	f_ut_invert%ptr = c_ut_invert(unit1%ptr)
 
 	end function f_ut_invert
 !=============================================================================
@@ -809,15 +812,15 @@
 	type(UT_UNIT_PTR), intent(IN) :: unit1,unit2
 
 	interface
-	type(C_PTR) function ut_multiply(unit1,unit2) bind(C,name='ut_multiply')
+	type(C_PTR) function c_ut_multiply(unit1,unit2) bind(C,name='ut_multiply')
 	use ISO_C_BINDING
 	implicit none
 	type(C_PTR), value :: unit1
 	type(C_PTR), value :: unit2
-	end function ut_multiply
+	end function c_ut_multiply
 	end interface
 
-	f_ut_multiply%ptr = ut_multiply(unit1%ptr,unit2%ptr)
+	f_ut_multiply%ptr = c_ut_multiply(unit1%ptr,unit2%ptr)
 
 	end function f_ut_multiply
 !=============================================================================
@@ -974,16 +977,16 @@
 	real(C_DOUBLE) :: second, resolution
 
 	interface
-	subroutine ut_decode_time(time,year,month,day,hour,mimute,second,resolution) bind(C,name='ut_decode_time')
+	subroutine c_ut_decode_time(time,year,month,day,hour,mimute,second,resolution) bind(C,name='ut_decode_time')
 	use ISO_C_BINDING
 	implicit none
 	real(C_DOUBLE), value :: time
 	integer(C_INT) :: year,month,day,hour,mimute
 	real(C_DOUBLE) :: second, resolution
-	end subroutine ut_decode_time
+	end subroutine c_ut_decode_time
 	end interface
 
-	call ut_decode_time(time,year,month,day,hour,mimute,second,resolution)
+	call c_ut_decode_time(time,year,month,day,hour,mimute,second,resolution)
 
 	end subroutine f_ut_decode_time
 !=============================================================================
@@ -994,15 +997,15 @@
 	real(C_DOUBLE), intent(IN) :: second
 
 	interface
-	real(C_DOUBLE) function ut_encode_time(year,month,day,hour,mimute,second) bind(C,name='ut_encode_time')
+	real(C_DOUBLE) function c_ut_encode_time(year,month,day,hour,mimute,second) bind(C,name='ut_encode_time')
 	use ISO_C_BINDING
 	implicit none
 	integer(C_INT), value :: year,month,day,hour,mimute
 	real(C_DOUBLE), value :: second
-	end function ut_encode_time
+	end function c_ut_encode_time
 	end interface
 
-	f_ut_encode_time = ut_encode_time(year,month,day,hour,mimute,second)
+	f_ut_encode_time = c_ut_encode_time(year,month,day,hour,mimute,second)
 
 	end function f_ut_encode_time
 !=============================================================================
@@ -1012,14 +1015,14 @@
 	integer(C_INT), intent(IN) :: year,month,day
 
 	interface
-	real(C_DOUBLE) function ut_encode_date(year,month,day) bind(C,name='ut_encode_date')
+	real(C_DOUBLE) function c_ut_encode_date(year,month,day) bind(C,name='ut_encode_date')
 	use ISO_C_BINDING
 	implicit none
 	integer(C_INT), value :: year,month,day
-	end function ut_encode_date
+	end function c_ut_encode_date
 	end interface
 
-	f_ut_encode_date = ut_encode_date(year,month,day)
+	f_ut_encode_date = c_ut_encode_date(year,month,day)
 
 	end function f_ut_encode_date
 !=============================================================================
@@ -1030,15 +1033,15 @@
 	real(C_DOUBLE), intent(IN) :: second
 
 	interface
-	real(C_DOUBLE) function ut_encode_clock(hour,mimute,second) bind(C,name='ut_encode_clock')
+	real(C_DOUBLE) function c_ut_encode_clock(hour,mimute,second) bind(C,name='ut_encode_clock')
 	use ISO_C_BINDING
 	implicit none
 	integer(C_INT), value :: hour,mimute
 	real(C_DOUBLE), value :: second
-	end function ut_encode_clock
+	end function c_ut_encode_clock
 	end interface
 
-	f_ut_encode_clock = ut_encode_clock(hour,mimute,second)
+	f_ut_encode_clock = c_ut_encode_clock(hour,mimute,second)
 
 	end function f_ut_encode_clock
 !=============================================================================
@@ -1053,16 +1056,16 @@
     integer :: i
 
     interface
-    type(C_PTR) function ut_get_name(ut_unit,encoding) bind(C,name='ut_get_name')
+    type(C_PTR) function c_ut_get_name(ut_unit,encoding) bind(C,name='ut_get_name')
     use ISO_C_BINDING
     implicit none
     type(C_PTR), value :: ut_unit
     integer(C_INT), value :: encoding
-    end function ut_get_name
+    end function c_ut_get_name
     end interface
 
     s_temp = ''
-    ptr = ut_get_name(ut_unit%ptr,encoding)
+    ptr = c_ut_get_name(ut_unit%ptr,encoding)
     if(C_ASSOCIATED(ptr)) then
       call c_f_pointer(ptr,c_temp,[256])
       do i=1,256
@@ -1087,16 +1090,16 @@
     integer :: i
 
     interface
-    type(C_PTR) function ut_get_symbol(ut_unit,encoding) bind(C,name='ut_get_symbol')
+    type(C_PTR) function c_ut_get_symbol(ut_unit,encoding) bind(C,name='ut_get_symbol')
     use ISO_C_BINDING
     implicit none
     type(C_PTR), value :: ut_unit
     integer(C_INT), value :: encoding
-    end function ut_get_symbol
+    end function c_ut_get_symbol
     end interface
 
     s_temp = ''
-    ptr = ut_get_symbol(ut_unit%ptr,encoding)
+    ptr = c_ut_get_symbol(ut_unit%ptr,encoding)
     if(C_ASSOCIATED(ptr)) then
       call c_f_pointer(ptr,c_temp,[256])
       do i=1,256
