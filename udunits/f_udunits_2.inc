@@ -19,7 +19,12 @@
 	type :: CHAR_STAR
 	character(len=1),dimension(:),pointer :: ptr
 	end type
-
+!
+!   the following constants are lifted from C enum in udunits2.h
+!   and may have to be adjusted should any change be made to that file
+!
+!   a cleaner way would be to use a C program to produce this file
+!
 	integer, parameter :: UT_ASCII = 0
 	integer, parameter :: UT_ISO_8859_1 = 1
 	integer, parameter :: UT_LATIN1 = UT_ISO_8859_1

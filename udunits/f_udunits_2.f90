@@ -10,45 +10,59 @@
 !	recent versions of the Portland group / Intel / IBM xlf compilers
 !	should also work  (testing to be done soon)
 !
-!	for all C functions that have been interfaced:
+!	for all the C functions that have been interfaced:
 !
-!	1-  the FORTRAN name is the C name prefixed with f_
-!	    FORTRAN function f_ut_read_xml calls C function ut_read_xml
+!   0-  the calling FORTRAN code must include
+!       use f_udunits_2
+!       to use these FORTRAN functions/subroutines
 !
-!	2-  when the C function needs a typed pointer, the fortran function uses
-!	    a typed object
-!	    type(UT_SYSTEM_PTR)     for ut_system*
-!	    type(UT_UNIT_PTR)       for ut_unit*
-!	    type(CV_CONVERTER_PTR)  for cv_converter*
+!	1-  the FORTRAN name will be the C name prefixed with f_
+!	    FORTRAN function f_ut_read_xml mimics C function ut_read_xml
 !
-!	3-  when the C function has a void return, a subroutine is used
+!	2-  where the C code uses a typed pointer, the FORTRAN code uses a typed object
 !
-!	4-  when the C function returns zero/nonzero for a C style true/false
-!	    the FORTRAN function returns a FORTRAN logical
+!	    type(UT_SYSTEM_PTR)     replaces ut_system*
+!	    type(UT_UNIT_PTR)       replaces ut_unit*
+!	    type(CV_CONVERTER_PTR)  replaces cv_converter*
 !
-!	5a- where a C function argument is char *, the FORTRAN code uses FORTRAN character (len=*)
-!	    copy to a zero terminated string is handled internally
+!	3-  where a C function has a void return, a FORTRAN subroutine is used
 !
-!   5b- where a C function result is char *, the FORTRAN code uses character (len=1), DIMENSION(:), pointer
+!	4-  where a C function returns zero/nonzero for a C style true/false
+!	    the equivalent FORTRAN function returns a FORTRAN logical
+!       (to be usable in an equivalent way in a logical expression)
+!
+!	5a- where a C input argument is char *, the FORTRAN code uses character(len=*)
+!	    copy to a C compatible zero terminated string is handled internally
+!       the FORTRAN string is "trailing blanks trimmed" before the zero byte is added
+!
+!   5b- where a C function returns char *, the FORTRAN function return type is character(len=256)
 !
 !	6-  ut_status is an integer, symbols with the same name are available to FORTRAN with
-!       include "f_udunits_2.inc"
+!       use f_udunits_2
 !
 !	7-  ut_encoding is an integer, symbols with the same name are available to FORTRAN with
-!       include "f_udunits_2.inc"
+!       use f_udunits_2
 !
 !	NOTES:
 !
-!   documentation for c code : 
+!   documentation for the C code : 
 !   http://www.unidata.ucar.edu/software/udunits/udunits-2.0.4/udunits2lib.html
 !
 !	FORTRAN interface for function returning char * (ut_trim) not implemented
 !	one should use FORTRAN trim function (may not work in all cases)
 !
-!	"visitor" functions FORTRAN interfaces are not implemented
+!	FORTRAN interfaces to "visitor" functions are not implemented
+!       ut_accept_visitor (const ut_unit* unit, const ut_visitor* visitor, void* arg)
+!       Data type: ut_visitor 
 !	
-!	FORTRAN interface for functions using a variable argument list and message handler 
+!	FORTRAN interfaces to functions using a variable argument list and message handler 
 !	are not implemented
+!    int ut_handle_error_message (const char* fmt, ...)
+!    ut_error_message_handler ut_set_error_message_handler (ut_error_message_handler handler)
+!    int ut_write_to_stderr (const char* fmt, va_list args)
+!    int ut_ignore (const char* fmt, va_list args)
+!    int ut_ignore (const char* fmt, va_list args)
+!    typedef int (*ut_error_message_handler)(const char* fmt, va_list args);
 !
 	use ISO_C_BINDING
 	implicit none
@@ -1116,14 +1130,6 @@
 !!    const char* ut_get_name (const ut_unit* unit, ut_encoding encoding)
 !!    const char* ut_get_symbol (const ut_unit* unit, ut_encoding encoding)
 
-!    ut_status ut_accept_visitor (const ut_unit* unit, const ut_visitor* visitor, void* arg)
-!    Data type: ut_visitor int foo(int) int bar(int, int)
-!    int ut_handle_error_message (const char* fmt, ...)
-!    ut_error_message_handler ut_set_error_message_handler (ut_error_message_handler handler)
-!    int ut_write_to_stderr (const char* fmt, va_list args)
-!    int ut_ignore (const char* fmt, va_list args)
-!    int ut_ignore (const char* fmt, va_list args)
-!    typedef int (*ut_error_message_handler)(const char* fmt, va_list args);
 !=============================================================================
 !=============================================================================
 !=============================================================================
