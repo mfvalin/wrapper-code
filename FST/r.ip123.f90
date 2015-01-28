@@ -8,7 +8,7 @@ character (len=64) :: warn_text
 integer :: i, npos, ip1, ip2, ip3, iostat
 integer :: k1, k2, k3
 real :: v1, v2, v3
-logical :: debug
+logical :: debug, stringprint
 
 data liste / 's', 'n', 'v', 6 * '-'/
 data val   / 'n', 'n', 'n', 6 * ' '/
@@ -16,7 +16,8 @@ data def   / 'y', 'y', 'y', 6 * ' '/
 
 npos=1
 call ccard(liste,def,val,MAXARGS,npos)
-debug = (val(3)(1:1)=='Y')
+debug = (val(3)(1:1)=='Y')        ! -v
+stringprint = (val(1)(1:1)=='Y')  ! -s
 if(debug) then
   write(0,*)'number of positional parameters =',npos
   if(npos==3) write(0,*)'INFO: (ip) => (value,kind) conversion'
@@ -37,7 +38,11 @@ if(npos==3) then
   if(debug) write(0,102)'converting: ',ip1,ip2,ip3
   iostat = decode_ip(v1,k1,v2,k2,v3,k3,ip1,ip2,ip3)
   if(iand(iostat,CONVERT_ERROR)==CONVERT_ERROR) goto 555
-  print 103,'',v1,k1,v2,k2,v3,k3
+  if(stringprint) then
+    print 104,'',v1,kind_to_string(k1),v2,kind_to_string(k2),v3,kind_to_string(k3)
+  else
+    print 103,'',v1,k1,v2,k2,v3,k3
+  endif
   if(iostat/=0 .and. val(2)(1:1)=='Y') goto 666
 102 format(A,3I12)
 endif
@@ -56,6 +61,7 @@ if(npos==6) then
   if(iostat/=0 .or. k1<0)goto 444
   if(debug) write(0,103)'converting: ',v1,k1,v2,k2,v3,k3
 103 format(a,3(G12.6,' ',i3))
+104 format(a,3(G12.6,' ',A3))
   iostat = encode_ip(ip1,ip2,ip3,v1,k1,v2,k2,v3,k3)
   if(debug) write(0,102)'result: ',ip1,ip2,ip3
   if(iand(iostat,CONVERT_ERROR)==CONVERT_ERROR) goto 555

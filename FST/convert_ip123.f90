@@ -17,19 +17,96 @@
 ! * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ! * Boston, MA 02111-1307, USA.
 ! */
+!****P* rmnlib/convert_ip123
+! SYNOPSIS
 module convert_ip123
 use ISO_C_BINDING
-
+! DESCRIPTION
+!  set of generic IP123 conversion functions (IP123 from RPN standard files)
+!  (ip1,ip2,ip3) triplet <-> 3 (real value,kind) pairs
+!
+!  the Fortran user will call the generic functions
+!  - encode_ip   (real value,kind) pairs -> (ip1,ip2,ip3) triplet
+!  - decode_ip   (ip1,ip2,ip3) triplet   -> (real value,kind) pairs
+!  the kind of arguments will determine which specific conversion function will be used
+!  (see description of specific functions)
+!  encode_ip_0, encode_ip_1, encode_ip_2, encode_ip_3
+!  decode_ip_0, decode_ip_1, decode_ip_2, decode_ip_3
+! AUTHOR
+!  M.Valin 2013
+! EXAMPLES
+!   use convert_ip123
+!   implicit none
+!   integer :: ip1, ip2, ip3, stat
+!   integer, dimension(3) :: vip123
+!   integer :: k1, k2, k3
+!   integer, dimension(3) :: vk123
+!   real    :: v1, v2, v3
+!   real, dimension(3)    :: v123
+!   type(FLOAT_IP) :: RP1,RP2,RP3
+!   type(FLOAT_IP), dimension(3) :: VRP123
+!
+!   stat = encode_ip(ip1,ip2,ip3,v1,k1,v2,k2,v3,k3)  ! everything explicit (encode_ip_0)
+!   stat = encode_ip(vip123,v123,vk123)              ! vector version of above (encode_ip_1)
+!   stat = encode_ip(ip1,ip2,ip3,RP1,RP2,RP3)        ! ip <- multiple FLOAT_IP  (encode_ip_2)
+!   stat = encode_ip(vip123,VRP123)                  ! vector version of above (encode_ip_3)
+!
+!   stat = decode_ip(v1,k1,v2,k2,v3,k3,ip1,ip2,ip3)  ! everything explicit (decode_ip_0)
+!   stat = decode_ip(v123,vk123,vip123)              ! vector version of above (decode_ip_1)
+!   stat = decode_ip(RP1,RP2,RP3,ip1,ip2,ip3)        ! ip -> multiple FLOAT_IP  (decode_ip_2)
+!   stat = decode_ip(VRP123,vip123)                  ! vector version of above (decode_ip_3)
+! NOTES
+!  the FORTRAN user must include
+!    use convert_ip123
+!  in order to access this package
+!
+!  individual IP to real value + kind conversions are performed by function convip_plus
+!  real value to formatted string encoding is performed by function value_to_string
+!******
 public  :: encode_ip_0, encode_ip_1, decode_ip_0, decode_ip_1
 public  :: encode_ip_2, encode_ip_3, decode_ip_2, decode_ip_3
 public  :: convip_plus, test_convip_plus, test_value_to_string
-public  :: value_to_string
+public  :: value_to_string, kind_to_string
 private :: conv_kind_15
 
-type, BIND(C) :: float_ip
-real(C_FLOAT) :: lo, hi
-integer(C_INT) :: kind
+!****T* rmnlib/FLOAT_IP
+! SYNOPSIS
+type, BIND(C)  :: FLOAT_IP
+real(C_FLOAT)  :: lo         ! low bound
+real(C_FLOAT)  :: hi         ! high bound
+integer(C_INT) :: kind       ! type code (see table below)
 end type
+! TABLES
+! kind     name              description                  range of values
+!
+!   0  KIND_ABOVE_SEA   height (m) above mean sea level (-20,000 -> 100,000)
+!   1  KIND_SIGMA       sigma coordinates               (0.0 -> 1.0)
+!   2  KIND_PRESSURE    pressure (mb)                   (0 -> 1100)
+!   3  KIND_ARBITRARY   arbitrary number, no units      (-4.8e8 -> 1.0e10)
+!   4  KIND_ABOVE_GND   height (m) above ground         (-20,000 -> 100,000)
+!   5  KIND_HYBRID      hybrid coordinates              (0.0 -> 1.0)
+!   6  KIND_THETA       theta coordinates               (1 -> 200,000)
+!  10  KIND_HOURS       time (hours)                    (0.0 -> 1.0e10)
+!  15  KIND_SAMPLES     reserved (integer value)        (0 -> 1 999 999)
+!  17  KIND_MTX_IND     conversion matrix x subscript)  (1.0 -> 1.0e10)
+!                       (shared with kind=1 
+!  21  KIND_M_PRES      pressure-meters                 (0 -> 1,000,000) fact=1E+4
+!                       (shared with kind=5)
+!
+! return FLAGS for encode/decode functions (more than one flag may be set)
+!  CONVERT_OK     ( 0 = no FLAG set)
+!  CONVERT_GUESS  (= CONVERT_GOOD_GUESS || CONVERT_BAD_GUESS || CONVERT_TERRIBLE_GUESS)
+!  CONVERT_GOOD_GUESS
+!  CONVERT_BAD_GUESS
+!  CONVERT_TERRIBLE_GUESS
+!  CONVERT_WARNING
+!  CONVERT_ERROR
+
+! NOTES
+!  the FORTRAN user must
+!    use convert_ip123
+!  in order to use this derived type and the symbolic names for kind
+!******
 
 integer, public, parameter :: TO_IP=1
 integer, public, parameter :: TO_RP=-1
@@ -85,7 +162,15 @@ integer, private, save, dimension(0:Max_Kind) :: islevel = &
 
 private :: swap, swapi, is_invalid_kind, is_level, ascending, descending
 
+character(len=2), private, save, dimension(0:Max_Kind) :: kinds = &
+  (/    'm ', 'sg', 'mb', '##', 'M ', 'hy', 'th', '??',                       &
+        '??', '??', 'H ', '??', '??', '??', '??', 'I0',                       &
+        '??', '[]', '??', '??', '??', 'mp', '??', '??',                       &
+        '??', '??', '??', '??', '??', '??', '??', 'I1' /)
+
+
 contains
+!=========================== start of private functions ========================================
 !===============================================================================================
 function is_level(kind) result(status)  ! is this kind a level ?
   logical :: status
@@ -129,30 +214,62 @@ subroutine swap(a,b)  ! swap a pair of real values
   t = a ; a = b ; b = t
   return
 end subroutine swap
+!============================= end of private functions ========================================
 !===============================================================================================
-!
+FUNCTION kind_to_string(code) RESULT(string)  ! translate ip kind into a 2 character string code
+  integer, intent(IN) :: code
+  character(len=2) :: string
+
+  string = '!!'    ! precondition to fail
+
+  if(code<0) return   ! invalid type code
+  
+  if(code<=Max_Kind) then
+    string = kinds(code)  ! straight table lookup
+    return
+  endif
+  
+  if(mod(code,16)/=15) return  ! not a subkind of kind 15
+  
+  if(code/16>9)  return  ! not a potentially valid subkind of kind 15
+  
+  write(1,string)'I',code/16   ! 'In' code where n=code/16 (n=0,1..,9)
+1 format(A,I1)
+
+  return
+end
+
+!===============================================================================================
+!****f* rmnlib/encode_ip_0
+! SUMMARY
 ! produce a valid (ip1,ip2,ip3) triplet from (real value,kind) pairs
+! SYNOPSIS
+ FUNCTION encode_ip_0(IP1,IP2,IP3,RP1,RP2,RP3) RESULT(status) BIND (C,name='EncodeIp')
+! INPUTS
 ! RP1 must contain a level (or a pair of levels) in the atmosphere
 ! RP2 must contain  a time (or a pair of times)
 ! RP3 may contain anything, RP3%hi will be ignored (if RP1 or RP2 contains a pair, RP3 is ignored)
-! this routine is C interoperable
-!
+! OUTPUTS
+! IP1,IP2,IP3 will contain the encoded values in case of success, and are undefined otherwise
+! RESULT
 ! the function returns CONVERT_ERROR in case of error, CONVERT_OK otherwise
-!
-!notes: some reordering may take place when RP! or RP@ contains a pair
-!       levels: ip1 will be lower in atmosphere than ip2
-!       times:  ip2 will be the end of the time range, ip3 will be the start of the time range
-!
-!       RP1 not a level or RP2 not a time will be flagged as an error
-!       RP1 and RP2 both containing a range will be flagged as an error
-!       in case of error, ip1,2,3 will be returned as -1
-!
-function encode_ip_0(IP1,IP2,IP3,RP1,RP2,RP3) result(status) BIND (C,name='EncodeIp')
+! NOTES
+! - this function is C interoperable
+! - reordering may happen if RP1 or RP2 contain a pair of values
+! - levels: ip1 will be lower in atmosphere than ip2
+! - times:  ip2 will be the end of the time range, ip3 will be the start of the time range
+! - RP1 not a level or RP2 not a time will be flagged as an error
+! - RP1 and RP2 both containing a range will be flagged as an error
+! - in case of error, one or more of ip1,2,3 may be returned as -1
+! the FORTRAN user must
+!    use convert_ip123
+! in order to access this function
   implicit none  ! coupled (rp1,rp2,rp3) to (ip1,ip2,ip3) conversion with type enforcement
-
+! ARGUMENTS
   integer(C_INT) :: status
   integer(C_INT), intent(OUT) :: IP1,IP2,IP3
-  type(float_ip), intent(IN)  :: RP1,RP2,RP3
+  type(FLOAT_IP), intent(IN)  :: RP1,RP2,RP3
+!******
 
   real*4, dimension(3) :: P
   integer, dimension(3) ::kind
@@ -202,36 +319,45 @@ function encode_ip_0(IP1,IP2,IP3,RP1,RP2,RP3) result(status) BIND (C,name='Encod
   return
 end function encode_ip_0
 !===============================================================================================
-!
+!****f* rmnlib/decode_ip_0
+! SUMMARY
 ! produce valid (real value,kind) pairs from (ip1,ip2,ip3) triplet
-! ip1/2/3 should be encoded "new style" but old style encoding is accepted
-! RP1 will contain a level (or a pair of levels in atmospheric ascending order) in the atmosphere
-! RP2 will contain a time (or a pair of times in ascending order)
-! RP3%hi will be the same as RP3%lo (if RP1 or RP2 contains a pair, RP3 is ignoref)
-! this routine is C interoperable
+! AUTHOR
+!  M.Valin 2013
+! SYNOPSIS
+function decode_ip_0(RP1,RP2,RP3,IP1V,IP2V,IP3V) result(status) BIND (C,name='DecodeIp')
 !
-! function returns:  CONVERT_ERROR        error, (ip1 not level, ip2 not time, etc...)
-!                    CONVERT_OK           everything is OK
-!                    CONVERT_GOOD_GUESS   old style ip1 and/or ip2 are present
-!                    CONVERT_BAD_GUESS    old style ip3, interpreted as time
-!                    CONVERT_TERRIBLE_GUESS old style ip3, interpreted as arbitrary code
+! INPUTS
+!  ip1/2/3 should be encoded "new style" but old style encoding is accepted
+! OUTPUTS
+!  RP1 will contain a level (or a pair of levels in atmospheric ascending order) in the atmosphere
+!  RP2 will contain a time (or a pair of times in ascending order)
+!  RP3%hi will be the same as RP3%lo (if RP1 or RP2 contains a pair, RP3 is ignored)
+! RESULT
+!   CONVERT_ERROR          error, (ip1 not level, ip2 not time, etc...)
+!   CONVERT_OK             everything is OK
+!   CONVERT_GOOD_GUESS     old style ip1 and/or ip2 are present
+!   CONVERT_BAD_GUESS      old style ip3, interpreted as time
+!   CONVERT_TERRIBLE_GUESS old style ip3, interpreted as arbitrary code
 !
 ! in case of error, RP1/2/3 are undefined (may contain anything)
-!
-!notes: some reordering may take place when RP1 or RP2 contains a pair
-!       levels: ip1 will be lower in atmosphere than ip2
-!       times:  ip2 will be the end of the time range, ip3 will be the start of the time range
-!
-!       ip1 not a level or ip2 not a time will be flagged as an error
-!       RP1 and RP2 both containing a range will be flagged as an error
-!       in case of error, ip1,2,3 will be returned as -1
-!
-function decode_ip_0(RP1,RP2,RP3,IP1V,IP2V,IP3V) result(status) BIND (C,name='DecodeIp')
+! NOTES
+! - this function is C interoperable
+! - some reordering may take place when RP1 or RP2 contains a pair
+! - levels: ip1 will be lower in atmosphere than ip2
+! - times:  ip2 will be the end of the time range, ip3 will be the start of the time range
+! - ip1 not a level or ip2 not a time will be flagged as an error
+! - RP1 and RP2 both containing a range will be flagged as an error
+! - in case of error, ip1,2,3 will be returned as -1
+! the FORTRAN user must
+!  use convert_ip123
+! in order to access this function
   implicit none ! coupled (ip1,ip2,ip3) to (rp1,rp2,rp3) conversion with type enforcement
-
+! ARGUMENTS
   integer(C_INT) :: status
   integer(C_INT), value, intent(IN)  :: IP1V,IP2V,IP3V
-  type(float_ip), intent(OUT) :: RP1,RP2,RP3
+  type(FLOAT_IP), intent(OUT) :: RP1,RP2,RP3
+!******
 
   real*4, dimension(3) :: P
   integer, dimension(3) ::kind
@@ -293,51 +419,86 @@ return
   return
 end function decode_ip_0
 !===============================================================================================
-! vector version of encode_ip_0 (EncodeIp)
+!****f* rmnlib/encode_ip_1
+! SUMMARY
+! vector version of encode_ip_0
+! AUTHOR
+!  M.Valin 2013
+! SYNOPSIS
 function encode_ip_1(IP,RP) result(status) BIND (C,name='EncodeIp_v')
+! NOTES
+! (see encode_ip_0) 
   implicit none  ! coupled (rp1,rp2,rp3) to (ip1,ip2,ip3) conversion with type enforcement
-
+! ARGUMENTS
   integer(C_INT) :: status
   integer(C_INT), dimension(3), intent(OUT) :: IP
-  type(float_ip), dimension(3), intent(IN)  :: RP
+  type(FLOAT_IP), dimension(3), intent(IN)  :: RP
+! RESULT
+! same as encode_ip_0
+!******
 
   status=encode_ip_0(IP(1),IP(2),IP(3),RP(1),RP(2),RP(3))
 
   return
 end function encode_ip_1
 !===============================================================================================
-! vector version of decode_ip_0 (DecodeIp)
+!****f* rmnlib/decode_ip_1
+! SUMMARY
+! vector version of decode_ip_0
+! SYNOPSIS
 function decode_ip_1(RP,IP) result(status) BIND (C,name='DecodeIp_v')
+! NOTES
+! (see decode_ip_0) 
   implicit none ! coupled (ip1,ip2,ip3) to (rp1,rp2,rp3) conversion with type enforcement
 
+! ARGUMENTS
   integer(C_INT) :: status
   integer(C_INT), dimension(3), intent(IN)  :: IP
-  type(float_ip), dimension(3), intent(OUT) :: RP
+  type(FLOAT_IP), dimension(3), intent(OUT) :: RP
+! RESULT
+! same as decode_ip_0
+!******
 
   status=decode_ip_0(RP(1),RP(2),RP(3),IP(1),IP(2),IP(3))
 
 return
 end function decode_ip_1
 !===============================================================================================
+!****f* rmnlib/encode_ip_2
+! SUMMARY
 ! encode three (value,kind) pairs into three ip values
-! pair 1 must be a level
-! pair 2 should be a time but a level is accepted (and flagged)
-! pair 3 may be kind
-! function returns: CONVERT_OK           everything is OK
-!                   CONVERT_ERROR        error (kind1 not a level, kind2 not level or time)
-!                   CONVERT_WARNING      coding convention error, corrected
-!
-!notes: tolerated coding deviations: kind2 a level instead of a time (will be pushed to position 3 and flagged as warning)
-!       ip1/ip3 forced to the proper atmospheric ascending order coding (not flagged as warning)
-!       ip2/ip3 forced to proper descending order (not flagged as warning)
-!       in case of error, the contents of ip1/2/3 is undefined (probably -1)
+! AUTHOR
+!  M.Valin 2013
+! SYNOPSIS
 function encode_ip_2(IP1,IP2,IP3,P1,kkind1,P2,kkind2,P3,kkind3) result(status) BIND(C,name='ConvertPKtoIP')
+! INPUTS
+!  P1,kkind1 must be a level
+!  P2,kkind2 should be a time but a level is accepted (and flagged as a WARNING)
+!  P3,kkind3 may be anything
+! OUTPUTS
+!  IP1,IP2,IP3 will contain the encoded values in case of success, and are undefined otherwise
+! RESULT
+!     CONVERT_OK           everything is OK
+!     CONVERT_ERROR        error (kind1 not a level, kind2 not level or time)
+!     CONVERT_WARNING      coding convention error, corrected
+!
+! NOTES
+! - this function is C interoperable
+! - tolerated coding deviations: kind2 a level instead of a time (will be pushed to position 3 and flagged as warning)
+! - ip1/ip3 forced to the proper atmospheric ascending order coding (not flagged as warning)
+! - ip2/ip3 forced to proper descending order (not flagged as warning)
+! - in case of error, the contents of ip1/2/3 is undefined (possibly -1)
+! the FORTRAN user must
+!  use convert_ip123
+! in order to access this function
 implicit none  ! explicit, almost independent (rp,kind) to (ip) conversion
 
+! ARGUMENTS
   integer(C_INT) :: status
   integer(C_INT),        intent(OUT) :: IP1,IP2,IP3
   real(C_FLOAT), value, intent(IN)   :: P1,P2,P3
   integer(C_INT), value, intent(IN)  :: kkind1,kkind2,kkind3
+!******
 
   character(len=1) :: dummy
   integer(C_INT) :: kind1,kind2,kind3
@@ -376,23 +537,38 @@ implicit none  ! explicit, almost independent (rp,kind) to (ip) conversion
   return
 end function encode_ip_2
 !===============================================================================================
-!decode ip1/2/3 into three (value,kind) pairs
-! function returns: CONVERT_OK           everything is OK
-!                   CONVERT_ERROR        error (bad kind, ip1 not a level, etc ....)
-!                   CONVERT_WARNING      coding convention violations
-!                   CONVERT_GOOD_GUESS   old style ip1 and/or ip2 are present
-!                   CONVERT_BAD_GUESS    old style ip3, interpreted as time
-!                   CONVERT_TERRIBLE_GUESS old style ip3, interpreted as arbitrary code
-!
-! in case of error, (value,kind) pairs are undefined (may contain anything)
-!notes:
+!****f* rmnlib/decode_ip_2
+! SUMMARY
+! decode ip1/2/3 into three (value,kind) pairs
+! explicit, independent (ip) to (rp,kind) conversion
+! AUTHOR
+!  M.Valin 2013
+! SYNOPSIS
 function decode_ip_2(RP1,kind1,RP2,kind2,RP3,kind3,IP1V,IP2V,IP3V) result(status) BIND(C,name='ConvertIPtoPK')
-implicit none ! explicit, independent (ip) to (rp,kind) conversion
+implicit none 
 
+! ARGUMENTS
   integer(C_INT) :: status
   real(C_FLOAT),        intent(OUT)  :: RP1,RP2,RP3
   integer(C_INT),        intent(OUT) :: kind1,kind2,kind3
   integer(C_INT), value, intent(IN)  :: IP1V,IP2V,IP3V
+! INPUTS
+!  IP1V,IP2V,IP3V IP values to be decoded
+! OUTPUTS
+!  RP1,kind1  result of IP1V decoding
+!  RP2,kind2  result of IP2V decoding
+!  RP3,kind3  result of IP3V decoding
+! RESULT
+!   CONVERT_OK           everything is OK
+!   CONVERT_ERROR        error (bad kind, ip1 not a level, etc ....)
+!   CONVERT_WARNING      coding convention violations
+!   CONVERT_GOOD_GUESS   old style ip1 and/or ip2 are present
+!   CONVERT_BAD_GUESS    old style ip3, interpreted as time
+!   CONVERT_TERRIBLE_GUESS old style ip3, interpreted as arbitrary code
+! NOTES
+! - this function is C interoperable
+! - in case of error, (value,kind) pairs are undefined (may contain anything)
+!******
 
   character(len=1) :: dummy
   integer :: IP1, IP2, IP3
@@ -457,29 +633,47 @@ implicit none ! explicit, independent (ip) to (rp,kind) conversion
   return
 end function decode_ip_2
 !===============================================================================================
+!****f* rmnlib/encode_ip_3
+! SUMMARY
 ! vector version of encode_ip_2 (ConvertPKtoIP)
+! AUTHOR
+!  M.Valin 2013
+! SYNOPSIS
 function encode_ip_3(IP,RP,kind) result(status) BIND(C,name='ConvertPKtoIP_v')
+! RESULT
+! same as encode_ip_2
+! NOTES
+! see encode_ip_2
 implicit none  ! explicit, independent (rp,kind) to (ip) conversion
 
+! ARGUMENTS
   integer(C_INT) :: status
   integer(C_INT), dimension(3), intent(OUT) :: IP
   real(C_FLOAT), dimension(3), intent(IN)   :: RP
   integer(C_INT), dimension(3), intent(IN)  :: kind
+!******
 
   status=encode_ip_2(IP(1),IP(2),IP(3),RP(1),kind(1),RP(2),kind(2),RP(3),kind(3))
 
 return
 end function encode_ip_3
 !===============================================================================================
-!vector version of decode_ip_2 (ConvertIPtoPK)
+!****f* rmnlib/decode_ip_3
+! SUMMARY
+!vector version of decode_ip_2
+! SYNOPSIS
 function decode_ip_3(RP,kind,IP) result(status) BIND(C,name='ConvertIPtoPK_v')
+! RESULT
+! same as decode_ip_2
+! NOTES
+! see decode_ip_2
 implicit none ! explicit, independent (ip) to (rp,kind) conversion
-
+! ARGUMENTS
   integer(C_INT) :: status
   real(C_FLOAT),  dimension(3), intent(OUT) :: RP
   integer(C_INT), dimension(3), intent(OUT) :: kind
   integer(C_INT), dimension(3), intent(IN)  :: IP
-
+!******
   status=decode_ip_2(RP(1),kind(1),RP(2),kind(2),RP(3),kind(3),IP(1),IP(2),IP(3))
 
 return
@@ -498,24 +692,28 @@ subroutine C_CONV_IP( ip, p, kind, mode ) BIND(C,name='ConvertIp') ! C language 
     call CONVIP_plus( ip, p, kind, mode2,string,.false.)
 end subroutine C_CONV_IP
 !===============================================================================================
-! successeur de convip
+!****f* rmnlib/convip_plus
+! SUMMARY
+!  successeur de convip,  Codage/Decodage P,kind <-> IP pour IP1, IP2, IP3
+!  necessaire avant de lire/ecrire un enregistrement sur un fichier standard.
+! SYNOPSIS
 SUBROUTINE CONVIP_plus( ip, p, kind, mode, string, flagv )
   implicit none
+! ARGUMENTS
   integer, intent(INOUT) :: ip, kind
   integer, intent(IN) :: mode
   real, intent(INOUT) :: p
   character *(*), intent(OUT) :: string 
   logical, intent(IN) :: flagv
 
-!*********************************************************************
-!     Codage/Decodage P de/a IP pour IP1, IP2, IP3
-!     necessaire avant de lire/ecrire un enregistrement
-!     sur un fichier standard.
+! Notes
 !
-!     Etendue des valeurs encodes: 10e-5 -> 10e10
-!     1024x1024-1 = 1048575    1048001 -> 1048575 non utilise
-!                              1000000 -> 1048000 utilise pour valeurs negatives
-!
+!  Etendue des valeurs reelles encodees: 10e-5 -> 10e10
+!  pseudo mantisses :
+!  1024x1024-1 = 1048575
+!  1048001 -> 1048575 non utilise
+!  1000001 -> 1048000 utilise pour valeurs negatives
+! AUTHOR
 !     Auteurs: N. Ek et B. Dugas - Mars 1996
 !     Revision 001  M. Lepine - juin 1997 convpr devient convip
 !     Revision 002  M. Valin  - mai  1998 fichiers std 98
@@ -529,38 +727,41 @@ SUBROUTINE CONVIP_plus( ip, p, kind, mode, string, flagv )
 !     Revision 008  M. Lepine - Dec 2005 kind = 17 (indice de matrice de niveaux)
 !     Revision 009  M. Valin  - Mars 2008 kind = 21 (metres pression remplacant GalChen)
 !                               introduction de zero_val2 pour la conversion ip->p
-!     Revision 010  M. Lepine - Mai 2010 traitement des valeurs en dehors des intervals connus
+!     Revision 010  M. Lepine - Mai 2010 traitement des valeurs en dehors des intervalles connus
 !                               comme valeurs arbitraires
 !     Revision 011  M. Valin  - Mai/Juin 2013 activation du code 15, ajout de la conversion groupee,
 !                               menage dans le code, changement de nom, refactoring
-!
-!     Input:    MODE = -1, de IP -->  P
-!               MODE =  0, forcer conversion pour ip a 31 bits
+!     Revision 012  M. Valin  - Oct/Nov 2013 bug de conversion corrige pour certains cas limites
+!                               enleve une amelioration qui entrainait une non compatibilite avec convip
+! INPUTS
+!    MODE = -1, de IP -->  P
+!    MODE =  0, forcer conversion pour ip a 31 bits
 !                          (default = ip a 15 bits)
 !                          (appel d'initialisation)
-!               MODE = +1, de P  --> IP
-!               MODE = +2, de P  --> IP en mode NEWSTYLE force a true
-!               MODE = +3, de P  --> IP en mode NEWSTYLE force a false
-!               FLAG = .true. , ecriture de P avec format dans string
-!
-!     Input/
-!     Ouput:    IP  =   Valeur codee 
-!               P    =   Valeur reelle
-!               KIND =0, p est en hauteur (m) par rapport au niveau de la mer (-20,000 -> 100,000)
-!               KIND =1, p est en sigma                                       (0.0 -> 1.0)
-!               KIND =2, p est en pression (mb)                               (0 -> 1100)
-!               KIND =3, p est un code arbitraire                             (-4.8e8 -> 1.0e10)
-!               KIND =4, p est en hauteur (M) par rapport au niveau du sol    (-20,000 -> 100,000)
-!               KIND =5, p est en coordonnee hybride                          (0.0 -> 1.0)
-!               KIND =6, p est en coordonnee theta                            (1 -> 200,000)
-!               KIND =10, p represente le temps en heure                      (0.0 -> 1.0e10)
-!               KIND =15, reserve (entiers)                                   
-!               KIND =17, p represente l'indice x de la matrice de conversion (1.0 -> 1.0e10)
-!                                                   (partage avec kind=1 a cause du range exclusif
-!               KIND =21, p est en metres-pression  (partage avec kind=5 a cause du range exclusif)
-!                                                                             (0 -> 1,000,000) fact=1e4
-!               STRING = valeur de P formattee
-!*********************************************************************
+!    MODE = +1, de P  --> IP
+!    MODE = +2, de P  --> IP en mode NEWSTYLE force a true
+!    MODE = +3, de P  --> IP en mode NEWSTYLE force a false
+!    FLAGV = .true. , ecriture de P avec format dans string
+! INOUTS
+!    IP  =   Valeur codee 
+!    P    =   Valeur reelle
+!    KIND =0, p est en hauteur (m) par rapport au niveau de la mer (-20,000 -> 100,000)
+!    KIND =1, p est en sigma                                       (0.0 -> 1.0)
+!    KIND =2, p est en pression (mb)                               (0 -> 1100)
+!    KIND =3, p est un code arbitraire                             (-4.8e8 -> 1.0e10)
+!    KIND =4, p est en hauteur (M) par rapport au niveau du sol    (-20,000 -> 100,000)
+!    KIND =5, p est en coordonnee hybride                          (0.0 -> 1.0)
+!    KIND =6, p est en coordonnee theta                            (1 -> 200,000)
+!    KIND =10, p represente le temps en heure                      (0.0 -> 1.0e10)
+!    KIND =15, reserve (entiers)                                   
+!    KIND =17, p represente l'indice x de la matrice de conversion (1.0 -> 1.0e10)
+!              (partage avec kind=1 a cause du range exclusif
+!    KIND =21, p est en metres-pression                            (0 -> 1,000,000) fact=1e4
+!              (partage avec kind=5 a cause du range exclusif)                                                             
+! OUTPUTS
+!    STRING = valeur de P formattee
+!******
+
   real *8 TEN
   parameter (TEN=10.0)
   real *8 limit1, limit2, temp
@@ -572,7 +773,6 @@ SUBROUTINE CONVIP_plus( ip, p, kind, mode, string, flagv )
   integer maxkind
   logical NEWSTYLE, NEWENCODING
   real *8 exptab(0:15)
-  character *2 kinds(0:Max_Kind)
   character (len=12) :: string2
   integer :: status
 
@@ -602,19 +802,13 @@ SUBROUTINE CONVIP_plus( ip, p, kind, mode, string, flagv )
   &  (/ 1., 1., 1., 1., 1., 1., 1., (1.0,i=7,16),                             &
   &    -1.0, (1.0,i=18,20), 1.0e+4, (1.0,i=22,31) /)
 
-  save NEWSTYLE, exptab, kinds, maxkind
+  save NEWSTYLE, exptab, maxkind
 
   data NEWSTYLE /.false./
 
   data exptab /0.0001D0, 0.001D0, 0.01D0, 0.1D0, 1.0, 10.0, 100.0,            &
   &  1000.0, 10000.0, 100000.0, 1000000.0, 10000000.0,                        &
   &  100000000.0, 1000000000.0, 10000000000.0, 100000000000.0 /
-
-  data kinds                                                                  &
-  &   / 'm ', 'sg', 'mb', '##', 'M ', 'hy', 'th', '??',                       &
-  &     '??', '??', 'H ', '??', '??', '??', '??', '  ',                       &
-  &     '??', '[]', '??', '??', '??', 'mp', '??', '??',                       &
-  &     '??', '??', '??', '??', '??', '??', '??', '  '/
 
   if (mode .eq.0) then
       NEWSTYLE = .true.
@@ -831,6 +1025,7 @@ SUBROUTINE CONVIP_plus( ip, p, kind, mode, string, flagv )
 ! 6007 format(' Warning in convip: undetermined kind used =',I10)
 
 end SUBROUTINE CONVIP_plus
+!=========================== start of private function =========================================
 !===============================================================================================
 function conv_kind_15(p,mykind,ip,mode) result(status) ! convert kind = 15 and subkinds
   implicit none
@@ -882,12 +1077,34 @@ function conv_kind_15(p,mykind,ip,mode) result(status) ! convert kind = 15 and s
 ! total failure if we get here
   return
 end function conv_kind_15
+!============================= end of private function =========================================
 !===============================================================================================
-integer function value_to_string(val,string,maxlen)  ! write value val into string using at most maxlen characters
-  integer :: maxlen
-  character (len=*) :: string
+!****f* rmnlib/value_to_string
+! SUMMARY
+! write value val into string using at most maxlen characters
+! SYNOPSIS
+integer function value_to_string(val,string,maxlen)  
+! AUTHOR
+!  M.Valin 2013
+!  Revision 001 :  M.Valin  Oct 2013 alignement a droite corrige pour valeurs entieres > 0
+! ARGUMENTS
+  integer, intent(IN) :: maxlen
+  character (len=*), intent(OUT) :: string
+  real *4, intent(IN) :: val
+! INPUTS
+!  maxlen : use at most maxlen characters to code value
+!  val    : real value to be encoded (left aligned) into string
+! OUTPUTS
+!  string : result of encoding
+! RESULT
+!  if something went wrong, the return value will be <= 0
+!  if an integer format (I) is used, the return value is the number of characters used
+!  if a floating format (F/G) is used, return value =- 100*field_width + nb_of_significant_digits
+!  ex: if F8.3 is used, the result will be 803, if I6 is used, the result will be 6
+!******
   character (len=32) :: fstring
-  real *4 :: val, value
+  character (len=128) :: tempstring
+  real *4 :: value
   integer :: after, before
   integer :: grosint, maxc, intdig
 
@@ -899,7 +1116,9 @@ integer function value_to_string(val,string,maxlen)  ! write value val into stri
   value_to_string=-(100*before+after*10)
   write(fstring,11)maxc,after    ! default G format
 
-  if(value >= 1000000000000.0 .or. value < .0001) goto 666   ! use G format
+  if(value /= 0.0) then
+    if(value >= 1000000000000.0 .or. value < .0001) goto 666   ! use G format
+  endif
 
   if(nint(value)==value) then ! exact integral value
     grosint=1
@@ -950,17 +1169,29 @@ integer function value_to_string(val,string,maxlen)  ! write value val into stri
     string(i:i)=' '
     i=i-1
   enddo
+  if(string(1:1)==' ') then
+    tempstring=string(2:len(string))
+    string=tempstring
+  endif
   return
 
   666 continue
   if(maxc-6<=0) goto 888
   !print *,'=',trim(fstring)
   write(string,fstring)val            ! G format
+  if(string(1:1)==' ') then
+    tempstring=string(2:len(string))
+    string=tempstring
+  endif
   return
 
   777 continue
   !print *,'=',trim(fstring)
   write(string,fstring)nint(val)      ! I format
+  if(string(1:1)==' ') then
+    tempstring=string(2:len(string))
+    string=tempstring
+  endif
   return
 
   888 continue
