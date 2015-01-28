@@ -13,6 +13,10 @@
 	type, bind(C) :: UT_STATUS
 	integer(C_INT) :: value
 	end type
+	
+	type :: CHAR_STAR
+	character(len=1),dimension(:),pointer :: ptr
+	end type
 
 	integer, parameter :: UT_ASCII = 0
 	integer, parameter :: UT_ISO_8859_1 = 1

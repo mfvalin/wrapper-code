@@ -54,12 +54,14 @@
 
 	unit1 = f_ut_parse(sys,machin1,charset)
 	if(.not. c_associated(unit1%ptr)) print *,'ERROR in unit1'
+
 	junk = f_ut_format(unit1,buffer,UT_NAMES)
 	print *,"DEBUG: unit UT_NAMES of ",machin1,"='",trim(buffer),"'"
 	junk = f_ut_format(unit1,buffer,UT_DEFINITION)
 	print *,"DEBUG: unit UT_DEFINITION of ",machin1,"='",trim(buffer),"'"
 
 	unit2 = f_ut_parse(sys,machin2,charset)
+
 	if(.not. c_associated(unit2%ptr)) print *,'ERROR in unit2'
 	junk = f_ut_format(unit2,buffer,UT_NAMES)
 	print *,"DEBUG: unit UT_NAMES of ",machin2,"='",trim(buffer),"'"
@@ -172,6 +174,13 @@
 	junk = f_ut_format(erg,buffer,UT_NAMES)
 	print *,"DEBUG: erg = '",trim(buffer),"'"
 	if(f_ut_are_convertible(watt_s,erg))  print *,"watt.s can be converted into erg"
+
+    print *,'UNIT4 name is ',trim(f_ut_get_name(unit4,UT_ASCII))
+    print *,'UNIT4 symbol is ',trim(f_ut_get_symbol(unit4,UT_ASCII))
+    print *,'UNIT5 name is ',trim(f_ut_get_name(unit5,UT_ASCII))
+    print *,'UNIT5 symbol is ',trim(f_ut_get_symbol(unit5,UT_ASCII))
+    print *,'sec name is ',trim(f_ut_get_name(sec,UT_ASCII))
+    print *,'sec symbol is ',trim(f_ut_get_symbol(sec,UT_ASCII))
 
 	call f_ut_free(unit1)
 	call f_ut_free(unit2)

@@ -1,5 +1,5 @@
-	module f_udunits_2
-!	FORTRAN interface to the C library udunits2 (C) Copyright UCAR/Unidata
+    module f_udunits_2
+!   FORTRAN interface to the C library udunits2 (C) Copyright UCAR/Unidata
 !	Michel Valin
 !	Université du Québec à Montréal
 !	August 2012
@@ -26,12 +26,16 @@
 !	4-  when the C function returns zero/nonzero for a C style true/false
 !	    the FORTRAN function returns a FORTRAN logical
 !
-!	5-  where a C arguument is char *, argument, the FORTRAN code uses FORTRAN character (len=*)
+!	5a- where a C function argument is char *, the FORTRAN code uses FORTRAN character (len=*)
 !	    copy to a zero terminated string is handled internally
 !
-!	6-  ut_status is an integer, symbols with the same name are available to FORTRAN
+!   5b- where a C function result is char *, the FORTRAN code uses character (len=1), DIMENSION(:), pointer
 !
-!	7-  ut_encoding is an integer, symbols with the same name are available to FORTRAN
+!	6-  ut_status is an integer, symbols with the same name are available to FORTRAN with
+!       include "f_udunits_2.inc"
+!
+!	7-  ut_encoding is an integer, symbols with the same name are available to FORTRAN with
+!       include "f_udunits_2.inc"
 !
 !	NOTES:
 !
@@ -1038,6 +1042,85 @@
 
 	end function f_ut_encode_clock
 !=============================================================================
+    character(len=256) function f_ut_get_name(ut_unit,encoding)
+    use ISO_C_BINDING
+    implicit none
+    type(UT_UNIT_PTR), intent(IN) :: ut_unit
+    integer(C_INT), intent(IN) :: encoding
+    type(C_PTR) :: ptr
+    character(len=1), DIMENSION(:), pointer :: c_temp
+    character(len=256) :: s_temp
+    integer :: i
+
+    interface
+    type(C_PTR) function ut_get_name(ut_unit,encoding) bind(C,name='ut_get_name')
+    use ISO_C_BINDING
+    implicit none
+    type(C_PTR), value :: ut_unit
+    integer(C_INT), value :: encoding
+    end function ut_get_name
+    end interface
+
+    s_temp = ''
+    ptr = ut_get_name(ut_unit%ptr,encoding)
+    if(C_ASSOCIATED(ptr)) then
+      call c_f_pointer(ptr,c_temp,[256])
+      do i=1,256
+        if(c_temp(i) == achar(0)) exit
+        s_temp(i:i) = c_temp(i)
+      enddo
+    else
+      s_temp="NoName"
+    endif
+    f_ut_get_name = s_temp
+
+    end function f_ut_get_name
+!=============================================================================
+    character(len=256) function f_ut_get_symbol(ut_unit,encoding)
+    use ISO_C_BINDING
+    implicit none
+    type(UT_UNIT_PTR), intent(IN) :: ut_unit
+    integer(C_INT), intent(IN) :: encoding
+    type(C_PTR) :: ptr
+    character(len=1), DIMENSION(:), pointer :: c_temp
+    character(len=256) :: s_temp
+    integer :: i
+
+    interface
+    type(C_PTR) function ut_get_symbol(ut_unit,encoding) bind(C,name='ut_get_symbol')
+    use ISO_C_BINDING
+    implicit none
+    type(C_PTR), value :: ut_unit
+    integer(C_INT), value :: encoding
+    end function ut_get_symbol
+    end interface
+
+    s_temp = ''
+    ptr = ut_get_symbol(ut_unit%ptr,encoding)
+    if(C_ASSOCIATED(ptr)) then
+      call c_f_pointer(ptr,c_temp,[256])
+      do i=1,256
+        if(c_temp(i) == achar(0)) exit
+        s_temp(i:i) = c_temp(i)
+      enddo
+    else
+      s_temp="NoSymbol"
+    endif
+    f_ut_get_symbol = s_temp
+
+    end function f_ut_get_symbol
+
+!!    const char* ut_get_name (const ut_unit* unit, ut_encoding encoding)
+!!    const char* ut_get_symbol (const ut_unit* unit, ut_encoding encoding)
+
+!    ut_status ut_accept_visitor (const ut_unit* unit, const ut_visitor* visitor, void* arg)
+!    Data type: ut_visitor int foo(int) int bar(int, int)
+!    int ut_handle_error_message (const char* fmt, ...)
+!    ut_error_message_handler ut_set_error_message_handler (ut_error_message_handler handler)
+!    int ut_write_to_stderr (const char* fmt, va_list args)
+!    int ut_ignore (const char* fmt, va_list args)
+!    int ut_ignore (const char* fmt, va_list args)
+!    typedef int (*ut_error_message_handler)(const char* fmt, va_list args);
 !=============================================================================
 !=============================================================================
 !=============================================================================
