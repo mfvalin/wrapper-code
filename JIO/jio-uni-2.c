@@ -61,7 +61,7 @@
 
 #ifdef _AIX
 ssize_t kread(int , void *, size_t );
-ssize_t kwrite___(int , const void *, size_t );
+ssize_t kwrite(int , const void *, size_t );
 #include <omp.h>
 extern int omp_get_thread_num();
 /*
@@ -155,13 +155,13 @@ static lseek64_fn S_lseek64_fn_ptr = lseek64;
 typedef ssize_t  (*kread_fn) (int, void *, size_t);
 static kread_fn S_kread_fn_ptr = kread;
 typedef ssize_t  (*kwrite_fn) (int, const void *, size_t);
-static kwrite_fn S_kwrite_fn_ptr = kwrite___;
+static kwrite_fn S_kwrite_fn_ptr = kwrite;
 #endif
 
 static void *my_ptr_init(char *text)
 {
   void *addr = dlsym(RTLD_NEXT, text) ;
-  if(verbose_mode)fprintf(stdmsg,"address of pointer to %s = %lx\n",text,(long unsigned int) addr);
+  if(verbose_mode)fprintf(stdmsg,"address of pointer to %s = %p\n",text, addr);
   return addr;
 }
 
@@ -238,7 +238,7 @@ static unsigned long long jio_time( void )
 
 static void my_ptr_print( void *addr, char *text)
 {
-  if(verbose_mode)fprintf(stdmsg,"address of pointer to %s = %lx\n",text,(long unsigned int) addr);
+  if(verbose_mode)fprintf(stdmsg,"address of pointer to %s = %p\n",text, addr);
 }
 
 /* this routine produces the JIO1 and JIO2 trace messages */
@@ -254,7 +254,7 @@ static void jio_trace(long long nsec, long long jstmp, const char * cc, int file
   buflen+=sprintf(buffer+buflen,", time =%12Ld nsec",nsec);
   buflen+=sprintf(buffer+buflen,", stamp=%20Ld",jstmp);
   if(name != NULL) buflen+=sprintf(buffer+buflen,", file= %s",name);
-  buflen+=sprintf(buffer+buflen,"\n\0",name);
+  buflen+=sprintf(buffer+buflen,"\n");
 //  (*S_write_fn_ptr)(2,buffer,buflen);
   fprintf(stdmsg,"%s",buffer);
 }
@@ -769,6 +769,11 @@ ssize_t read(int fd, void * buf, size_t n)
   int result;
   long long int t0;
 
+  if(indx[fd]<=0 && jio_num>=2){
+    char name[8];
+    snprintf(name,8,"FD_%4.4d",fd);
+    jio_detail_new(name,fd);
+  }
   t0 =  jio_init();
   result = (*S_read_fn_ptr)(fd, buf, n);
   jio_add_info(t0,jio_num,SLOT_read,fd,result,NULL);
@@ -781,6 +786,11 @@ ssize_t write(int fd, const void * buf, size_t n)
   int result;
   long long int t0;
 
+  if(indx[fd]<=0 && jio_num>=2){
+    char name[8];
+    snprintf(name,8,"FD_%4.4d",fd);
+    jio_detail_new(name,fd);
+  }
   t0 =  jio_init();
   result = (*S_write_fn_ptr)(fd, buf, n);
 
@@ -854,15 +864,15 @@ ssize_t kread(int fd, void * buf, size_t n)
 }
 
 /* kwrite this is deactivated , it does not work */
-ssize_t kwrite___(int fd, const void * buf, size_t n)
+ssize_t kwrite(int fd, const void * buf, size_t n)
 {
   int result;
   long long int t0;
 
-  t0 =  jio_init();
+  if(jio_num!=0) t0 =  jio_init();
   result = (*S_kwrite_fn_ptr)(fd, buf, n);
 
-  jio_add_info(t0,jio_num,SLOT_kwrite,fd,result,NULL);
+  if(jio_num!=0) jio_add_info(t0,jio_num,SLOT_kwrite,fd,result,NULL);
   return result;
 }
 #endif
