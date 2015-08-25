@@ -1,4 +1,4 @@
-#echo USING s.jio-prof.dot , BASE_ARCH=${BASE_ARCH} 1>&2
+#echo USING revised s.jio-prof.dot , BASE_ARCH=${BASE_ARCH} 1>&2
 [[ "$1" == --help || "$1" == -h ]] && \
   printf "s.jio-prof.dot [-h | --help]\n" && \
   printf "s.jio-prof.dot [--start-monitor | --stop-monitor | --delete | --dump | --summary]\n" && \
@@ -24,21 +24,27 @@
 
 if [[ ${BASE_ARCH} == Linux* ]]
 then
-  export LD_PRELOAD="$(s.jio-prof).so"
+  RaLlOnGe=""
+  [[ ${BASE_ARCH} == *64 ]] && RaLlOnGe="-64"
+  [[ ${1} == -32 ]] && shift && RaLlOnGe=""
+#  echo LD_PRELOAD="$(s.jio-prof)-linux${RaLlOnGe}.so" 1>&2
+  export LD_PRELOAD="$(s.jio-prof)-linux${RaLlOnGe}.so"
+  unset RaLlOnGe
 elif [[ ${BASE_ARCH} == AIX ]]
 then
-  export LDR_PRELOAD64="$(s.jio-prof).a(jio.so)"
+#  echo LDR_PRELOAD64="$(s.jio-prof)-libjio.a(jio-uni-ibm.so)" 1>&2
+  export LDR_PRELOAD64="$(s.jio-prof)-libjio.a(jio-uni-ibm.so)"
 elif [[ ${BASE_ARCH} == AIX-powerpc7 ]]
 then
-  export LDR_PRELOAD64="$(s.jio-prof).a(jio.so)"
+#  echo LDR_PRELOAD64="$(s.jio-prof)-libjiop7.a(jio-uni-ibmp7.so)" 1>&2
+  export LDR_PRELOAD64="$(s.jio-prof)-libjiop7.a(jio-uni-ibmp7.so)"
 fi
 
 [[ "$1" == --start-monitor ]] && return
 
-echo JIO Version 1.0.1 2013/11/05 Diag profiling "'""$@""'" >>${JIO_DIAG:-${TMPDIR}/JIO_DIAG_TEMP}
-
-JIO_ENV=${JIO_ENV:-SUMMARY} JIO_DIAG=${JIO_DIAG:-${TMPDIR}/JIO_DIAG_TEMP} OMP_NUM_THREADS=${OMP_NUM_THREADS:-1} "$@"
-
-printf -- "END of profile\n\n"
+echo JIO  Diag profiling "'""$@""'" >>${JIO_DIAG:-${TMPDIR}/JIO_DIAG_TEMP}
+JIO_DIAG=${JIO_DIAG:-${TMPDIR}/JIO_DIAG_TEMP} OMP_NUM_THREADS=${OMP_NUM_THREADS:-1} "$@"
+printf -- "\n\n"
 LDR_PRELOAD64="" && unset LDR_PRELOAD64 && LD_PRELOAD="" && unset LD_PRELOAD
 [[ -f  ${TMPDIR}/JIO_DIAG_TEMP ]] && cat ${TMPDIR}/JIO_DIAG_TEMP && rm -f ${TMPDIR}/JIO_DIAG_TEMP
+true
