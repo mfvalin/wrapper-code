@@ -15,7 +15,7 @@
 [[ "$1" == --stop-monitor ]] && LDR_PRELOAD64="" && unset LDR_PRELOAD64 && \
 				LD_PRELOAD="" && unset LD_PRELOAD && \
 				return
-[[ "$1" == --start-monitor ]] && export JIO_DIAG=${JIO_DIAG:-${TMPDIR}/JIO_DIAG} && export JIO_ENV=JIO_SUMMARY
+[[ "$1" == --start-monitor ]] && export JIO_DIAG=${JIO_DIAG:-${TMPDIR}/JIO_DIAG} && export JIO_ENV=JIO_SUMMARY   # return comes later with --start-monitor
 [[ "$1" == --delete ]] && rm -f ${JIO_DIAG} ${JIO_DIAG}_* && return
 [[ "$1" == --dump ]] && cat ${JIO_DIAG} && return
 [[ "$1" == --full-dump ]] && cat ${JIO_DIAG} ${JIO_DIAG}_* 1>&2 && return
@@ -24,11 +24,11 @@
 
 if [[ ${BASE_ARCH} == Linux* ]]
 then
-  RaLlOnGe=""
-  [[ ${BASE_ARCH} == *64 ]] && RaLlOnGe="-64"
-  [[ ${1} == -32 ]] && shift && RaLlOnGe=""
-#  echo LD_PRELOAD="$(s.jio-prof)-linux${RaLlOnGe}.so" 1>&2
-  export LD_PRELOAD="$(s.jio-prof)-linux${RaLlOnGe}.so"
+  RaLlOnGe="Linux"
+  [[ ${BASE_ARCH} == *64 ]] && RaLlOnGe="Linux_x86-64"
+  [[ ${1} == -32 ]] && shift && RaLlOnGe="Linux"
+  echo LD_PRELOAD="$(s.jio-prof)-${RaLlOnGe}.so" 1>&2
+  export LD_PRELOAD="$(s.jio-prof)-${RaLlOnGe}.so"
   unset RaLlOnGe
 elif [[ ${BASE_ARCH} == AIX ]]
 then

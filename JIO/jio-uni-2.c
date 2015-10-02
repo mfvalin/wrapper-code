@@ -5,6 +5,8 @@
 #endif
 
 /*
+   jio.c
+
    Original Author: John Hague, ECMWF, 09-Jul-2010
    Thanks to Paul Burton and Will Weir for useful suggestions. 
 
@@ -34,6 +36,9 @@
    Revision 003 : M.Valin UQAM 05-Nov-2013
           open file named JIO_END to produce final report no longer used (used atexit instead)
           added SLOT_... symbols to address statistics tables
+   Revision 004 : M.Valin UQAM/RPN 2015
+          fixed some AIX problems with kwrite
+          fixed large files problems
 */
 
 #define MAXF 250  /* Default max filenames */
@@ -165,7 +170,7 @@ static void *my_ptr_init(char *text)
   return addr;
 }
 
-void jio_init_extern()
+static void jio_init_extern()
 {
   S_fopen_fn_ptr = (fopen_fn) my_ptr_init("fopen");
   S_fclose_fn_ptr = (fclose_fn) my_ptr_init("fclose");
@@ -546,15 +551,15 @@ static long long jio_init()
     mbps[i]  = 0.0;
     bytes[i] = 0.0;
   }
-  mpi_child = getenv("MP_CHILD");
+  mpi_child = getenv("MP_CHILD");                /* IBM MPI implementation */
   if(mpi_child != NULL){
     mpi_rank=atoi(mpi_child);
   }
-  mpi_child = getenv("OMPI_COMM_WORLD_RANK");
+  mpi_child = getenv("OMPI_COMM_WORLD_RANK");    /* OpenMPI implementation */
   if(mpi_child != NULL){
     mpi_rank=atoi(mpi_child);
   }
-  mpi_child = getenv("PMI_RANK");
+  mpi_child = getenv("PMI_RANK");                /* Mpich implementation */
   if(mpi_child != NULL){
     mpi_rank=atoi(mpi_child);
   }
@@ -671,7 +676,7 @@ int fclose(FILE *fp)
   iret = (*S_fclose_fn_ptr)(fp );
   if(iret < 0) return iret;
 
-  jio_add_info(t0,jio_num,1,fd,0,NULL);
+  jio_add_info(t0,jio_num,SLOT_fclose,fd,0,NULL);
   if(verbose_mode)fprintf(stdmsg,"fclosed file = %d\n",fd);
   indx[fd]=0;  /* file is now closed, no entry associated any more with this fd */
   return iret;
@@ -768,12 +773,13 @@ ssize_t read(int fd, void * buf, size_t n)
 {
   int result;
   long long int t0;
-
+#if defined(AIX)
   if(indx[fd]<=0 && jio_num>=2){
     char name[8];
     snprintf(name,8,"FD_%4.4d",fd);
     jio_detail_new(name,fd);
   }
+#endif
   t0 =  jio_init();
   result = (*S_read_fn_ptr)(fd, buf, n);
   jio_add_info(t0,jio_num,SLOT_read,fd,result,NULL);
@@ -785,15 +791,22 @@ ssize_t write(int fd, const void * buf, size_t n)
 {
   int result;
   long long int t0;
-
+#if defined(AIX)
   if(indx[fd]<=0 && jio_num>=2){
     char name[8];
     snprintf(name,8,"FD_%4.4d",fd);
     jio_detail_new(name,fd);
   }
+#endif
+#if defined(AIX)
+  if(jio_num!=0) 
+#endif
   t0 =  jio_init();
   result = (*S_write_fn_ptr)(fd, buf, n);
 
+#if defined(AIX)
+  if(jio_num!=0) 
+#endif
   jio_add_info(t0,jio_num,SLOT_write,fd,result,NULL);
   return result;
 }
@@ -863,7 +876,7 @@ ssize_t kread(int fd, void * buf, size_t n)
   return result;
 }
 
-/* kwrite this is deactivated , it does not work */
+/* kwrite */
 ssize_t kwrite(int fd, const void * buf, size_t n)
 {
   int result;
