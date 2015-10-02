@@ -773,7 +773,7 @@ ssize_t read(int fd, void * buf, size_t n)
 {
   int result;
   long long int t0;
-#if defined(AIX)
+#if defined(_AIX)
   if(indx[fd]<=0 && jio_num>=2){
     char name[8];
     snprintf(name,8,"FD_%4.4d",fd);
@@ -791,20 +791,20 @@ ssize_t write(int fd, const void * buf, size_t n)
 {
   int result;
   long long int t0;
-#if defined(AIX)
+#if defined(_AIX)
   if(indx[fd]<=0 && jio_num>=2){
     char name[8];
     snprintf(name,8,"FD_%4.4d",fd);
     jio_detail_new(name,fd);
   }
 #endif
-#if defined(AIX)
+#if defined(_AIX)
   if(jio_num!=0) 
 #endif
   t0 =  jio_init();
   result = (*S_write_fn_ptr)(fd, buf, n);
 
-#if defined(AIX)
+#if defined(_AIX)
   if(jio_num!=0) 
 #endif
   jio_add_info(t0,jio_num,SLOT_write,fd,result,NULL);
