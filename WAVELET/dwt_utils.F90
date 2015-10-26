@@ -1,5 +1,7 @@
 
 subroutine dwt_fwd_lift_haar_r(z,ni,nj,alongx,alongy)
+! in place FORWARD Haar lifting transform
+! output is stored interleaved (shuffled) into array z
   implicit none
   integer, intent(IN) :: ni, nj
   real, dimension(0:ni-1, 0:nj-1), intent(INOUT) :: z
@@ -8,6 +10,7 @@ subroutine dwt_fwd_lift_haar_r(z,ni,nj,alongx,alongy)
   integer :: i, j, ii, jj, jp2, jm1
 !
 ! 1D forward lifting transform along i  (mirror condition at both ends)
+! even points : "low" frequency, odd points : "high" frequency"
 !
   if(alongx) then
     do j = 0 , nj-1
@@ -23,6 +26,7 @@ subroutine dwt_fwd_lift_haar_r(z,ni,nj,alongx,alongy)
   endif
 !
 ! 1D forward lifting transform along j  (mirror condition at both ends)
+! even points : "low" frequency, odd points : "high" frequency"
 !
   if(alongy) then
     do j = 0 , nj - 2 , 2
@@ -38,6 +42,8 @@ subroutine dwt_fwd_lift_haar_r(z,ni,nj,alongx,alongy)
 end subroutine dwt_fwd_lift_haar_r
 
 subroutine dwt_inv_lift_haar_r(z,ni,nj,alongx,alongy)
+! in place FORWARD inverse Haar lifting transform
+! input is interleaved (shuffled) in array z
   implicit none
   integer, intent(IN) :: ni, nj
   real, dimension(0:ni-1, 0:nj-1), intent(INOUT) :: z
@@ -46,6 +52,7 @@ subroutine dwt_inv_lift_haar_r(z,ni,nj,alongx,alongy)
   integer :: i, j, ii, jj, jp2, jm1
 !
 ! 1D inverse lifting transform along j  (mirror condition at both ends)
+! even points : "low" frequency, odd points : "high" frequency"
 !
   if(alongy) then
     do j = nj - 2 , 0 , -2
@@ -59,6 +66,7 @@ subroutine dwt_inv_lift_haar_r(z,ni,nj,alongx,alongy)
   endif
 !
 ! 1D inverse lifting transform along i  (mirror condition at both ends)
+! even points : "low" frequency, odd points : "high" frequency"
 !
   if(alongx) then
     do j = 0 , nj-1
@@ -151,7 +159,9 @@ subroutine dwt_inv_lift_haar_i(z,ni,nj,alongx,alongy)
   return
 end subroutine dwt_inv_lift_haar_i
 
-subroutine dwt_unshuffle(zs,zu,ni,nj)  ! unshuffle zs into zu
+subroutine dwt_unshuffle(zs,zu,ni,nj)  ! 2D unshuffling (de-interleaving) of zs into zu
+! input array zs is interlaved (shuffled)
+! output array zu is in "quadrant" form
   implicit none
   integer, intent(IN) :: ni, nj
   integer, dimension(0:ni-1, 0:nj-1), intent(IN)  :: zs
@@ -175,7 +185,9 @@ subroutine dwt_unshuffle(zs,zu,ni,nj)  ! unshuffle zs into zu
   return
 end subroutine dwt_unshuffle
 
-subroutine dwt_shuffle(zs,zu,ni,nj)  ! shuffle zu into zs
+subroutine dwt_shuffle(zs,zu,ni,nj)  ! 2D shuffling (interleaving) of zu into zs
+! input array zu is in "quadrant" form
+! output array zs is interlaved (shuffled)
   implicit none
   integer, intent(IN) :: ni, nj
   integer, dimension(0:ni-1, 0:nj-1), intent(IN)  :: zu
@@ -199,7 +211,9 @@ subroutine dwt_shuffle(zs,zu,ni,nj)  ! shuffle zu into zs
   return
 end subroutine dwt_shuffle
 
-subroutine dwt_qsplit(zs,ni,nj,ll,hl,lh,hh,nni,nnj)  ! split zs into quadrants
+subroutine dwt_qsplit(zs,ni,nj,ll,hl,lh,hh,nni,nnj)  ! split interleaved zs into quadrants
+! split interleaved array zs into 4 quadrants (ll, lh, hl, hh)
+! it is expected that ni >= 2*nni and nj >= 2*nnj
   implicit none
   integer, intent(IN) :: ni, nj, nni, nnj
   integer, dimension(0:ni-1, 0:nj-1), intent(IN) :: zs
@@ -221,7 +235,9 @@ subroutine dwt_qsplit(zs,ni,nj,ll,hl,lh,hh,nni,nnj)  ! split zs into quadrants
   return
 end subroutine dwt_qsplit
 
-subroutine dwt_qmerge(zs,ni,nj,ll,hl,lh,hh,nni,nnj)  ! inerleave  quadrants into zs
+subroutine dwt_qmerge(zs,ni,nj,ll,hl,lh,hh,nni,nnj)  ! interleave  quadrants into zs
+! merge and interleave 4 quadrants (ll, lh, hl, hh) into zs
+! it is expected that ni >= 2*nni and nj >= 2*nnj
   implicit none
   integer, intent(IN) :: ni, nj, nni, nnj
   integer, dimension(0:nni-1, 0:nnj-1), intent(IN) :: ll, lh, hl, hh
@@ -243,68 +259,76 @@ subroutine dwt_qmerge(zs,ni,nj,ll,hl,lh,hh,nni,nnj)  ! inerleave  quadrants into
   return
 end subroutine dwt_qmerge
 
-subroutine dwt_normalize(z,ni,nj,bigval,auto)
+subroutine dwt_normalize(z,n,bigval,auto)
+! simulate normalization to largest exponent of field z by
+! dropping some least significant bits if exponent of number
+! is smaller than bigval's (or largest value of field)
+! if exponent is n less than normalization exponent, drop n LSBs
+! if n > 23, set number to zero
   implicit none
-  integer, intent(IN) :: ni, nj
+  integer, intent(IN) :: n
   real, intent(IN) :: bigval
-  real, dimension(0:ni-1, 0:nj-1), intent(INOUT) :: z
+  real, dimension(n), intent(INOUT) :: z
   logical :: auto
 
   integer :: i, j, maxexp, myexp, ival
   real :: temp
-
+! transfer real into integer
   ival = transfer(bigval,ival)
   if(auto) then
     temp = max( abs(maxval(z)) , abs(minval(z)) )
     ival = transfer(temp,ival)
   endif
-  maxexp = iand(255 , ishft(ival , -23) )
-  do j = 0 , nj-1
-  do i = 0 , ni-1
-    ival = transfer(z(i,j),ival)
+! extract exponent (lower 8 of upper 9 bits for IEE754-32)
+  maxexp = iand(255 , ishft(ival , -23) )   ! normalization exponent
+  do i = 1 , n
+    ival = transfer(z(i),ival)
     myexp = iand(255 , ishft(ival , -23) )
-    if (maxexp-myexp > 23) then
-      ival = 0
-    else
-      ival = iand(ival , ishft(-1,maxexp-myexp))
+    if(maxexp-myexp > 0) then      ! nothing to drop if myexp >= maxexp
+      if (maxexp-myexp > 23) then  ! drop maxexp-myexp least significant bits
+        ival = 0                                    ! nothing left
+      else
+        ival = iand(ival , ishft(-1,maxexp-myexp))  ! drop LSBs
+      endif
     endif
-    z(i,j) = transfer(ival,z(i,j))
-  enddo
+    z(i) = transfer(ival,z(i))
   enddo
 end subroutine dwt_normalize
 
-subroutine dwt_quantize(z,iz,ni,nj,bigval,auto)
+subroutine dwt_quantize(z,iz,n,nbits,auto)
   implicit none
-  integer, intent(IN) :: ni, nj
-  real, intent(IN) :: bigval
-  real, dimension(0:ni-1, 0:nj-1), intent(IN) :: z
-  integer, dimension(0:ni-1, 0:nj-1), intent(OUT) :: iz
+  integer, intent(IN) :: n
+  integer, intent(IN) :: nbits
+  real, dimension(n), intent(IN) :: z
+  integer, dimension(n), intent(OUT) :: iz
   logical :: auto
 
   integer :: i, j, maxexp, myexp, ival, hidden, mask
-  real :: temp
+  real :: temp, tempmin
 
-  hidden = ishft(1,23)
-  mask = ishft(-1,23)
-  ival = transfer(bigval,ival)
-  if(auto) then
-    temp = maxval( abs(z) )
+! transfer real into integer
+  tempmin = minval(z)
+!  if(auto) then
+    temp = maxval(z) - tempmin
     ival = transfer(temp,ival)
-  endif
+!  endif
+! extract exponent (lower 8 of upper 9 bits for IEE754-32)
   maxexp = iand(255 , ishft(ival , -23) )   ! exponent used for forced normalization
 
-  do j = 0 , nj-1
-  do i = 0 , ni-1
-    ival = transfer(z(i,j),ival)
-    myexp = iand(255 , ishft(ival , -23) )
+  hidden = ishft(1,23)                       ! "hidden" 1 of IEEE754-32
+  mask = not(ishft(-1,23))                   ! mask for mantissa (lower 23 bits)
+  do i = 0 , n
+    temp = z(i) - tempmin
+    ival = transfer(temp,ival)               ! transfer real into integer
+    myexp = iand(255 , ishft(ival , -23) )   ! extract exponent
     if (maxexp-myexp > 23) then
       ival = 0
     else
-      ival = iand(mask,ival)
-      ival = ishft( ior(hidden,ival) ,myexp-maxexp)
+      ival = ior(hidden,iand(mask,ival))     ! get mantissa, add "hidden" 1
+      ival = ishft(ival ,myexp-maxexp)       ! quantize absolute value
     endif
-    if(z(i,j) < 0) ival = -ival
-    iz(i,j) = ival
-  enddo
+    ival = ishft(ival, nbits - 23)             ! reduce to nbits
+!    if(z(i) < 0) ival = -ival                ! take care of sign
+    iz(i) = ival
   enddo
 end subroutine dwt_quantize

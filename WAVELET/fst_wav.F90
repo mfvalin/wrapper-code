@@ -3,15 +3,41 @@ call fst_wav_1(256,256)
 stop
 end
 subroutine fst_wav_1(ni,nj)
+  use ISO_C_BINDING
   implicit none
   integer, intent(IN) :: ni,nj
+  interface
+!   int TO_jpeg2000(unsigned char *cin,int width,int height,int nbits,
+!                  int ltype, int ratio, int retry, char *outjpc, 
+!                  int jpclen)
+    function enc_jpeg(cin,width,height,nbits,ltype,ratio,retry,cout,jpclen) result(status) bind(C,name='TO_jpeg2000') 
+    import
+    implicit none
+    integer(C_INT), intent(IN), value :: width,height,nbits,ltype,ratio,retry,jpclen
+    integer(C_INT), dimension(*), intent(IN) :: cin
+    integer(C_INT), dimension(*), intent(OUT) :: cout
+    integer(C_INT) :: status
+    end function enc_jpeg
+!   int FROM_jpeg2000(char *injpc,int bufsize,int *outfld)
+    function dec_jpeg(cin,bufsize,cout) result(status) bind(C,name='FROM_jpeg2000') 
+    import
+    implicit none
+    integer(C_INT), intent(IN), value :: bufsize
+    integer(C_INT), dimension(*), intent(IN) :: cin
+    integer(C_INT), dimension(*), intent(OUT) :: cout
+    integer(C_INT) :: status
+    end function dec_jpeg
+
+  end interface
 
   real, dimension(0:ni-1,0:nj-1) :: z, zw, z0, zd
+  integer, dimension(0:ni-1,0:nj-1) :: ia0, ia1, ia2, ia3
+  integer*2, dimension(0:ni-1,0:nj-1) :: ib0, ib1, ib2, ib3
   real, dimension(0:ni/2-1,0:nj/2-1) :: zh, zh1, zh2
   real, dimension(0:ni/2-1,0:nj/2-1) :: ll, hl, lh, hh
   real, dimension(0:ni/4-1,0:nj/4-1) :: ll2, hl2, lh2, hh2
   real :: mult
-  integer :: i, j, iblk, jblk, iun, status, nerr
+  integer :: i, j, iblk, jblk, iun, status, nerr, nbytes
   integer :: blk=64
   integer, external :: fnom, fstouv
   logical zer
@@ -21,19 +47,19 @@ subroutine fst_wav_1(ni,nj)
 
   goto 2
   reals2 = reals
-  call dwt_normalize(reals2,8,1,1.1,.true.)
+  call dwt_normalize(reals2,8,1.1,.true.)
   print 1,1.1, reals,reals2
   reals(1) =-2.0; reals2 = reals ; 
-  call dwt_normalize(reals2,8,1,2.0,.true.)
+  call dwt_normalize(reals2,8,2.0,.true.)
   print 1,2.0, reals,reals2
   reals(1) =-8.0; reals2 = reals ; 
-  call dwt_normalize(reals2,8,1,8.0,.true.)
+  call dwt_normalize(reals2,8,8.0,.true.)
   print 1,8.0, reals,reals2
   reals(1) =-64.0; reals2 = reals ; 
-  call dwt_normalize(reals2,8,1,64.0,.true.)
+  call dwt_normalize(reals2,8,64.0,.true.)
   print 1,64.0, reals,reals2
   reals(1) =-1024.0; reals2 = reals ; 
-  call dwt_normalize(reals2,8,1,1024.0,.true.)
+  call dwt_normalize(reals2,8,1024.0,.true.)
   print 1,1024.0, reals,reals2
 1 format(/9G15.8/,15x,8G15.8)
 
@@ -69,7 +95,23 @@ subroutine fst_wav_1(ni,nj)
 
   zw = z
   call dwt_diag(zw,ni,nj,16,'zw( pre)')
+
+  call dwt_quantize(zw,ia0,ni*nj,14,.true.)
+  print *,'quantized : ',minval(ia0),maxval(ia0)
+!   ib0 = ia0
+!   print *,'packed    : ',minval(ib0),maxval(ib0)
+  nbytes = enc_jpeg(ia0,ni,nj,24,0,1,1,ia1,ni*nj*4)
+  print *,'JPEG 2000 bytes=',nbytes,', original=',ni*nj*4,' ,R=',ni*nj*4.0/nbytes
+  status = dec_jpeg(ia1,nbytes,ia2)
+  print *,'JPEG 2000 decode status =',status,minval(ia2),maxval(ia2)
+
   call dwt_fwd_lift_haar_r(zw,ni,nj,.true.,.true.)              ! forward 2D transform of zw
+
+  call dwt_quantize(zw,ia0,ni*nj,15,.true.)
+  print *,'quantized : ',minval(ia0),maxval(ia0)
+!   nbytes = enc_jpeg(ia0,ni,nj,16,0,1,1,ia1,ni*nj*4)
+  print *,'JPEG 2000 bytes=',nbytes,', original=',ni*nj*4,' ,R=',ni*nj*4.0/nbytes
+
 !  call dwt_fwd_lift_haar_r(zw,ni,nj,.false.,.true.)
   call fstecr(zw,zw,-32,iun,0,0,0,ni,nj,1,0,0,0, &
               'XX','FWH0','WAVELET','X',0,0,0,0,5,.false.)
@@ -105,8 +147,20 @@ subroutine fst_wav_1(ni,nj)
   call dwt_quant(hh,ni/2,nj/2,10)
 
   call dwt_qmerge(zw,ni,nj,ll,lh,hl,hh,ni/2,nj/2)
+
+  call dwt_quantize(zw,ia0,ni*nj,15,.true.)
+  print *,'quantized shuffled: ',minval(ia0),maxval(ia0)
+!   nbytes = enc_jpeg(ia0,ni,nj,16,0,1,1,ia1,ni*nj*4)
+  print *,'JPEG 2000 bytes=',nbytes,', original=',ni*nj*4,' ,R=',ni*nj*4.0/nbytes
+
 !   zd = 99.0
   call dwt_unshuffle(zw,zd,ni,nj)     ! unshuffle zw into zd
+
+  call dwt_quantize(zw,ia0,ni*nj,15,.true.)
+  print *,'quantized by quadrant: ',minval(ia0),maxval(ia0)
+!   nbytes = enc_jpeg(ia0,ni,nj,16,0,1,1,ia1,ni*nj*4)
+  print *,'JPEG 2000 bytes=',nbytes,', original=',ni*nj*4,' ,R=',ni*nj*4.0/nbytes
+
 !   do j = nj/2,nj-1
 !   do i = ni/2,ni-1
 !     zd(i,j) = 0.0
@@ -377,7 +431,7 @@ subroutine dwt_trim(z,ni,nj,val,quant,zero)
   return
 end subroutine dwt_trim
 
-subroutine dwt_quant(z,ni,nj,nbits)  ! shuffle zu into zs
+subroutine dwt_quant(z,ni,nj,nbits)  ! quantize z
   implicit none
   integer, intent(IN) :: ni, nj, nbits
   real, dimension(0:ni-1, 0:nj-1), intent(INOUT) :: z
