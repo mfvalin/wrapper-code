@@ -14,7 +14,7 @@ subroutine fst_wav_1(ni,nj)
     import
     implicit none
     integer(C_INT), intent(IN), value :: width,height,nbits,ltype,ratio,retry,jpclen
-    integer(C_INT), dimension(*), intent(IN) :: cin
+    type(C_PTR), intent(IN), value :: cin
     integer(C_INT), dimension(*), intent(OUT) :: cout
     integer(C_INT) :: status
     end function enc_jpeg
@@ -31,13 +31,14 @@ subroutine fst_wav_1(ni,nj)
   end interface
 
   real, dimension(0:ni-1,0:nj-1) :: z, zw, z0, zd
-  integer, dimension(0:ni-1,0:nj-1) :: ia0, ia1, ia2, ia3
-  integer*2, dimension(0:ni-1,0:nj-1) :: ib0, ib1, ib2, ib3
+  integer, dimension(0:ni-1,0:nj-1), target :: ia0, ia1, ia2, ia3
+  integer*2, dimension(0:ni-1,0:nj-1), target :: ib0, ib1, ib2, ib3
   real, dimension(0:ni/2-1,0:nj/2-1) :: zh, zh1, zh2
   real, dimension(0:ni/2-1,0:nj/2-1) :: ll, hl, lh, hh
   real, dimension(0:ni/4-1,0:nj/4-1) :: ll2, hl2, lh2, hh2
   real :: mult
   integer :: i, j, iblk, jblk, iun, status, nerr, nbytes
+  integer*2 :: temps
   integer :: blk=64
   integer, external :: fnom, fstouv
   logical zer
@@ -100,7 +101,22 @@ subroutine fst_wav_1(ni,nj)
   print *,'quantized : ',minval(ia0),maxval(ia0)
 !   ib0 = ia0
 !   print *,'packed    : ',minval(ib0),maxval(ib0)
-  nbytes = enc_jpeg(ia0,ni,nj,24,0,1,1,ia1,ni*nj*4)
+  do j=0,nj-1
+  do i=0,ni-1
+    temps = ia0(i,j)
+    temps = ior(ishft(temps,8),ishft(temps,-8))
+    ib0(i,j) = temps
+  enddo
+  enddo
+  nbytes = enc_jpeg(c_loc(ib0),ni,nj,15,0,1,1,ia1,ni*nj*4)
+  status = dec_jpeg(ia1,nbytes,ia2)
+  nerr = 0
+  do j=0,nj-1
+  do i=0,ni-1
+    if(ia2(i,j) .ne. ia0(i,j)) nerr=nerr+1
+  enddo
+  enddo
+  print *,'decoding discrepancies :',nerr
   print *,'JPEG 2000 bytes=',nbytes,', original=',ni*nj*4,' ,R=',ni*nj*4.0/nbytes
   status = dec_jpeg(ia1,nbytes,ia2)
   print *,'JPEG 2000 decode status =',status,minval(ia2),maxval(ia2)
