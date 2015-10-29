@@ -295,15 +295,16 @@ subroutine dwt_normalize(z,n,bigval,auto)
   enddo
 end subroutine dwt_normalize
 
-subroutine dwt_quantize(z,iz,n,nbits,auto)
+subroutine dwt_quantize(z,iz,n,nbts,error)
   implicit none
   integer, intent(IN) :: n
-  integer, intent(IN) :: nbits
+  integer, intent(IN) :: nbts
+  real, intent(IN) :: error
   real, dimension(n), intent(IN) :: z
   integer, dimension(n), intent(OUT) :: iz
-  logical :: auto
+  integer :: nbits
 
-  integer :: i, j, maxexp, myexp, ival, hidden, mask
+  integer :: i, j, maxexp, myexp, ival, hidden, mask, ratio
   real :: temp, tempmin
 
 ! transfer real into integer
@@ -315,6 +316,16 @@ subroutine dwt_quantize(z,iz,n,nbits,auto)
 ! extract exponent (lower 8 of upper 9 bits for IEE754-32)
   maxexp = iand(255 , ishft(ival , -23) )   ! exponent used for forced normalization
 
+  nbits = nbts
+  if(nbits == -1) then
+    nbits = 0
+    ratio = nint(temp/error)
+    do while(ratio > 0)
+      nbits = nbits + 1
+      ratio = ishft(ratio,-1)
+    enddo
+    print *,'AUTO: max-min, error, nbits=',temp,temp/error,nbits,ratio
+  endif
   hidden = ishft(1,23)                       ! "hidden" 1 of IEEE754-32
   mask = not(ishft(-1,23))                   ! mask for mantissa (lower 23 bits)
   do i = 0 , n
@@ -327,7 +338,7 @@ subroutine dwt_quantize(z,iz,n,nbits,auto)
       ival = ior(hidden,iand(mask,ival))     ! get mantissa, add "hidden" 1
       ival = ishft(ival ,myexp-maxexp)       ! quantize absolute value
     endif
-    ival = ishft(ival, nbits - 23)             ! reduce to nbits
+    ival = ishft(ival, nbits - 24)             ! reduce to nbits
 !    if(z(i) < 0) ival = -ival                ! take care of sign
     iz(i) = ival
   enddo

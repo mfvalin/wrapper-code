@@ -11,22 +11,20 @@ subroutine fst_wav_1(ni,nj)
 !                  int ltype, int ratio, int retry, char *outjpc, 
 !                  int jpclen)
     function enc_jpeg(cin,width,height,nbits,ltype,ratio,retry,cout,jpclen) result(status) bind(C,name='TO_jpeg2000') 
-    import
-    implicit none
-    integer(C_INT), intent(IN), value :: width,height,nbits,ltype,retry,jpclen
-    real(C_FLOAT), intent(IN), value :: ratio
-    type(C_PTR), intent(IN), value :: cin
-    integer(C_INT), dimension(*), intent(OUT) :: cout
-    integer(C_INT) :: status
+      import
+      implicit none
+      integer(C_INT), intent(IN), value :: width,height,nbits,ltype,retry,jpclen
+      real(C_FLOAT), intent(IN), value :: ratio
+      type(C_PTR), intent(IN), value :: cin, cout
+      integer(C_INT) :: status
     end function enc_jpeg
 !   int FROM_jpeg2000(char *injpc,int bufsize,int *outfld)
     function dec_jpeg(cin,bufsize,cout) result(status) bind(C,name='FROM_jpeg2000') 
-    import
-    implicit none
-    integer(C_INT), intent(IN), value :: bufsize
-    integer(C_INT), dimension(*), intent(IN) :: cin
-    integer(C_INT), dimension(*), intent(OUT) :: cout
-    integer(C_INT) :: status
+      import
+      implicit none
+      integer(C_INT), intent(IN), value :: bufsize
+      type(C_PTR), intent(IN), value :: cin, cout
+      integer(C_INT) :: status
     end function dec_jpeg
 
   end interface
@@ -98,7 +96,7 @@ subroutine fst_wav_1(ni,nj)
   zw = z
   call dwt_diag(zw,ni,nj,16,'zw( pre)')
 
-  call dwt_quantize(zw,ia0,ni*nj,11,.true.)
+  call dwt_quantize(zw,ia0,ni*nj,-1,0.001)
   print *,'quantized : ',minval(ia0),maxval(ia0)
 !   ib0 = ia0
 !   print *,'packed    : ',minval(ib0),maxval(ib0)
@@ -110,8 +108,8 @@ subroutine fst_wav_1(ni,nj)
   enddo
   enddo
 !  nbytes = enc_jpeg(c_loc(ib0),ni,nj,15,0,1,1,ia1,ni*nj*4)
-  nbytes = enc_jpeg(c_loc(ib0),ni,nj,12,0,1.0,0,ia1,ni*nj*4)
-  status = dec_jpeg(ia1,nbytes,ia2)
+  nbytes = enc_jpeg(c_loc(ib0),ni,nj,12,0,1.0,0,c_loc(ia1),ni*nj*4)
+  status = dec_jpeg(c_loc(ia1),nbytes,c_loc(ia2))
   nerr = 0
   do j=0,nj-1
   do i=0,ni-1
@@ -121,12 +119,12 @@ subroutine fst_wav_1(ni,nj)
   print *,'decoding discrepancies :',nerr*100.0/(ni*nj),'%', minval(ia2-ia0), maxval(ia2-ia0)
   print *,'bias ,avg err =',sum(ia2-ia0)*1.0/ni/nj,sum(abs(ia2-ia0))*1.0/ni/nj
   print *,'J2000 bytes=',nbytes,'/',ni*nj*4,' ,R=',ni*nj*4.0/nbytes,' ,bps=',8.0*nbytes/(1.0*ni*nj)
-  status = dec_jpeg(ia1,nbytes,ia2)
+  status = dec_jpeg(c_loc(ia1),nbytes,c_loc(ia2))
   print *,'JPEG 2000 decode status =',status,minval(ia2),maxval(ia2)
 
   call dwt_fwd_lift_haar_r(zw,ni,nj,.true.,.true.)              ! forward 2D transform of zw
 
-  call dwt_quantize(zw,ia0,ni*nj,15,.true.)
+  call dwt_quantize(zw,ia0,ni*nj,15,0.0)
   print *,'quantized : ',minval(ia0),maxval(ia0)
 !   nbytes = enc_jpeg(ia0,ni,nj,16,0,1,1,ia1,ni*nj*4)
   print *,'JPEG 2000 bytes=',nbytes,', original=',ni*nj*4,' ,R=',ni*nj*4.0/nbytes
@@ -167,7 +165,7 @@ subroutine fst_wav_1(ni,nj)
 
   call dwt_qmerge(zw,ni,nj,ll,lh,hl,hh,ni/2,nj/2)
 
-  call dwt_quantize(zw,ia0,ni*nj,15,.true.)
+  call dwt_quantize(zw,ia0,ni*nj,15,0.0)
   print *,'quantized shuffled: ',minval(ia0),maxval(ia0)
 !   nbytes = enc_jpeg(ia0,ni,nj,16,0,1,1,ia1,ni*nj*4)
   print *,'JPEG 2000 bytes=',nbytes,', original=',ni*nj*4,' ,R=',ni*nj*4.0/nbytes
@@ -175,7 +173,7 @@ subroutine fst_wav_1(ni,nj)
 !   zd = 99.0
   call dwt_unshuffle(zw,zd,ni,nj)     ! unshuffle zw into zd
 
-  call dwt_quantize(zw,ia0,ni*nj,15,.true.)
+  call dwt_quantize(zw,ia0,ni*nj,15,0.0)
   print *,'quantized by quadrant: ',minval(ia0),maxval(ia0)
 !   nbytes = enc_jpeg(ia0,ni,nj,16,0,1,1,ia1,ni*nj*4)
   print *,'JPEG 2000 bytes=',nbytes,', original=',ni*nj*4,' ,R=',ni*nj*4.0/nbytes

@@ -52,9 +52,7 @@ int TO_jpeg2000(unsigned char *cin,int width,int height,int nbits,
 *
 *   RETURN VALUES :
 *        > 0 = Length in bytes of encoded JPEG2000 code stream
-*         -3 = Error decode jpeg2000 code stream.
-*         -5 = decoded image had multiple color components.
-*              Only grayscale is allowed.
+*         -3 = Error encoding jpeg2000 code stream.
 *
 * REMARKS:
 *
