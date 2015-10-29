@@ -4,7 +4,7 @@
 #include "jasper/jasper.h"
 
 int TO_jpeg2000(unsigned char *cin,int width,int height,int nbits,
-                 int ltype, int ratio, int retry, char *outjpc, 
+                 int ltype, float ratio, int retry, char *outjpc, 
                  int jpclen)
 /*$$$  SUBPROGRAM DOCUMENTATION BLOCK
 *                .      .    .                                       .
@@ -88,7 +88,8 @@ int TO_jpeg2000(unsigned char *cin,int width,int height,int nbits,
        opts[0]=(char)0;
     }
     else {
-       snprintf(opts,MAXOPTSSIZE,"mode=real\nrate=%f",1.0/(float)ratio);
+//       snprintf(opts,MAXOPTSSIZE,"mode=real\nrate=%f",1.0/(float)ratio);
+       snprintf(opts,MAXOPTSSIZE,"mode=real\nrate=%f",1.0/ratio);
     }
     if ( retry == 1 ) {             // option to increase number of guard bits
        strcat(opts,"\nnumgbits=4");

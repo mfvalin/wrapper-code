@@ -13,7 +13,8 @@ subroutine fst_wav_1(ni,nj)
     function enc_jpeg(cin,width,height,nbits,ltype,ratio,retry,cout,jpclen) result(status) bind(C,name='TO_jpeg2000') 
     import
     implicit none
-    integer(C_INT), intent(IN), value :: width,height,nbits,ltype,ratio,retry,jpclen
+    integer(C_INT), intent(IN), value :: width,height,nbits,ltype,retry,jpclen
+    real(C_FLOAT), intent(IN), value :: ratio
     type(C_PTR), intent(IN), value :: cin
     integer(C_INT), dimension(*), intent(OUT) :: cout
     integer(C_INT) :: status
@@ -97,7 +98,7 @@ subroutine fst_wav_1(ni,nj)
   zw = z
   call dwt_diag(zw,ni,nj,16,'zw( pre)')
 
-  call dwt_quantize(zw,ia0,ni*nj,14,.true.)
+  call dwt_quantize(zw,ia0,ni*nj,11,.true.)
   print *,'quantized : ',minval(ia0),maxval(ia0)
 !   ib0 = ia0
 !   print *,'packed    : ',minval(ib0),maxval(ib0)
@@ -108,7 +109,8 @@ subroutine fst_wav_1(ni,nj)
     ib0(i,j) = temps
   enddo
   enddo
-  nbytes = enc_jpeg(c_loc(ib0),ni,nj,15,0,1,1,ia1,ni*nj*4)
+!  nbytes = enc_jpeg(c_loc(ib0),ni,nj,15,0,1,1,ia1,ni*nj*4)
+  nbytes = enc_jpeg(c_loc(ib0),ni,nj,12,0,1.0,0,ia1,ni*nj*4)
   status = dec_jpeg(ia1,nbytes,ia2)
   nerr = 0
   do j=0,nj-1
@@ -116,8 +118,9 @@ subroutine fst_wav_1(ni,nj)
     if(ia2(i,j) .ne. ia0(i,j)) nerr=nerr+1
   enddo
   enddo
-  print *,'decoding discrepancies :',nerr
-  print *,'JPEG 2000 bytes=',nbytes,', original=',ni*nj*4,' ,R=',ni*nj*4.0/nbytes
+  print *,'decoding discrepancies :',nerr*100.0/(ni*nj),'%', minval(ia2-ia0), maxval(ia2-ia0)
+  print *,'bias ,avg err =',sum(ia2-ia0)*1.0/ni/nj,sum(abs(ia2-ia0))*1.0/ni/nj
+  print *,'J2000 bytes=',nbytes,'/',ni*nj*4,' ,R=',ni*nj*4.0/nbytes,' ,bps=',8.0*nbytes/(1.0*ni*nj)
   status = dec_jpeg(ia1,nbytes,ia2)
   print *,'JPEG 2000 decode status =',status,minval(ia2),maxval(ia2)
 
