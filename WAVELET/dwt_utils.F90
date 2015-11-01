@@ -295,29 +295,32 @@ subroutine dwt_normalize(z,n,bigval,auto)
   enddo
 end subroutine dwt_normalize
 
-subroutine dwt_quantize(z,iz,n,nbts,error)
+function dwt_quantize(z,iz,n,nbts,error,the_min,the_max) result(eff_nbits)
   implicit none
   integer, intent(IN) :: n
-  integer, intent(IN) :: nbts
-  real, intent(IN) :: error
+  integer, intent(IN) :: nbts   ! use eror if <= 0
+  real, intent(IN) :: error     ! ignored if nbts > 0
   real, dimension(n), intent(IN) :: z
   integer, dimension(n), intent(OUT) :: iz
-  integer :: nbits
+  real, intent(INOUT) :: the_min, the_max
+  integer :: eff_nbits
 
-  integer :: i, j, maxexp, myexp, ival, hidden, mask, ratio
-  real :: temp, tempmin
+  integer :: i, j, maxexp, myexp, ival, hidden, mask, ratio, nbits
+  real :: temp
 
-! transfer real into integer
-  tempmin = minval(z)
-!  if(auto) then
-    temp = maxval(z) - tempmin
-    ival = transfer(temp,ival)
-!  endif
-! extract exponent (lower 8 of upper 9 bits for IEE754-32)
+  eff_nbits = 0
+  if(nbts > 0 .and. error == 0.0) return   ! either error or nbts must be specified as non automatic
+
+
+  the_min = minval(z)
+  the_max = maxval(z)
+  temp = the_max - the_min
+  ival = transfer(temp,ival)                ! bit for bit transfer real into integer
+! extract exponent (lower 8 of upper 9 bits of IEE754-32)
   maxexp = iand(255 , ishft(ival , -23) )   ! exponent used for forced normalization
 
   nbits = nbts
-  if(nbits == -1) then
+  if(nbits <= 0) then   ! compute nbits from error
     nbits = 0
     ratio = nint(temp/error)
     do while(ratio > 0)
@@ -329,7 +332,7 @@ subroutine dwt_quantize(z,iz,n,nbts,error)
   hidden = ishft(1,23)                       ! "hidden" 1 of IEEE754-32
   mask = not(ishft(-1,23))                   ! mask for mantissa (lower 23 bits)
   do i = 0 , n
-    temp = z(i) - tempmin
+    temp = z(i) - the_min
     ival = transfer(temp,ival)               ! transfer real into integer
     myexp = iand(255 , ishft(ival , -23) )   ! extract exponent
     if (maxexp-myexp > 23) then
@@ -342,4 +345,5 @@ subroutine dwt_quantize(z,iz,n,nbts,error)
 !    if(z(i) < 0) ival = -ival                ! take care of sign
     iz(i) = ival
   enddo
-end subroutine dwt_quantize
+  eff_nbits = nbits
+end function dwt_quantize

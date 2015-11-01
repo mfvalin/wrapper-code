@@ -39,9 +39,10 @@ subroutine fst_wav_1(ni,nj)
   integer :: i, j, iblk, jblk, iun, status, nerr, nbytes
   integer*2 :: temps
   integer :: blk=64
-  integer, external :: fnom, fstouv
+  integer, external :: fnom, fstouv, dwt_quantize
   logical zer
   real, dimension(8) :: reals, reals2
+  real :: the_min, the_max
 
   reals = [-1.0, 1.1, 1.01, -1.01, 1.0001, 1.00001, 1.000001, 1.0000001]
 
@@ -96,8 +97,9 @@ subroutine fst_wav_1(ni,nj)
   zw = z
   call dwt_diag(zw,ni,nj,16,'zw( pre)')
 
-  call dwt_quantize(zw,ia0,ni*nj,-1,0.001)
-  print *,'quantized : ',minval(ia0),maxval(ia0)
+  the_min = 1.0 ; the_max = -1.0
+  status = dwt_quantize(zw,ia0,ni*nj,-1,0.001,the_min,the_max)
+  print *,'quantized : ',minval(ia0),maxval(ia0),the_min,the_max
 !   ib0 = ia0
 !   print *,'packed    : ',minval(ib0),maxval(ib0)
   do j=0,nj-1
@@ -124,8 +126,9 @@ subroutine fst_wav_1(ni,nj)
 
   call dwt_fwd_lift_haar_r(zw,ni,nj,.true.,.true.)              ! forward 2D transform of zw
 
-  call dwt_quantize(zw,ia0,ni*nj,15,0.0)
-  print *,'quantized : ',minval(ia0),maxval(ia0)
+  the_min = 1.0 ; the_max = -1.0
+  status = dwt_quantize(zw,ia0,ni*nj,15,0.0,the_min,the_max)
+  print *,'quantized : ',minval(ia0),maxval(ia0),the_min,the_max
 !   nbytes = enc_jpeg(ia0,ni,nj,16,0,1,1,ia1,ni*nj*4)
   print *,'JPEG 2000 bytes=',nbytes,', original=',ni*nj*4,' ,R=',ni*nj*4.0/nbytes
 
@@ -165,16 +168,18 @@ subroutine fst_wav_1(ni,nj)
 
   call dwt_qmerge(zw,ni,nj,ll,lh,hl,hh,ni/2,nj/2)
 
-  call dwt_quantize(zw,ia0,ni*nj,15,0.0)
-  print *,'quantized shuffled: ',minval(ia0),maxval(ia0)
+  the_min = 1.0 ; the_max = -1.0
+  status = dwt_quantize(zw,ia0,ni*nj,15,0.0,the_min,the_max)
+  print *,'quantized shuffled: ',minval(ia0),maxval(ia0),the_min,the_max
 !   nbytes = enc_jpeg(ia0,ni,nj,16,0,1,1,ia1,ni*nj*4)
   print *,'JPEG 2000 bytes=',nbytes,', original=',ni*nj*4,' ,R=',ni*nj*4.0/nbytes
 
 !   zd = 99.0
   call dwt_unshuffle(zw,zd,ni,nj)     ! unshuffle zw into zd
 
-  call dwt_quantize(zw,ia0,ni*nj,15,0.0)
-  print *,'quantized by quadrant: ',minval(ia0),maxval(ia0)
+  the_min = 1.0 ; the_max = -1.0
+  status = dwt_quantize(zw,ia0,ni*nj,15,0.0,the_min,the_max)
+  print *,'quantized by quadrant: ',minval(ia0),maxval(ia0),the_min,the_max
 !   nbytes = enc_jpeg(ia0,ni,nj,16,0,1,1,ia1,ni*nj*4)
   print *,'JPEG 2000 bytes=',nbytes,', original=',ni*nj*4,' ,R=',ni*nj*4.0/nbytes
 
