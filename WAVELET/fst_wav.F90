@@ -1,11 +1,16 @@
 program fst_wav
-call fst_wav_1(256,256)
-stop
+  implicit none
+  integer :: siz
+  real :: toler
+  read(5,*)siz,toler
+  call fst_wav_1(siz,siz,toler)
+  stop
 end
-subroutine fst_wav_1(ni,nj)
+subroutine fst_wav_1(ni,nj,toler)
   use ISO_C_BINDING
   implicit none
   integer, intent(IN) :: ni,nj
+  real, intent(IN) :: toler
   interface
 !   int TO_jpeg2000(unsigned char *cin,int width,int height,int nbits,
 !                  int ltype, int ratio, int retry, char *outjpc, 
@@ -39,11 +44,15 @@ subroutine fst_wav_1(ni,nj)
   integer :: i, j, iblk, jblk, iun, status, nerr, nbytes
   integer*2 :: temps
   integer :: blk=64
-  integer, external :: fnom, fstouv, dwt_quantize
+  integer, external :: fnom, fstouv, dwt_quantize, dwt_quantize_b, dwt_pack, dwt_lorenzo, dwt_nbits, dwt_delta
   logical zer
   real, dimension(8) :: reals, reals2
   real :: the_min, the_max
+  integer :: nni, nnj, minv
+  character(len=12) etik
 
+  nni = 16
+  nnj = 16
   reals = [-1.0, 1.1, 1.01, -1.01, 1.0001, 1.00001, 1.000001, 1.0000001]
 
   goto 2
@@ -74,14 +83,14 @@ subroutine fst_wav_1(ni,nj)
   do j = 0, nj-1
     jblk = j/blk
     do i = 0, ni-1
-      iblk = i/blk
-      if( (mod(iblk,2) + mod(jblk,2)) == 1 ) then
-        z(i,j) = 1.0
-        if( mod(i,blk) >16 .and. mod(i,blk)<48 .and. mod(j,blk) >16 .and. mod(j,blk)<48 ) z(i,j) = mult
-        if( mod(i,blk) >24 .and. mod(i,blk)<40 .and. mod(j,blk) >24 .and. mod(j,blk)<40 ) z(i,j) = mult*mult
-      endif
-      z(i,j) = sqrt( (i-ni*.5+.1)**2 + (j-nj*.5+.3)**2 )
-      z(i,j) = sin(z(i,j)*.1) + sin(z(i,j)*.3) ! + sin(z(i,j)*1.7) + z(i,j)*.1  + mod(i+j,2)*.75
+!       iblk = i/blk
+!       if( (mod(iblk,2) + mod(jblk,2)) == 1 ) then
+!         z(i,j) = 1.0
+!         if( mod(i,blk) >16 .and. mod(i,blk)<48 .and. mod(j,blk) >16 .and. mod(j,blk)<48 ) z(i,j) = mult
+!         if( mod(i,blk) >24 .and. mod(i,blk)<40 .and. mod(j,blk) >24 .and. mod(j,blk)<40 ) z(i,j) = mult*mult
+!       endif
+      z(i,j) = sqrt( (i-nni+.001)**2 + (j-nnj+.001)**2 )
+      z(i,j) = sin(z(i,j)*.2) ! + sin(z(i,j)*1.3) ! + sin(z(i,j)*1.7) + z(i,j)*.1  + mod(i+j,2)*.75
     enddo
   enddo
   z0 = z
@@ -91,27 +100,54 @@ subroutine fst_wav_1(ni,nj)
   status = fstouv(iun,'RND')
   print *,'iun=',iun,' status=',status
 
+  write(etik,100)'WAVELET',ni
+100 format(A7,I5.5)
   call fstecr(z,zw,-32,iun,0,0,0,ni,nj,1,0,0,0, &
-              'XX','ORIG','WAVELET','X',0,0,0,0,5,.false.)
+              'XX','ORIG',etik,'X',0,0,0,0,5,.false.)
 
   zw = z
   call dwt_diag(zw,ni,nj,16,'zw( pre)')
 
   the_min = 1.0 ; the_max = -1.0
-  status = dwt_quantize(zw,ia0,ni*nj,-1,0.001,the_min,the_max)
-  print *,'quantized : ',minval(ia0),maxval(ia0),the_min,the_max
+  status = dwt_quantize(zw,ia0,ni*nj,-1,toler,the_min,the_max)
+  print *,'quantized : ',status,the_min,the_max
 !   ib0 = ia0
 !   print *,'packed    : ',minval(ib0),maxval(ib0)
-  do j=0,nj-1
-  do i=0,ni-1
-    temps = ia0(i,j)
-    temps = ior(ishft(temps,8),ishft(temps,-8))
-    ib0(i,j) = temps
-  enddo
-  enddo
 !  nbytes = enc_jpeg(c_loc(ib0),ni,nj,15,0,1,1,ia1,ni*nj*4)
-  nbytes = enc_jpeg(c_loc(ib0),ni,nj,12,0,1.0,0,c_loc(ia1),ni*nj*4)
+!!!!  status = dwt_quantize_b(zw,ni*nj,ib0,4*ni*nj,-1,0.00008,the_min,the_max)
+!!!!  print *,'quantized_b : ',status,the_min,the_max
+#if defined(LORENZO)
+  minv = 0
+  minv = dwt_lorenzo(ia0,ni,nj,.true.)
+  ia0 = ia0 - minv
+  status=dwt_nbits(maxval(ia0))
+  print *,'after lorenzo = ',minv,minval(ia0),maxval(ia0),status
+  print *,'after lorenzo internal extrema ',minval(ia0(1:ni-1,1:nj-1)),maxval(ia0(1:ni-1,1:nj-1))
+#endif
+#if defined(DWT)
+  call dwt_fwd_lift_haar_i(ia0,ni,nj,.true.,.true.)
+  minv = minval(ia0)
+  ia0 = ia0 - minv
+  status=dwt_nbits(maxval(ia0))
+  print *,'after dwt extrema =',minval(ia0),maxval(ia0),status
+#endif
+#if defined(DELTA)
+  minv = dwt_delta(ia0,ni,nj,.true.)
+  print *,'after delta extrema =',minv,minval(ia0),maxval(ia0)
+  ia0 = ia0 - minv
+  status=dwt_nbits(maxval(ia0))
+  print *,'after delta extrema =',minv,minval(ia0),maxval(ia0),status
+#endif
+  nbytes = dwt_pack(ia0,ni*nj,ia3,4*ni*nj,status)
+  print *,'dwt_pack bytes=',nbytes
+!   do j=0,nj-1
+!   do i=0,ni-1
+!     ib0(i,j) = ior( ishft(iand(ia0(i,j),255),8) , iand(ishft(ia0(i,j),-8),255) )
+!   enddo
+!   enddo
+  nbytes = enc_jpeg(c_loc(ia3),ni,nj,status,0,1.0,0,c_loc(ia1),ni*nj*4)
   status = dec_jpeg(c_loc(ia1),nbytes,c_loc(ia2))
+  print *,'decoded range',minval(ia2),maxval(ia2)
   nerr = 0
   do j=0,nj-1
   do i=0,ni-1
@@ -121,8 +157,10 @@ subroutine fst_wav_1(ni,nj)
   print *,'decoding discrepancies :',nerr*100.0/(ni*nj),'%', minval(ia2-ia0), maxval(ia2-ia0)
   print *,'bias ,avg err =',sum(ia2-ia0)*1.0/ni/nj,sum(abs(ia2-ia0))*1.0/ni/nj
   print *,'J2000 bytes=',nbytes,'/',ni*nj*4,' ,R=',ni*nj*4.0/nbytes,' ,bps=',8.0*nbytes/(1.0*ni*nj)
-  status = dec_jpeg(c_loc(ia1),nbytes,c_loc(ia2))
   print *,'JPEG 2000 decode status =',status,minval(ia2),maxval(ia2)
+  goto 777
+
+  status = dec_jpeg(c_loc(ia1),nbytes,c_loc(ia2))
 
   call dwt_fwd_lift_haar_r(zw,ni,nj,.true.,.true.)              ! forward 2D transform of zw
 

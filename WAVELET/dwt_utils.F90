@@ -305,15 +305,17 @@ function dwt_quantize(z,iz,n,nbts,error,the_min,the_max) result(eff_nbits)
   real, intent(INOUT) :: the_min, the_max
   integer :: eff_nbits
 
-  integer :: i, j, maxexp, myexp, ival, hidden, mask, ratio, nbits
+  integer :: i, j, maxexp, myexp, ival, hidden, mask, ratio, nbits, minv, maxv
   real :: temp
 
   eff_nbits = 0
-  if(nbts > 0 .and. error == 0.0) return   ! either error or nbts must be specified as non automatic
+  if(nbts < 0 .and. error == 0.0) return   ! either error or nbts must be specified as non automatic
 
 
   the_min = minval(z)
   the_max = maxval(z)
+  minv = 1999999999
+  maxv = 0
   temp = the_max - the_min
   ival = transfer(temp,ival)                ! bit for bit transfer real into integer
 ! extract exponent (lower 8 of upper 9 bits of IEE754-32)
@@ -327,11 +329,11 @@ function dwt_quantize(z,iz,n,nbts,error,the_min,the_max) result(eff_nbits)
       nbits = nbits + 1
       ratio = ishft(ratio,-1)
     enddo
-    print *,'AUTO: max-min, error, nbits=',temp,temp/error,nbits,ratio
+!     print *,'AUTO: max-min, error, nbits=',temp,temp/error,nbits,ratio
   endif
   hidden = ishft(1,23)                       ! "hidden" 1 of IEEE754-32
   mask = not(ishft(-1,23))                   ! mask for mantissa (lower 23 bits)
-  do i = 0 , n
+  do i = 1 , n
     temp = z(i) - the_min
     ival = transfer(temp,ival)               ! transfer real into integer
     myexp = iand(255 , ishft(ival , -23) )   ! extract exponent
@@ -344,6 +346,239 @@ function dwt_quantize(z,iz,n,nbts,error,the_min,the_max) result(eff_nbits)
     ival = ishft(ival, nbits - 24)             ! reduce to nbits
 !    if(z(i) < 0) ival = -ival                ! take care of sign
     iz(i) = ival
+    minv = min(ival,minv)
+    maxv = max(ival,maxv)
   enddo
   eff_nbits = nbits
+!  print *,'extrema=', minv,maxv
 end function dwt_quantize
+
+function dwt_quantize_b(z,n,ib,nb,nbts,error,the_min,the_max) result(eff_nbits)
+  use ISO_C_BINDING
+  implicit none
+  integer, intent(IN) :: n, nb
+  integer, intent(IN) :: nbts   ! use eror if <= 0
+  real, intent(IN) :: error     ! ignored if nbts > 0
+  real, dimension(n), intent(IN) :: z
+  integer(C_CHAR), dimension(nb), intent(OUT) :: ib
+  real, intent(INOUT) :: the_min, the_max
+  integer :: eff_nbits
+
+  integer :: i, j, maxexp, myexp, ival, hidden, mask, ratio, nbits, i0, minv, maxv
+  real :: temp
+
+  eff_nbits = 0
+  if(nbts < 0 .and. error == 0.0) return   ! either error or nbts must be specified as non automatic
+
+
+  the_min = minval(z)
+  the_max = maxval(z)
+  minv = 1999999999
+  maxv = 0
+  temp = the_max - the_min
+  ival = transfer(temp,ival)                ! bit for bit transfer real into integer
+! extract exponent (lower 8 of upper 9 bits of IEE754-32)
+  maxexp = iand(255 , ishft(ival , -23) )   ! exponent used for forced normalization
+
+  nbits = nbts
+  i0 = 0
+  if(nbits <= 0) then   ! compute nbits from error
+    nbits = 0
+    ratio = nint(temp/error)
+    do while(ratio > 0)
+      nbits = nbits + 1
+      ratio = ishft(ratio,-1)
+    enddo
+!     print *,'AUTO: max-min, error, nbits=',temp,temp/error,nbits,ratio
+  endif
+  hidden = ishft(1,23)                       ! "hidden" 1 of IEEE754-32
+  mask = not(ishft(-1,23))                   ! mask for mantissa (lower 23 bits)
+  do i = 1 , n
+    temp = z(i) - the_min
+    ival = transfer(temp,ival)               ! transfer real into integer
+    myexp = iand(255 , ishft(ival , -23) )   ! extract exponent
+    if (maxexp-myexp > 23) then
+      ival = 0
+    else
+      ival = ior(hidden,iand(mask,ival))     ! get mantissa, add "hidden" 1
+      ival = ishft(ival ,myexp-maxexp)       ! quantize absolute value
+    endif
+    ival = ishft(ival, nbits - 24)             ! reduce to nbits
+    minv = min(ival,minv)
+    maxv = max(ival,maxv)
+!    if(z(i) < 0) ival = -ival                ! take care of sign
+    if(nbits > 24) then
+      i0 = i0 + 1
+      ib(i0) = iand(ishft(ival,-24),255)
+    endif
+    if(nbits > 16) then
+      i0 = i0 + 1
+      ib(i0) = iand(ishft(ival,-16),255)
+    endif
+    if(nbits > 8) then
+      i0 = i0 + 1
+      ib(i0) = iand(ishft(ival,-8),255)
+    endif
+    i0 = i0 + 1
+    ib(i0) = iand(ival,255)
+  enddo
+  eff_nbits = nbits
+!   print *,'I0=',i0,' /',nb
+!  print *,'extrema_b=', minv,maxv
+end function dwt_quantize_b
+function dwt_pack(iz,n,ib,nb,nbts) result(nbytes)
+  use ISO_C_BINDING
+  implicit none
+  integer, intent(IN) :: n, nb
+  integer, intent(IN) :: nbts
+  integer, dimension(n), intent(IN) :: iz
+  integer(C_CHAR), dimension(nb), intent(OUT) :: ib
+  integer :: nbytes
+
+  integer :: i, i0, ival, nbits
+
+  i0 = 0
+  nbits = nbts
+  do i = 1,n
+    ival = iz(i)
+    if(nbits > 24) then
+      i0 = i0 + 1
+      ib(i0) = iand(ishft(ival,-24),255)
+    endif
+    if(nbits > 16) then
+      i0 = i0 + 1
+      ib(i0) = iand(ishft(ival,-16),255)
+    endif
+    if(nbits > 8) then
+      i0 = i0 + 1
+      ib(i0) = iand(ishft(ival,-8),255)
+    endif
+    i0 = i0 + 1
+    ib(i0) = iand(ival,255)
+  enddo
+  nbytes = i0
+end function dwt_pack
+
+function dwt_lorenzo(iz,ni,nj,forward) result(minv)
+  use ISO_C_BINDING
+  implicit none
+  integer, intent(IN) :: ni, nj
+  integer, dimension(ni,nj), intent(INOUT) :: iz
+  logical, intent(IN) :: forward
+  integer minv, tmp
+
+  integer :: i, j
+
+  if(forward) then     ! forward lorenzo transform
+    minv = 0
+    do j=nj,2,-1
+      do i=ni,2,-1
+        iz(i,j) = (iz(i,j)+iz(i-1,j-1)) - (iz(i,j-1)+iz(i-1,j))
+        minv = min(minv,iz(i,j))
+      enddo
+      tmp = iz(1,j) - iz(1,j-1)  ! row to row delta
+      iz(1,j) = tmp
+      minv = min(minv,tmp)
+    enddo
+    do i=ni,2,-1   ! row 1 deltas
+      tmp = iz(i,1) - iz(i-1,1)
+      iz(i,j) = tmp
+      minv = min(minv,tmp)
+    enddo
+  else            ! inverse lorenzo transform
+  endif
+end function dwt_lorenzo
+
+function dwt_delta_zz(iz,ni,nj,forward) result(minv)
+  use ISO_C_BINDING
+  implicit none
+  integer, intent(IN) :: ni, nj
+  integer, dimension(ni,nj), intent(INOUT) :: iz
+  logical, intent(IN) :: forward
+  integer minv
+
+  integer :: i, j, sav, tmp
+  logical :: last_row
+
+  if(forward) then ! forward delta transform
+    minv = 0
+    sav = iz(1,1)
+    do j=1,nj-1,2
+      do i=1,ni-1      ! zig
+        tmp = iz(i+1,j) - iz(i,j)
+        iz(i,j) = tmp
+        minv = min(minv,tmp)
+      enddo
+      tmp = iz(ni,j+1) - iz(ni,j)
+      iz(ni,j) = tmp
+      minv = min(minv,tmp)
+      do i=ni,2,-1   ! zag
+        tmp = iz(i-1,j+1) - iz(i,j+1)
+        iz(i,j+1) = tmp
+        minv = min(minv,tmp)
+      enddo
+      last_row = (j+1 == nj)
+      if(last_row) then   ! last row
+        iz(1,j+1) = sav 
+      else                  ! not last row
+        tmp = iz(1,j+2) - iz(1,j+1)
+        iz(1,j+1) = tmp
+        minv = min(minv,tmp)
+      endif
+    enddo
+    if(.not. last_row) then
+      do i=1,ni-1      ! zig
+        tmp = iz(i+1,nj) - iz(i,nj)
+        iz(i,nj) = tmp
+        minv = min(minv,tmp)
+      enddo
+      iz(ni,nj) = sav
+    endif
+  else    ! inverse delta transform
+  endif
+end function dwt_delta_zz
+
+function dwt_delta(iz,ni,nj,forward) result(minv)
+  use ISO_C_BINDING
+  implicit none
+  integer, intent(IN) :: ni, nj
+  integer, dimension(ni,nj), intent(INOUT) :: iz
+  logical, intent(IN) :: forward
+  integer minv
+
+  integer :: i, j, sav, tmp
+  logical :: last_row
+
+  if(forward) then ! forward delta transform
+    minv = 0
+    sav = iz(1,1)
+    do j=nj,2,-1
+      do i=1,ni
+        tmp = iz(i,j) - iz(i,j-1)
+        iz(i,j) = tmp
+        minv = min(minv,tmp)
+      enddo
+    enddo
+    do i=ni,2,-1
+      tmp = iz(i,1) - iz(i-1,1)
+      iz(i,j) = tmp
+      minv = min(minv,tmp)
+    enddo
+  else    ! inverse delta transform
+  endif
+end function dwt_delta
+
+function dwt_nbits(n) result(nbits)
+  use ISO_C_BINDING
+  implicit none
+  integer, intent(IN) :: n
+  integer :: nbits
+  integer :: nn
+
+  nbits = 0
+  nn = n
+  do while(nn > 0)
+    nbits = nbits + 1
+    nn = ishft(nn,-1)
+  enddo
+end function dwt_nbits
