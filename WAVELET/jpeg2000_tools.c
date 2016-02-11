@@ -88,6 +88,7 @@ int TO_jpeg2000(unsigned char *cin,int width,int height,int nbits,
     else {
 //       snprintf(opts,MAXOPTSSIZE,"mode=real\nrate=%f",1.0/(float)ratio);
        snprintf(opts,MAXOPTSSIZE,"mode=real\nrate=%f",1.0/ratio);
+       fprintf(stderr,"using lossy compression\n");
     }
     if ( retry == 1 ) {             // option to increase number of guard bits
        strcat(opts,"\nnumgbits=4");
