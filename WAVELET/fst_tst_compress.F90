@@ -121,12 +121,12 @@ subroutine test_quantizing(z,ni,nj,nomvar)
     rms = sqrt(rms / (ni*nj))
     meanval = meanval / (ni*nj)  ! moyenne
     span = max(min(zmax-meanval,meanval-zmin),rr)
-    span = rrange*.5/span
+    span = rrange/span
 !     return
     print 100, nbits, toler*1.2 >= errmax, toler, errmax, bias, rms, rrange, zmax, zmin, meanval, &
        nint(errmax/toler*100)*1.0, nint(rms/toler*100)*1.0, nint(bias/toler*1000000)*.0001, &
        (power-imax),nint(span)
-100 format(I4,L5, 8G12.4, 3F8.2, 2i6)
+100 format(I4,L5, 2G12.4,1H|, 3G12.4,1H|, 3G12.4, 3F8.2, 2i6)
     if(imax > power - 2) then
       print *,'imax > power ',imax,izero,power,zmax,zmin,zmin-oldzmin,rr,(zmax-zmin)*r,(zmax-oldzmin)*r
       print *,zmin+(power-1)*rr,zmax,zmin+(power-1)*rr-zmax
