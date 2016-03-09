@@ -44,6 +44,8 @@ program test_compress
 !      if(trim(nomvar) == 'TT') then
       if(ni > 1 .and. nj > 1 .and. trim(nomvar) .ne. 'KTkt') then
         call fstluk(z,key,ni,nj,nk)
+        call test_quantizing(z,ni,nj,nomvar)
+        z = max(z,0.0)
   !      call test_compression(z,ni,nj,nomvar)
         call test_quantizing(z,ni,nj,nomvar)
       endif
@@ -74,6 +76,8 @@ subroutine test_quantizing(z,ni,nj,nomvar)
   real *8 :: bias, rms
   real :: errmax, znew, zmin, zmax, err, rrange, toler, oldzmin, r, rr, meanval, span
   integer :: i, j, coded, nbits, power, imax, izero
+  integer, dimension(0:16) :: population
+  integer :: ipop
 
   zmin = z(1,1)
   zmax = z(1,1)
@@ -106,10 +110,14 @@ subroutine test_quantizing(z,ni,nj,nomvar)
     rms = 0
     meanval = 0
     imax = nint((zmax-zmin)*r)
+    population = 0
     do j=1,nj
     do i=1,ni
       meanval = meanval + z(i,j)
       coded = nint((z(i,j)-zmin)*r)
+      ipop = ishft(coded,3-nbits)
+      population(ipop) = population(ipop)+1
+      if(coded==0) population(8) = population(8)+1
       znew = coded*rr + zmin
       err = znew - z(i,j)
       errmax = max(abs(err),errmax)
@@ -126,7 +134,9 @@ subroutine test_quantizing(z,ni,nj,nomvar)
     print 100, nbits, toler*1.2 >= errmax, toler, errmax, bias, rms, rrange, zmax, zmin, meanval, &
        nint(errmax/toler*100)*1.0, nint(rms/toler*100)*1.0, nint(bias/toler*1000000)*.0001, &
        (power-imax),nint(span)
+    print 101,population(8),population(0)-population(8),population(1:7)
 100 format(I4,L5, 2G12.4,1H|, 3G12.4,1H|, 3G12.4, 3F8.2, 2i6)
+101 format(9I8)
     if(imax > power - 2) then
       print *,'imax > power ',imax,izero,power,zmax,zmin,zmin-oldzmin,rr,(zmax-zmin)*r,(zmax-oldzmin)*r
       print *,zmin+(power-1)*rr,zmax,zmin+(power-1)*rr-zmax
