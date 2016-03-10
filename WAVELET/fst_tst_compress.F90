@@ -15,7 +15,7 @@ program test_compress
   write(0,*)'======= compression algorithm test ======='
   iun=0
   status = fnom(iun,'input.fst','RND+STD+R/O+OLD',0)
-!  call fstopi("MSGLVL",8,0)
+  call fstopi("MSGLVL",8,0)
   if(status < 0) goto 999
   status = fstouv(iun,'RND')
   if(status < 0) goto 999
@@ -44,10 +44,10 @@ program test_compress
 !      if(trim(nomvar) == 'TT') then
       if(ni > 1 .and. nj > 1 .and. trim(nomvar) .ne. 'KTkt') then
         call fstluk(z,key,ni,nj,nk)
-        call test_quantizing(z,ni,nj,nomvar)
-        z = max(z,0.0)
+        call test_quantizing(z,ni,nj,nomvar,0)
+!         z = max(z,0.0)
   !      call test_compression(z,ni,nj,nomvar)
-        call test_quantizing(z,ni,nj,nomvar)
+        call test_quantizing(z,ni,nj,nomvar,1)
       endif
       if(nomvar .ne. oldnam) then
         if(oldnam .ne. '    ') write(0,*)'NAME=',oldnam,' levels=',ilev
@@ -66,31 +66,74 @@ program test_compress
   stop
 end program test_compress
 
-subroutine test_quantizing(z,ni,nj,nomvar)
+subroutine test_quantizing(z,ni,nj,nomvar,mode)
   use ISO_C_BINDING
   implicit none
   integer, intent(IN) :: ni,nj
-  real, dimension(ni,nj), intent(IN) :: z
+  real, dimension(ni,nj), intent(IN), target :: z
   character(len=4), intent(IN) :: nomvar
+  integer, intent(IN) :: mode
 
-  real *8 :: bias, rms
-  real :: errmax, znew, zmin, zmax, err, rrange, toler, oldzmin, r, rr, meanval, span
-  integer :: i, j, coded, nbits, power, imax, izero
+  real *8 :: bias, rms, relrms
+  real :: errmax, znew, zmin, zmax, err, rrange, toler, oldzmin, r, rr, meanval, span, errrel, factor, zmin0, s1
+  integer :: i, j, coded, nbits, power, imax, izero, nonzero, ifactor, iszero
   integer, dimension(0:16) :: population
   integer :: ipop
+  integer, dimension(:,:), pointer :: iz
+  type(C_PTR) :: piz
+  integer :: mask
+  real, dimension(ni,nj), target :: zz
+  integer :: izz, maxexp1, maxexp2, maxexp
 
+!   if(mode .ne. 0) return
   zmin = z(1,1)
+  zmin0 = 1.0
   zmax = z(1,1)
+  meanval = 0.0
   do j=1,nj
   do i=1,ni
     zmin = min(z(i,j),zmin)
     zmax = max(z(i,j),zmax)
+    if(z(i,j) .ne.0) zmin0 = min(z(i,j),zmin0)
+    meanval = meanval + z(i,j)
   enddo
   enddo
+  maxexp1 = transfer(zmin,maxexp1)
+  maxexp1 = iand(ishft(maxexp1,-23),Z'000000FF')
+  maxexp2 = transfer(zmax,maxexp2)
+  maxexp2 = iand(ishft(maxexp2,-23),Z'000000FF')
+  maxexp = max(maxexp1,maxexp2)
+!   ifactor = 127+15-maxexp
+!   ifactor = ishft(ifactor,23)
+!   factor = transfer(ifactor,factor)
+!   print 777," maxexp, factor, max, min, max', min' =",maxexp,factor,zmax,zmin, factor*zmax,factor*zmin
+777 format(A,i6,6Z10.8)
   rrange = zmax - zmin
+  if(rrange == 0) return
+!   if(zmin == zmin0) return
+  meanval = meanval / (ni*nj)  ! moyenne
+  span = min(zmax-meanval,meanval-zmin)
+  if(span == 0.0) span = rrange * .0001
+  if ( rrange / span < 33 ) return
+!   if ( rrange / span > 64) then
+!     print *,nomvar,nint(rrange / span),zmin,zmin0,zmax,meanval
+!     return
+!   else
+!     return
+!   endif
+!
+  zz = z
+  piz = C_LOC(zz(1,1))
+  call c_f_pointer(piz,iz,[ni,nj])
+  mask = ishft(-1,12)
+!   mask = not(mask)
+!   factor = 1.00001
+!   zz = zz * factor
+!   iz = iand(iz,mask)
+!   mask = -1
   oldzmin = zmin
   if(rrange == 0) return
-  do nbits = 8, 16, 4
+  do nbits = 16, 16, 4
     zmin = oldzmin
     power = ishft(1,nbits)
     rr = rrange/(power - 2.01)
@@ -108,35 +151,59 @@ subroutine test_quantizing(z,ni,nj,nomvar)
     errmax = 0.0
     bias = 0
     rms = 0
-    meanval = 0
+!     meanval = 0
     imax = nint((zmax-zmin)*r)
     population = 0
+    relrms = 0
+    nonzero = 0
+    iszero = 0
     do j=1,nj
     do i=1,ni
-      meanval = meanval + z(i,j)
+!       meanval = meanval + z(i,j)
       coded = nint((z(i,j)-zmin)*r)
       ipop = ishft(coded,3-nbits)
       population(ipop) = population(ipop)+1
       if(coded==0) population(8) = population(8)+1
-      znew = coded*rr + zmin
+      if(mode == 0) znew = coded*rr + zmin
+      if(mode .ne. 0) then
+        izz = transfer(z(i,j),izz)
+        izz = iand(izz,mask)
+        ifactor = iand(ishft(izz,-23),Z'000000FF')
+        if(ifactor < maxexp-31) then
+          izz = 0
+          iszero = iszero + 1
+        endif
+        znew = transfer(izz,znew)
+      endif
+      zz(i,j) = znew
       err = znew - z(i,j)
       errmax = max(abs(err),errmax)
       bias = bias + err
       rms = rms + err * err
+      errrel = 0
+      if(z(i,j) .ne. 0 ) then
+        nonzero = nonzero + 1
+        errrel = ( abs(z(i,j)-znew) / abs(z(i,j)) )
+      endif
+      relrms = relrms + errrel
     enddo
     enddo
+!     print *,'iszero =',iszero,ni*nj
+    relrms = relrms / (nonzero)
     bias =  bias / (ni*nj)
     rms = sqrt(rms / (ni*nj))
-    meanval = meanval / (ni*nj)  ! moyenne
+!     meanval = meanval / (ni*nj)  ! moyenne
     span = max(min(zmax-meanval,meanval-zmin),rr)
     span = rrange/span
 !     return
-    print 100, nbits, toler*1.2 >= errmax, toler, errmax, bias, rms, rrange, zmax, zmin, meanval, &
-       nint(errmax/toler*100)*1.0, nint(rms/toler*100)*1.0, nint(bias/toler*1000000)*.0001, &
-       (power-imax),nint(span)
-    print 101,population(8),population(0)-population(8),population(1:7)
-100 format(I4,L5, 2G12.4,1H|, 3G12.4,1H|, 3G12.4, 3F8.2, 2i6)
-101 format(9I8)
+    call s1scor(s1,z,zz,ni,nj,1,1,ni,nj,1)
+    if(mode == 0)print 101,nomvar,population(8),population(0)-population(8),population(1:7)
+    if(mode .ne. 0 .and. nint(span) < 32) return
+    print 100, nbits, toler*1.2 >= errmax, toler >= rms, toler,errmax,  bias,rms,relrms,rrange,s1,   zmax,zmin,meanval, &
+       nint(errmax/toler*100)*1.0, nint(rms/toler*100)*1.0, nint(bias/toler*1000000)*.0001, abs(bias/rms*100.0), &
+       (power-imax),nint(span),'  |'
+100 format(I4,2X,2L1, 2G12.4,2H |, 5G12.4,2H |, 3G12.4,2H | ,4F9.2,2H | 2I6,A)
+101 format(A,2X,9I8)
     if(imax > power - 2) then
       print *,'imax > power ',imax,izero,power,zmax,zmin,zmin-oldzmin,rr,(zmax-zmin)*r,(zmax-oldzmin)*r
       print *,zmin+(power-1)*rr,zmax,zmin+(power-1)*rr-zmax
