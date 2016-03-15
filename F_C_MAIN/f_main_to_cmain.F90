@@ -4,9 +4,9 @@
 # might require fortran runtime library initialization
 #
 # said main program may also be included in a static (.a) library
-# (tested with gfortran, ifort)
+# this has been tested with gfortran, ifort
 #
-# ==================================================================================
+! ==================================================================================
 # simple example
 
 cat >mydemo.c <<EOT
@@ -31,7 +31,7 @@ s.cc -c -Dmain=MY_C_MAIN mydemo.c
 s.f90 -o mydemo mydemo.o -L. -lfmain
 ./mydemo 1 2 3
 
-# ==================================================================================
+! ==================================================================================
 # example with tcl interpreter
 
 cat >mytcl.c <<EOT
@@ -59,7 +59,7 @@ s.cc -c -Dmain=MY_C_MAIN mytcl.c -I/usr/include/tcl8.5
 s.f90  -o mytcl f_main_to_cmain.F90 mytcl.o -L/usr/lib/x86_64-linux-gnu -ltcl8.5
 or
 s.f90 -o mytcl mytcl.o -L. -lfmain -L/usr/lib/x86_64-linux-gnu -ltcl8.5
-# ==================================================================================
+! ==================================================================================
 # example for wish interpreter
 cat >mywish.c <<EOT
 #include <tcl.h>
@@ -92,7 +92,7 @@ s.cc -c -Dmain=MY_C_MAIN mywish.c -I/usr/include/tcl8.5
 s.f90  -o mywish f_main_to_cmain.F90 mywish.o -L/usr/lib/x86_64-linux-gnu -ltcl8.5
 # or
 s.f90 -o mywish mywish.o -L. -lfmain -L/usr/lib/x86_64-linux-gnu -ltcl8.5 -ltk8.5
-# ==================================================================================
+! ==================================================================================
 # example for python interpreter
 
 cat >mypython.c <<EOT
@@ -105,10 +105,11 @@ main(int argc, char** argv)
 }
 EOT
 s.cc -c -Dmain=MY_C_MAIN mypython.c
+# Ubuntu 14.04 for the following lines
 s.f90 -o mypython  f_main_to_cmain.F90 mypython.o -lpython2.7
 # or 
 s.f90 -o mypython  mypython.o -L. -lfmain -lpython2.7
-# ==================================================================================
+! ==================================================================================
 #endif
 program fcmain
   use ISO_C_BINDING
