@@ -58,8 +58,11 @@ int Tcl_AppInit(interp)
 EOT
 # Ubuntu 14.04 for the following lines
 s.cc -c -Dmain=MY_C_MAIN mytcl.c -I/usr/include/tcl8.5
+#
 s.f90  -o mytcl f_main_to_cmain.F90 mytcl.o -L/usr/lib/x86_64-linux-gnu -ltcl8.5
-or
+# or
+s.f90 -c f_main_to_cmain.F90
+ar rcv libfmain.a f_main_to_cmain.o
 s.f90 -o mytcl mytcl.o -L. -lfmain -L/usr/lib/x86_64-linux-gnu -ltcl8.5
 ! ==================================================================================
 # example for wish interpreter
@@ -92,8 +95,11 @@ int Tcl_AppInit(interp)
 EOT
 # Ubuntu 14.04 for the following lines
 s.cc -c -Dmain=MY_C_MAIN mywish.c -I/usr/include/tcl8.5
+#
 s.f90  -o mywish f_main_to_cmain.F90 mywish.o -L/usr/lib/x86_64-linux-gnu -ltcl8.5
 # or
+s.f90 -c f_main_to_cmain.F90
+ar rcv libfmain.a f_main_to_cmain.o
 s.f90 -o mywish mywish.o -L. -lfmain -L/usr/lib/x86_64-linux-gnu -ltcl8.5 -ltk8.5
 ! ==================================================================================
 # example for python interpreter
@@ -109,9 +115,12 @@ main(int argc, char** argv)
 }
 EOT
 s.cc -c -Dmain=MY_C_MAIN mypython.c
+#
 # Ubuntu 14.04 for the following lines
 s.f90 -o mypython  f_main_to_cmain.F90 mypython.o -lpython2.7
 # or 
+s.f90 -c f_main_to_cmain.F90
+ar rcv libfmain.a f_main_to_cmain.o
 s.f90 -o mypython  mypython.o -L. -lfmain -lpython2.7
 ! ==================================================================================
 #endif
@@ -149,10 +158,10 @@ program fcmain
   status = c_main(nargs+1,argtab)
   stop
 end
-function from_c() result(dummy) bind(C,name='UseFmain')
-  use ISO_C_BINDING
-  implicit none
-  integer(C_INT) :: dummy
-  dummy = 0
-  return
-end function from_c
+! function from_c() result(dummy) bind(C,name='UseFmain')
+!   use ISO_C_BINDING
+!   implicit none
+!   integer(C_INT) :: dummy
+!   dummy = 0
+!   return
+! end function from_c
