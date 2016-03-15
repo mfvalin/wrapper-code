@@ -115,10 +115,6 @@ program fcmain
   use ISO_C_BINDING
   implicit none
 
-  integer :: dummy
-  common /from_c/ dummy
-  bind(C,name='UseFmain') :: /from_c/
-
   integer(C_INT) :: nargs
   integer :: i, length, status
   character(len=4096) :: argument
@@ -149,3 +145,10 @@ program fcmain
   status = c_main(nargs+1,argtab)
   stop
 end
+function from_c() result(dummy) bind(C,name='UseFmain')
+  use ISO_C_BINDING
+  implicit none
+  integer(C_INT) :: dummy
+  dummy = 0
+  return
+end function from_c
