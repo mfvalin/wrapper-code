@@ -11,10 +11,11 @@
 
 cat >mydemo.c <<EOT
 #include <stdio.h>
-int *UseFmain;
+int UseFmain();
 int main(int argc, char**argv)
 {
  int i;
+ int dummy = UseFmain();
  for(i=0;i<argc;i++) printf("arg %d = '%s'\n",i,argv[i]);
  return(0);
 }
@@ -36,11 +37,12 @@ s.f90 -o mydemo mydemo.o -L. -lfmain
 
 cat >mytcl.c <<EOT
 #include <tcl.h>
-int *UseFmain;
+int UseFmain();
 int main(
     int argc,                   /* Number of command-line arguments. */
     char **argv)                /* Values of command-line arguments. */
 {
+    int dummy = UseFmain();
     Tcl_Main(argc, argv, Tcl_AppInit);
     return 0;                   /* Needed only to prevent compiler warning. */
 }
@@ -64,11 +66,12 @@ s.f90 -o mytcl mytcl.o -L. -lfmain -L/usr/lib/x86_64-linux-gnu -ltcl8.5
 cat >mywish.c <<EOT
 #include <tcl.h>
 #include <tk.h>
-int *UseFmain;
+int UseFmain();
 int main(
     int argc,                   /* Number of command-line arguments. */
     char **argv)                /* Values of command-line arguments. */
 {
+    int dummy = UseFmain();
     Tk_Main(argc, argv, Tcl_AppInit);
     return 0;                   /* Needed only to prevent compiler warning. */
 }
@@ -96,9 +99,10 @@ s.f90 -o mywish mywish.o -L. -lfmain -L/usr/lib/x86_64-linux-gnu -ltcl8.5 -ltk8.
 # example for python interpreter
 
 cat >mypython.c <<EOT
-int *UseFmain;
+int UseFmain();
 main(int argc, char** argv)
 {
+  int dummy = UseFmain();
   Py_Initialize();
   Py_Main(argc, argv);
   Py_Finalize();
