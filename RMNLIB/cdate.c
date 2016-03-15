@@ -27,7 +27,7 @@
 #include "cdate.h"
 #include "rpnmacros.h"
 
-extern int *GetFmain;
+int *UseFmain;
 
 /*
  *  reference date: Jan 1 1950 00:00:00:00
