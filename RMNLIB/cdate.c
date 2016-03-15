@@ -27,6 +27,8 @@
 #include "cdate.h"
 #include "rpnmacros.h"
 
+extern int *GetFmain;
+
 /*
  *  reference date: Jan 1 1950 00:00:00:00
  */
@@ -327,7 +329,7 @@ main (argc,argv)
  *  test for argument error
  */
     if( argc < 2 ) { usage(); }
-    Fmain();
+
 /*
  *  argument -jg : conversion GMT date/time from julian hour to gregorian
  */
