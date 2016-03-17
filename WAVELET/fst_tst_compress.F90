@@ -1,8 +1,13 @@
+module globalstats
+  implicit none
+  integer, dimension(-1:2), save :: biases, nbiases
+end module globalstats
 program test_compress
   use ISO_C_BINDING
+  use globalstats
   implicit none
   integer, external :: fnom, fstouv, fstnbr, fstinf, fstsui
-  integer :: iun, status, nrec, key, ni, nj, nk, irec, ilev
+  integer :: iun, status, nrec, key, ni, nj, nk, irec, ilev, ilen
   integer :: date,deet,npas,nbits,datyp,ip1,ip2,ip3,ig1,ig2,ig3,ig4
   integer :: swa,lng,dltf,ubc,extra1,extra2,extra3
   character(len=2) :: typvar
@@ -11,10 +16,13 @@ program test_compress
   character(len=1) :: grtyp
   real, dimension(:,:), pointer :: z=>NULL()
   integer, dimension(:,:), pointer :: iz=>NULL()
+  character (len=128) :: filename
 
   write(0,*)'======= compression algorithm test ======='
   iun=0
-  status = fnom(iun,'input.fst','RND+STD+R/O+OLD',0)
+  call get_command_argument(1,filename,ilen,status)
+  if(status .ne. 0) stop
+  status = fnom(iun,trim(filename),'RND+STD+R/O+OLD',0)
   call fstopi("MSGLVL",8,0)
   if(status < 0) goto 999
   status = fstouv(iun,'RND')
@@ -24,6 +32,8 @@ program test_compress
   ilev = 0
   oldnam='    '
   write(0,*)nrec,' records found, unit=',iun
+  biases = 0
+  nbiases = 0
 
   key = fstinf(iun,ni,nj,nk,-1,'            ',-1,-1,-1,'  ','    ')
   do while(key >= 0)
@@ -45,9 +55,11 @@ program test_compress
       if(ni > 1 .and. nj > 1 .and. trim(nomvar) .ne. 'KTkt') then
         call fstluk(z,key,ni,nj,nk)
         call test_quantizing(z,ni,nj,nomvar,0)
+        call test_quantizing(z,ni,nj,nomvar,-1)
 !         z = max(z,0.0)
   !      call test_compression(z,ni,nj,nomvar)
         call test_quantizing(z,ni,nj,nomvar,1)
+        call test_quantizing(z,ni,nj,nomvar,2)
       endif
       if(nomvar .ne. oldnam) then
 !         if(oldnam .ne. '    ') write(0,*)'NAME=',oldnam,' levels=',ilev
@@ -57,7 +69,9 @@ program test_compress
     endif
     key = fstsui(iun,ni,nj,nk)
   enddo
-  write(0,*)'number of records processed:',irec,' out of',nrec
+  write(6,*)'number of records processed:',irec,' out of',nrec
+  write(6,*)'biases=',biases
+  write(6,*)'nbiases=',nbiases
   call fstfrm(iun)
 
   stop
@@ -68,22 +82,25 @@ end program test_compress
 
 #define NSCORES 16
 
-subroutine scores(s,fa,fb,ni,nj,toler,diag,msg)
+subroutine scores(s,fa,fb,ni,nj,toler,diag,msg,mode)
   use ISO_C_BINDING
+  use globalstats
   implicit none
-  integer, intent(IN) :: ni, nj
+  integer, intent(IN) :: ni, nj, mode
   real, dimension(NSCORES), intent(OUT) :: s
   real, dimension(ni,nj) :: fa, fb
   real, intent(IN) :: toler             ! tolerance
   logical, intent(IN) :: diag
   character(len=*), intent(IN) :: msg
 
-  real *8 :: suma, sumb, sumab, suma2, sumb2, bias, rms, abserr, errmax, errrel
-  real *8 :: errrelmax, errrelavg, avga, avgb, stda, stdb, sd, corr, slope, intercept
-  integer :: i, j, n
-  real :: nonzero, fmin, fmax, span
+  real *8 :: suma, sumb, sumab, suma2, sumb2, bias, rms, abserr, errmax, errrel, one
+  real *8 :: errrelmax, errrelavg, avga, avgb, stda, stdb, corr, slope, intercept
+  integer :: i, j, n, isd
+  real :: nonzero, fmin, fmax, span, sdl, sd
+  integer, dimension(6) :: dig
 
   s = 0.0
+  one = 1.0
   call s1scor(s(1),fa,fb,ni,nj,1,1,ni,nj,1)
   suma = 0.0
   sumb = 0.0
@@ -104,13 +121,14 @@ subroutine scores(s,fa,fb,ni,nj,toler,diag,msg)
   intercept = 0.0
   fmin = fa(1,1)
   fmax = fmin
+  dig = 0
   do j = 1 , nj
   do i = 1 , ni
     suma = suma + fa(i,j)
-    suma2 = suma2 + fa(i,j)*fa(i,j)
+    suma2 = suma2 + one*fa(i,j)*fa(i,j)
     sumb = sumb + fb(i,j)
-    sumb2 = sumb2 + fb(i,j)*fb(i,j)
-    sumab = sumab + fa(i,j)*fb(i,j)
+    sumb2 = sumb2 + one*fb(i,j)*fb(i,j)
+    sumab = sumab + one*fa(i,j)*fb(i,j)
     rms = rms + (fa(i,j)-fb(i,j)) * (fa(i,j)-fb(i,j))
     abserr = abserr + abs(fa(i,j)-fb(i,j))
     bias = bias +  (fb(i,j)-fa(i,j))
@@ -119,7 +137,10 @@ subroutine scores(s,fa,fb,ni,nj,toler,diag,msg)
       nonzero = nonzero + 1
       errrel = abs(fa(i,j)-fb(i,j)) / abs(fa(i,j))
       errrel = max(errrel, .0000005)
-      sd = sd - log10(errrel)
+      sdl = log10(errrel)
+      isd = max(1, min(6,nint(-sdl)))
+      dig(isd) = dig(isd)+1
+      sd = sd - sdl
       errrelavg = errrelavg + errrel
       errrelmax = max( errrelmax , errrel )
     endif
@@ -132,9 +153,13 @@ subroutine scores(s,fa,fb,ni,nj,toler,diag,msg)
   avgb = sumb / (ni*nj)
   stdb = sqrt( max( 0.0 , (sumb2/n) - ((sumb/n)*(sumb/n)) ) )
   rms = sqrt( rms / (ni*nj) )
+  if(rms <= 1.0E-20) rms = 1.0E-20
   bias = bias / (ni*nj)
+!   if(abs(bias) <= 1.0E-20) bias = 1.0E-20
+!   rms = max(abs(bias),rms)
   abserr = abserr / (ni*nj)
   if(nonzero > 0) then
+    dig = nint(dig * 100.0 / nonzero)
     sd = sd / nonzero
     errrelavg = errrelavg / nonzero
   endif
@@ -153,165 +178,213 @@ subroutine scores(s,fa,fb,ni,nj,toler,diag,msg)
   s(9) = stdb
   s(10) = sd
   s(11) = corr
-
   if(diag) then
     print 100,msg,' S1=',s(1),' Bias=',s(3),' RMS=',s(2),' B/R=',nint(100*abs(s(3)/s(2))), &
              ' Ae=',s(5),s(4),' Re=',s(6),s(7),' NZ=',nint(nonzero/(ni*nj)*100.0), &
              ' dSTD=',stda-stdb,' SD=',sd,' dC1=',1.0-corr,' Sp=',nint(span*.5), &
-             ' A,B=',slope-1.0,intercept
-100 format(A,A,E8.2,A,E10.3,A,E9.3,A,I3,1H%,A,2E10.3,A,2E10.3,A,I3,1H%,A,E10.3,A,F4.1,A,E10.4,A,I5,A,E10.3,E11.3)
+             ' A,B=',1.0-slope,intercept,dig
+100 format(A,A,E8.2,A,E9.2,A,E8.2,A,I2,1H%,A,E8.2,E9.2,A,E8.2,E9.2,A,I3,1H%,A,E9.2,A,F3.1,A,E8.2,A,I5,A,E9.2,E10.2,6I3)
   endif
 
+  nbiases(mode) = nbiases(mode) + 1
+  if(bias > 0) then
+    biases(mode) = biases(mode) + 1
+  else
+    biases(mode) = biases(mode) - 1
+  endif
   return
 end subroutine scores
 
-subroutine test_quantizing(z,ni,nj,nomvar,mode)
+subroutine un_quantize(z,iz,ni,nj,imode)
+  use ISO_C_BINDING
+  implicit none
+  integer, intent(IN) :: ni,nj
+  real, dimension(ni,nj), intent(OUT) :: z
+  integer, dimension(ni,nj), intent(IN) :: iz
+  integer, intent(IN) :: imode
+  interface
+    subroutine float_unpacker(field,header,data,nelm,nbits) bind(C,name='c_float_unpacker')
+      import C_FLOAT, C_INT
+      real(C_FLOAT), dimension(nelm), intent(OUT) :: field
+      integer(C_INT), dimension(*), intent(IN) :: header,data
+      integer(C_INT), value :: nelm
+      integer(C_INT), intent(OUT) :: nbits
+    end subroutine float_unpacker
+  end interface
+
+  integer :: mode, i, j, nbits
+  real :: zz
+
+  mode = imode
+  if(mode <= 0) then        ! linear quantization
+    if(mode == -1) then
+      call float_unpacker(z,iz,iz(11,1),ni*nj,nbits)
+      return
+    endif
+    do j=1,nj
+    do i=1,ni
+      zz = transfer(iz(i,j),zz)
+      z(i,j) = zz
+    enddo
+    enddo
+  else
+    if(mode == 1) then      ! 5 bits exponent, 11 bits mantissa
+      call pseudo_ieee_un_quantize
+    else                    ! 4 bits exponent, 12 bits mantissa
+      call pseudo_ieee_un_quantize
+    endif
+  endif
+contains
+  subroutine pseudo_ieee_un_quantize
+    implicit none
+    integer :: i, j
+    real :: zz
+
+    do j=1,nj
+    do i=1,ni
+      zz = transfer(iz(i,j),zz)
+      z(i,j) = zz
+    enddo
+    enddo
+  end subroutine pseudo_ieee_un_quantize
+end subroutine un_quantize
+
+subroutine quantize(z,iz,ni,nj,span,rrange,imode)
+  use ISO_C_BINDING
+  implicit none
+  integer, intent(IN) :: ni,nj
+  real, dimension(ni,nj), intent(IN) :: z
+  integer, dimension(ni,nj), intent(OUT) :: iz
+  real, intent(OUT) :: span, rrange
+  integer, intent(IN) :: imode
+  interface
+    subroutine float_packer(field,nbits,header,data,nelm) bind(C,name='c_float_packer')
+      import C_FLOAT, C_INT
+      real(C_FLOAT), dimension(nelm), intent(IN) :: field
+      integer(C_INT), dimension(*), intent(OUT) :: header,data
+      integer(C_INT), value :: nelm
+      integer(C_INT), value :: nbits
+    end subroutine float_packer
+  end interface
+
+  integer :: i, j, mode, mask, lowexp, maxexp, iszero, power
+  real :: zmin, zmin0, zmax, meanval, fudge, rr, toler, r, zz
+
+  mode = imode
+  if(mode <= 0) then        ! linear quantization
+    call extrema
+    if(rrange == 0.0) return
+!     if(span < 16.0) return
+    if(mode == -1) then
+      call float_packer(z,16,iz,iz(11,1),ni*nj)
+      return
+    endif
+    power = ishft(1,16)
+    rr = rrange/(power - 2.01)
+    toler = rr * .5
+    if(abs(zmin) < toler) zmin = 0
+    r = 1.0 / rr
+    do j=1,nj
+    do i=1,ni
+      iz(i,j) = nint((z(i,j)-zmin)*r)
+      zz = iz(i,j)*rr + zmin
+      iz(i,j) = transfer(zz,iz(i,j))
+    enddo
+    enddo
+  else
+    call extrema
+    if(rrange == 0.0) return
+!     if(span < 16.0) return
+    if( span > 96 .and. mode == 2) mode = 1
+    if(mode == 1) then      ! 5 bits exponent, 11 bits mantissa
+      mask = ishft(-1,12)
+      lowexp = 31
+      fudge = 1.0001762
+    else                    ! 4 bits exponent, 12 bits mantissa
+      mask = ishft(-1,11)
+      lowexp = 15
+      fudge = 1.000099
+    endif
+    call pseudo_ieee_quantize
+  endif
+  return
+contains
+  subroutine extrema
+    implicit none
+    integer :: i, j, maxexp1, maxexp2
+    zmin = z(1,1)
+    zmin0 = 1.0
+    zmax = z(1,1)
+    meanval = 0.0
+    do j=1,nj
+    do i=1,ni
+      zmin = min(z(i,j),zmin)
+      zmax = max(z(i,j),zmax)
+      if(z(i,j) .ne.0) zmin0 = min(z(i,j),zmin0)
+      meanval = meanval + z(i,j)
+    enddo
+    enddo
+    rrange = zmax - zmin
+    if(rrange == 0.0) return
+    meanval = meanval / (ni*nj)  ! moyenne
+    span = min(zmax-meanval,meanval-zmin)
+    if(span == 0.0) span = rrange * .0001
+    span = 0.5 * (rrange / span)
+    maxexp1 = transfer(zmin,maxexp1)
+    maxexp1 = iand(ishft(maxexp1,-23),Z'000000FF')
+    maxexp2 = transfer(zmax,maxexp2)
+    maxexp2 = iand(ishft(maxexp2,-23),Z'000000FF')
+    maxexp = max(maxexp1,maxexp2)
+  end subroutine extrema
+
+  subroutine pseudo_ieee_quantize
+    implicit none
+    integer :: i, j, izz, ifactor
+    real :: zz
+
+    iszero = 0
+    do j=1,nj
+    do i=1,ni
+      zz = z(i,j) * fudge
+      izz = transfer(zz,izz)
+      izz = iand(izz,mask)
+      ifactor = iand(ishft(izz,-23),Z'000000FF')
+      if(ifactor < maxexp-lowexp) then
+        izz = 0
+        iszero = iszero + 1
+      endif
+      iz(i,j) = izz
+    enddo
+    enddo
+  end subroutine pseudo_ieee_quantize
+end subroutine quantize
+
+subroutine test_quantizing(z,ni,nj,nomvar,imode)
   use ISO_C_BINDING
   implicit none
   integer, intent(IN) :: ni,nj
   real, dimension(ni,nj), intent(IN) :: z
   character(len=4), intent(IN) :: nomvar
-  integer, intent(IN) :: mode
+  integer, intent(IN) :: imode
 
-  real *8 :: bias, rms, relrms
-  real :: errmax, znew, zmin, zmax, err, rrange, toler, oldzmin, r, rr, meanval, span, errrel, factor, zmin0, s1
-  integer :: i, j, coded, nbits, power, imax, izero, nonzero, ifactor, iszero
-  integer, dimension(0:16) :: population
-  integer :: ipop
-  integer, dimension(:,:), pointer :: iz
-  type(C_PTR) :: piz
-  integer :: mask
-  real, dimension(ni,nj), target :: zz
-  integer :: izz, maxexp1, maxexp2, maxexp
+  integer :: nbits
+  integer, dimension(ni,nj) :: iz
+  real, dimension(ni,nj) :: zz
+  integer :: mode
   real, dimension(NSCORES) :: s
+  real :: span,rrange, toler
 
 !   if(mode .ne. 0) return
-  zmin = z(1,1)
-  zmin0 = 1.0
-  zmax = z(1,1)
-  meanval = 0.0
-  do j=1,nj
-  do i=1,ni
-    zmin = min(z(i,j),zmin)
-    zmax = max(z(i,j),zmax)
-    if(z(i,j) .ne.0) zmin0 = min(z(i,j),zmin0)
-    meanval = meanval + z(i,j)
-  enddo
-  enddo
-  maxexp1 = transfer(zmin,maxexp1)
-  maxexp1 = iand(ishft(maxexp1,-23),Z'000000FF')
-  maxexp2 = transfer(zmax,maxexp2)
-  maxexp2 = iand(ishft(maxexp2,-23),Z'000000FF')
-  maxexp = max(maxexp1,maxexp2)
-!   ifactor = 127+15-maxexp
-!   ifactor = ishft(ifactor,23)
-!   factor = transfer(ifactor,factor)
-!   print 777," maxexp, factor, max, min, max', min' =",maxexp,factor,zmax,zmin, factor*zmax,factor*zmin
-777 format(A,i6,6Z10.8)
-  rrange = zmax - zmin
-  if(rrange == 0) return
-!   if(zmin == zmin0) return
-  meanval = meanval / (ni*nj)  ! moyenne
-  span = min(zmax-meanval,meanval-zmin)
-  if(span == 0.0) span = rrange * .0001
-  if ( rrange / span < 33 ) return
-!   if ( rrange / span > 64) then
-!     print *,nomvar,nint(rrange / span),zmin,zmin0,zmax,meanval
-!     return
-!   else
-!     return
-!   endif
-!
-  zz = z
-  piz = C_LOC(zz(1,1))
-  call c_f_pointer(piz,iz,[ni,nj])
-  mask = ishft(-1,12)
-!   mask = not(mask)
-!   factor = 1.00001
-!   zz = zz * factor
-!   iz = iand(iz,mask)
-!   mask = -1
-  oldzmin = zmin
-  if(rrange == 0) return
+  mode = imode
   do nbits = 16, 16, 4
-    zmin = oldzmin
-    power = ishft(1,nbits)
-    rr = rrange/(power - 2.01)
-    toler = rr * .5
-    if(abs(zmin) < toler) zmin = 0
-    r = 1.0 / rr
-!     if(zmin > 0) zmin = zmin - mod(zmin,rr)
-!     if(zmin < 0) zmin = zmin + mod(zmin,rr) - rr
-   izero = -1
-   if(zmin<0 .and. zmax > 0) then  ! make sure that 0 decodes back as zero
-      zmin = -rr*nint((0.0-zmin)*r)  ! make zmin a multiple of rr
-      izero = nint((0.0-zmin)*r)
-      imax = nint((zmax-zmin)*r)
-   endif
-    errmax = 0.0
-    bias = 0
-    rms = 0
-!     meanval = 0
-    imax = nint((zmax-zmin)*r)
-    population = 0
-    relrms = 0
-    nonzero = 0
-    iszero = 0
-    do j=1,nj
-    do i=1,ni
-!       meanval = meanval + z(i,j)
-      coded = nint((z(i,j)-zmin)*r)
-      ipop = ishft(coded,3-nbits)
-      population(ipop) = population(ipop)+1
-      if(coded==0) population(8) = population(8)+1
-      if(mode == 0) znew = coded*rr + zmin
-      if(mode .ne. 0) then
-        zz(i,j) = z(i,j) * 1.000177
-        izz = transfer(zz(i,j),izz)
-        izz = iand(izz,mask)
-        ifactor = iand(ishft(izz,-23),Z'000000FF')
-        if(ifactor < maxexp-31) then
-          izz = 0
-          iszero = iszero + 1
-        endif
-        znew = transfer(izz,znew)
-      endif
-      zz(i,j) = znew
-      err = znew - z(i,j)
-      errmax = max(abs(err),errmax)
-      bias = bias + err
-      rms = rms + err * err
-      errrel = 0
-      if(z(i,j) .ne. 0 ) then
-        nonzero = nonzero + 1
-        errrel = ( abs(z(i,j)-znew) / abs(z(i,j)) )
-      endif
-      relrms = relrms + errrel
-    enddo
-    enddo
-!     print *,'iszero =',iszero,ni*nj
-    relrms = relrms / (nonzero)
-    bias =  bias / (ni*nj)
-    rms = sqrt(rms / (ni*nj))
-!     meanval = meanval / (ni*nj)  ! moyenne
-    span = max(min(zmax-meanval,meanval-zmin),rr)
-    span = rrange/span
-!     return
-!     call s1scor(s1,z,zz,ni,nj,1,1,ni,nj,1)
-    if(mode == 0)print 101,nomvar,population(8),population(0)-population(8),population(1:7)
-    if(mode .ne. 0 .and. nint(span) < 32) return
-    call scores(s,z,zz,ni,nj,toler,.true.,'    ')
-!     print 100, nbits, toler*1.2 >= errmax, toler >= rms, toler,errmax,  bias,rms,relrms,rrange,s1,   zmax,zmin,meanval, &
-!        nint(errmax/toler*100)*1.0, nint(rms/toler*100)*1.0, nint(bias/toler*1000000)*.0001, abs(bias/rms*100.0), &
-!        (power-imax),nint(span),'  |'
-100 format(I4,2X,2L1, 2G12.4,2H |, 5G12.4,2H |, 3G12.4,2H | ,4F9.2,2H | 2I6,A)
+    call quantize(z,iz,ni,nj,span,rrange,mode)
+    if(rrange == 0.0) return
+!     if(span < 16.0) return
+    if(mode > 0 .and. nint(span) < 16) return
+    call un_quantize(zz,iz,ni,nj,mode)
+    if(mode == 0)print *,nomvar
+    call scores(s,z,zz,ni,nj,toler,.true.,'    ',mode)
 101 format(A,2X,9I8)
-    if(imax > power - 2) then
-      print *,'imax > power ',imax,izero,power,zmax,zmin,zmin-oldzmin,rr,(zmax-zmin)*r,(zmax-oldzmin)*r
-      print *,zmin+(power-1)*rr,zmax,zmin+(power-1)*rr-zmax
-      print *,oldzmin+(power-1)*rr,zmax,oldzmin+(power-1)*rr-zmax
-      stop
-    endif
   enddo
   return
 end subroutine test_quantizing
