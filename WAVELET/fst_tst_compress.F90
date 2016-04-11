@@ -52,7 +52,7 @@ program test_compress
                   swa,lng,dltf,ubc,extra1,extra2,extra3)
       ilev = ilev + 1
 !      if(trim(nomvar) == 'TT') then
-      if(ni > 1 .and. nj > 1 .and. trim(nomvar) .ne. 'KTkt') then
+      if(ni > 5 .and. nj > 5 .and. trim(nomvar) .ne. 'KTkt') then
         call fstluk(z,key,ni,nj,nk)
         call test_quantizing(z,ni,nj,nomvar,0)
         call test_quantizing(z,ni,nj,nomvar,-1)
@@ -133,7 +133,8 @@ subroutine scores(s,fa,fb,ni,nj,toler,diag,msg,mode)
     abserr = abserr + abs(fa(i,j)-fb(i,j))
     bias = bias +  (fb(i,j)-fa(i,j))
     errmax = max( errmax,  abs(fa(i,j)-fb(i,j)) )
-    if( fa(i,j)*fb(i,j) .ne. 0) then
+!     if( fa(i,j)*fb(i,j) .ne. 0) then
+    if( fa(i,j) .ne. 0) then
       nonzero = nonzero + 1
       errrel = abs(fa(i,j)-fb(i,j)) / abs(fa(i,j))
       errrel = max(errrel, .0000005)
@@ -267,12 +268,17 @@ subroutine quantize(z,iz,ni,nj,span,rrange,imode)
     end subroutine float_packer
   end interface
 
-  integer :: i, j, mode, mask, lowexp, maxexp, iszero, power
+  integer :: i, j, mode, mask, lowexp, maxexp, iszero, power, nonzero
   real :: zmin, zmin0, zmax, meanval, fudge, rr, toler, r, zz
 
   mode = imode
+  nonzero = 0
+  call extrema
+  if(nonzero < ni*nj/8 .and. mode > 0) then
+    span = 0.0
+    return
+  endif
   if(mode <= 0) then        ! linear quantization
-    call extrema
     if(rrange == 0.0) return
 !     if(span < 16.0) return
     if(mode == -1) then
@@ -292,7 +298,6 @@ subroutine quantize(z,iz,ni,nj,span,rrange,imode)
     enddo
     enddo
   else
-    call extrema
     if(rrange == 0.0) return
 !     if(span < 16.0) return
     if( span > 96 .and. mode == 2) mode = 1
@@ -320,7 +325,10 @@ contains
     do i=1,ni
       zmin = min(z(i,j),zmin)
       zmax = max(z(i,j),zmax)
-      if(z(i,j) .ne.0) zmin0 = min(z(i,j),zmin0)
+      if(z(i,j) .ne. 0.0) then
+        nonzero = nonzero + 1
+        zmin0 = min(z(i,j),zmin0)
+      endif
       meanval = meanval + z(i,j)
     enddo
     enddo
