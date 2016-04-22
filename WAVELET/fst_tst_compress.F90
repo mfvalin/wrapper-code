@@ -17,13 +17,14 @@ program test_compress
   real, dimension(:,:), pointer :: z=>NULL()
   integer, dimension(:,:), pointer :: iz=>NULL()
   character (len=128) :: filename
+  integer :: i, j
 
   write(0,*)'======= compression algorithm test ======='
   iun=0
   call get_command_argument(1,filename,ilen,status)
   if(status .ne. 0) stop
   status = fnom(iun,trim(filename),'RND+STD+R/O+OLD',0)
-  call fstopi("MSGLVL",8,0)
+!   call fstopi("MSGLVL",8,0)
   if(status < 0) goto 999
   status = fstouv(iun,'RND')
   if(status < 0) goto 999
@@ -52,8 +53,17 @@ program test_compress
                   swa,lng,dltf,ubc,extra1,extra2,extra3)
       ilev = ilev + 1
 !      if(trim(nomvar) == 'TT') then
-      if(ni > 5 .and. nj > 5 .and. trim(nomvar) .ne. 'KTkt') then
+!       if(ni > 5 .and. nj > 5 .and. trim(nomvar) .eq. 'TT' .and. ip1 <= 1000) then
+      if(ni > 5 .and. nj > 5 .and. ip1 <= 850 .and. ip1 > 0) then
+!       if(ni > 5 .and. nj > 5 ) then
+!         write(filename,100)nomvar,ip2,'.data'
+100     format(A2,I4.4,A5)
+!         print *,"'"//trim(filename)//"'"
         call fstluk(z,key,ni,nj,nk)
+!         open(33,file=trim(filename),form='FORMATTED')
+!         write(33,*)ni,nj
+!         write(33,*)((z(i,j),i=1,ni),j=1,nj)
+!         close(33)
         call test_quantizing(z,ni,nj,nomvar,0)
         call test_quantizing(z,ni,nj,nomvar,-1)
 !         z = max(z,0.0)
@@ -390,7 +400,7 @@ subroutine test_quantizing(z,ni,nj,nomvar,imode)
 !     if(span < 16.0) return
     if(mode > 0 .and. nint(span) < 16) return
     call un_quantize(zz,iz,ni,nj,mode)
-    if(mode == 0)print *,nomvar
+!     if(mode == 0)print *,nomvar
     call scores(s,z,zz,ni,nj,toler,.true.,'    ',mode)
 101 format(A,2X,9I8)
   enddo
