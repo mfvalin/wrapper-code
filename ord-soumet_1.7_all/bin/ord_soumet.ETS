@@ -91,7 +91,7 @@
 
 true
 exec 9>&1 1>&2
-export Version="1.0.39.uqam.09a"
+export Version="1.7.uqam"
 export LastErrorMessage=""
 export ErrorStatus=0
 export EXTRA_BIN_PATH=""
@@ -130,7 +130,9 @@ function IsInList {
 
 # print fatal error message and abort
 function FatalError {
+	u.banner ====== ERREUR
 	echo ERROR: "$@" , ABORTING
+	u.banner ERREUR ======
 	LastErrorMessage="$@"
 	[[ "$sys" = "batch" ]] && rm -f ${job_batch} ${job_with_wrapper}
 	ErrorStatus=2
@@ -147,7 +149,7 @@ function GetConfigName {
 	for Target in $*; do
 		[[ -r "${Target}${Extension}" ]] && echo "${Target}${Extension}" && continue
 		[[ -r "${HOME}/.ord_soumet.d/cfg/${Target}${Extension}" ]] && echo "${HOME}/.ord_soumet.d/cfg/${Target}${Extension}" && continue
-		[[ -r "${altcfgdir}/${Target}${Extension}" ]] && echo "${aktcfgdir}/${Target}${Extension}" && continue
+		[[ -r "${altcfgdir}/${Target}${Extension}" ]] && echo "${altcfgdir}/${Target}${Extension}" && continue
 		[[ -r "${ConfigDir}/${Target}${Extension}" ]] && echo "${ConfigDir}/${Target}${Extension}" && continue
 	done
 }
@@ -224,10 +226,10 @@ eval `cclargs -D "" $0 "[send a job for execution]"\
  -as "" "" "[submit job as another user]"\
  -c "1" "1" "[same as cpus]"\
  -clone "0" "100" "[max number of clones (0=none) ]"\
- -cm "" "" "[memory (K/M/G bytes)]"\
+ -cm "200M" "2G" "[memory (K/M/G bytes)]"\
  -coschedule "no" "yes" "[coscheduled job]"\
  -cpus "" "" "[processes(MxN) and cpus/process(O) MxNxO ]"\
- -custom "" "${AnSwErD}" "[custom parameter for sys config]"\
+ -custom "" "" "[custom parameter for sys config]"\
  -d_ "${TRUE_HOST:-${HOSTNAME%%.*}}" "${TRUE_HOST:-${HOSTNAME%%.*}}" "[synonym for mach ]"\
  -display "" "$DISPLAY" "[X windows display]"\
  -e "" "e" "[controls -e flag]"\
@@ -244,7 +246,7 @@ eval `cclargs -D "" $0 "[send a job for execution]"\
  -l "no" "yes" "[job already has wrappers]"\
  -laststep "" "laststep" "[last co-scheduled step]"\
  -listing "${CRAYOUT:-${HOME}/listings}" "${HOME}/tmp" "[ directory for listings ]"\
- -m "100M" "100M" "[same as cm]"\
+ -m "200M" "2G" "[same as cm]"\
  -mach_ "" "" "[ target machine ]"\
  -mail "" "${USER}@ec.gc.ca" "[email address]"\
  -mpi "" mpi "[ MPI job ]"\
@@ -266,6 +268,7 @@ eval `cclargs -D "" $0 "[send a job for execution]"\
  -queue "" "${SOUMET_QUEUE}" "[specify a specific queue/class]"\
  -resid "" "" "[LoadLeveler reservation id]" \
  -rsrc "" "" "[set of needed resources]"\
+ -retries "0" "3" "[set of maximum number of retries]"\
  -seqno "1" "1" "[sequence number of first job (clones) ]"\
  -share "" "s" "[can share node and/or be split across nodes e|s|p]"\
  -shell "/bin/ksh" "" "[job shell for batch job]"\
@@ -288,6 +291,10 @@ eval `cclargs -D "" $0 "[send a job for execution]"\
 
 jobcfg=${jobcfg:-/dev/null}
 sys=${FORCE_BATCH:-$sys}
+
+if [ -n "${tag}" ]; then
+        safe_tag=`echo "${tag}" | tr ":'\"[:blank:][:cntrl:]" '_____' | tr -d '\n'`
+fi
 
 #
 # DO NOT USE "$@" for argument substitution (cclargs) , it will break some user scripts
@@ -363,8 +370,8 @@ fi
 # job name. use base of file name stripped of extension if jn not present, replace - (<STDIN>)  with stdin${ppid}
 #
 jn=${jn:-${filnam##*/}}
-# LOCAL PATCH at UQAM no removal of trailing period
-##############[[ "$sys" = "batch" ]] && jn=${jn%.*}
+#[[ "$sys" = "batch" ]] && jn=${jn%.*}
+##################### LOCAL PATCH at UQAM no removal of trailing period
 test "${jn}" = "-" && jn="stdin${ppid}"
 
 #
@@ -543,8 +550,9 @@ if [[ "${listing}" = /* ]]; then
 	mkdir -p "${listing}"
 else
 	mkdir -p "${HOME}/${listing}"
+        listing="${HOME}/${listing}"
 fi
-
+[[ -d ${listing} ]] || FatalError "listing directory ${listing} does not exist"
 #
 # check for machine specific listing directory if in batch mode (not done if ocm/masetro/...)
 #
@@ -583,7 +591,7 @@ fi
 #
 # use SPECIFIC batch control system header, found in SAME directory as ord_soumet[_alpha|_beta]
 #
-echo INFO: using ${JobHeader} header from ${SoumetDir}/${JobHeader}_Job_Header.dot
+echo INFO: using ${JobHeader} header from ${LibDir}/${JobHeader}_Job_Header.dot
 . ${LibDir}/${JobHeader}_Job_Header.dot
 
 #
@@ -608,6 +616,7 @@ export SOUMET_QUEUE="${SOUMET_QUEUE}"
 ${SystemPath}
 test "${xterm}${display}" != ""    && export DISPLAY=${display:-$DISPLAY}
 test "${xterm}" != ""              && xterm -ls &
+#[[ "${clone}" != "0" ]] && export CLONE_ORDINAL=\$(grep "${ListingFileBase}[.]" "${job_batch}" | head -1 | sed -e 's/[.][oe]*$//' -e 's/.*[.]//') # && ((CLONE_ORDINAL=CLONE_ORDINAL+1))
 [[ "${clone}" != "0" ]] && export CLONE_ORDINAL=\$(grep "${ListingFileBase}[.]" "${job_batch}" | head -1 | sed 's/.*[.]//') && ((CLONE_ORDINAL=CLONE_ORDINAL+1))
 $(which ord_soumet_logger) start
 EOFJOB
@@ -615,9 +624,11 @@ EOFJOB
 test "${clone}" != "0" && echo "export MY_CLONE=${job_batch}" >> ${job_with_wrapper}
 
 #
-# add the user's job file (with prolog(s)/epilog(s) if needed)
+# add the user's job file (with prolog(s)/epilog(s) if needed);
+# ensure terminating newline to avoid subsequent append issues
 #
 cat ${prolog} ${filnam} ${epilog} >> ${job_with_wrapper}
+echo "" >> ${job_with_wrapper}
 
 #
 # batch subsystem INDEPENDENT postamble part of job
@@ -633,8 +644,10 @@ test "${clone}" != "0" && cat >> ${job_with_wrapper} << EOFJOB
 rm -f ${job_info_dir}/\${JOB_ID:-\${LOADL_STEP_ID%.*}}
 if [[ "${clone}" != "0" ]]; then
 	if [[ "\${SOUMET}" = qsub ]]; then
+		#export CLONE_ORDINAL=\$(grep "${ListingFileBase}[.]" "${job_batch}" | head -1 | sed -e 's/[.][oe]*$//' -e 's/.*[.]//')
 		export CLONE_ORDINAL=\$(grep "${ListingFileBase}[.]" "${job_batch}" | head -1 | sed 's/.*[.]//')
 		((CLONE_ORDINAL=CLONE_ORDINAL+1))
+		#sed "s/${ListingFileBase}[.][0-9]*/${ListingFileBase}.\${CLONE_ORDINAL}/" ${job_batch} >${job_batch}_
 		sed "s/${ListingFileBase}[.].*/${ListingFileBase}.\${CLONE_ORDINAL}/" ${job_batch} >${job_batch}_
 		mv ${job_batch}_ ${job_batch}
 		if [[ \${CLONE_ORDINAL:-100} -le $clone ]] ; then
@@ -687,7 +700,7 @@ else
 		#echo submitting job with : ${SelfJobResubmit} as user ${as}
 		#echo ". /etc/profile ; ${SelfJobResubmit}" | ssh -oBatchMode=yes -oStrictHostKeyChecking=no ${as}@${TRUE_HOST} ${shell}
 		test "${v}" != "" && echo "${SelfJobResubmit}"
-		((MaxRetries=0))
+		MaxRetries=${ORDSOUMET_RETRIES:-${retries}}
 		((Retry=0))
 		while ((Retry<=MaxRetries)); do
 			# retry with increasing delay 5/10/15 sec delay
@@ -717,8 +730,8 @@ else
 		cat <<EOT >GO
 mv ${job_batch##*/} ${job_batch}
 mv ${job_with_wrapper##*/} ${job_with_wrapper}
-${SelfJobResubmit}
 #echo ". /etc/profile ; ${SelfJobResubmit}" | ssh -oBatchMode=yes -oStrictHostKeyChecking=no ${as:-${USER}}@${TRUE_HOST} ${shell}
+${SelfJobResubmit}
 rm -f GO
 EOT
 
