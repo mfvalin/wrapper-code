@@ -1,0 +1,9 @@
+Package: ord-soumet
+Version: 1.7
+Platform: all
+Maintainer: Service HPCS <service.hpcs@ec.gc.ca>
+Description: Unified Job Submission Tool
+Build Date: 2014-11-12 21:51:33
+Build User: asphlib
+Build Host: sage
+Build Uname: ('Linux', 'sage', '3.13.0-36-generic', '#63-Ubuntu SMP Wed Sep 3 21:30:07 UTC 2014', 'x86_64')

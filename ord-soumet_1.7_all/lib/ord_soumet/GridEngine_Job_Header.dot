@@ -1,0 +1,94 @@
+# 2011/04/12 tmpfs fixes
+#
+# GridEngine header
+
+# no defaults if nothing specified
+if [ -z "${cm}" ]; then
+	FatalError "bad or missing memory setting (${cm})"
+fi
+
+if [[ "${JobHeader}" == GridEngine* ]]; then
+	SubmittedMarker="^Your.job.*has.been.submitted"
+	#export SelfJobResubmit="gmjob ${SgeCell} submit ${job_batch}"
+
+	#
+	# mail to user if job aborted/rescheduled, Time, Memory (GridEngine)
+	#
+	MailUser=""
+	test "${notify}" = "error" && MailUser="-m a"
+	test "${notify}" = "complete" && MailUser="-m e"
+	#test "${mail}" != "" && MailUser="${MailUser} -M ${mail}"
+	MailUser="${MailUser} -M ${mail:-${USER}@ec.gc.ca}"
+	GE_SystemPath=""
+	Sys_GridEngineHeader
+	CPU_limit="-l ${H_CPUTIME:-h_rt}=${t}"
+	MEM_limit="-l h_vmem=${cm}${memunits}"
+	test "${OperationalUser}" != "" && CPU_limit="" && MEM_limit=""
+	#test "${threads}" != "1" || MEM_limit=""
+	# (temporary patch) suppress memory limit for all values of threads
+	MEM_limit=""
+
+	#
+	# GridEngine queues and/or parallel environments
+	#
+	SgePE=""
+	unset SgePE
+	test "${ParallelEnvironment}" != "" && SgePE="-pe ${ParallelEnvironment} ${NeededSlots:-${NeededCpus}}"
+	SgeQueue=""
+	unset SgeQueue 
+	test "${JobClass}" != "" -a "${ParallelEnvironment}" == "" && SgeQueue="-q ${JobClass}"
+	ListingFileBase="${jn}.${ppid}${postfix}"
+	[[ -n "$custom" ]] && sge_profile="-v AnSwErD=$custom"
+
+	# support for tag
+	if [ -n "${safe_tag}" ]; then
+		tag_directive="-l res_tag=${safe_tag}"
+	fi
+
+	# generate job header if GridEngine
+	#
+	cat >> ${job_batch} << EOFJOB
+#
+# created by ord_soumet ${Version}
+#
+
+#\$ -j y
+#\$ -o ${listing}/${MachPrefix}${jn}.${ppid}${postfix}${seqno}
+#\$ -N ${jn}
+#\$ -S ${shell}
+#\$ -notify
+#\$ ${CPU_limit}
+#\$ ${MEM_limit}
+#\$ ${SgeQueue}
+#\$ ${SgePE}
+#\$ ${MailUser}
+#\$ ${GE_SystemPath}
+#\$ ${MustUseHost}
+#\$ ${sge_profile}
+#\$ ${sge_extra1}
+#\$ ${sge_extra2}
+#\$ ${sge_extra3}
+#\$ ${sge_extra4}
+#\$ ${sge_extra5}
+#\$ ${tag_directive}
+#
+
+test -n "${ssmuse}" && . s.ssmuse.dot ${ssmuse}
+test "${mpi}" = "mpi" && export PBS_NODEFILE=\$TMP/machines
+export SelfJobResubmit="${SelfJobResubmit}"
+export SelfJobRemove="${SelfJobRemove}"
+export SelfJobKill="ssh ${SgeCell} '. /etc/profile ; qdel \${JOB_ID}'"
+
+if [[ "${tmpfs}" != "" ]] ; then
+	# pre-fspc support
+	exptmpfs -c job self || true
+	exptmpfs -c pid \$PPID || true
+	export TMPFSDIR=\$(s.set_job_tmpfs ${tmpfs})
+fi
+EOFJOB
+
+	cat ${jobcfg} >> ${job_batch}
+	Sys_AddWrapper ${jn} ${filnam} ${job_batch} ${listing} ${TrapArch} ${ConfigDir}
+	test "${SgePE}" != "" && log_queue="${ParallelEnvironment}" || log_queue="${JobClass}"
+	submit_log_msg="machine=${mach} queue=${log_queue} cpu=${cpus}"
+fi

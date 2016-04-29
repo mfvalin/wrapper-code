@@ -1,0 +1,2 @@
+. s.jio-prof.dot --stop-monitor 2>/dev/null
+. s.jio-prof.dot --full-summary 2>/dev/null

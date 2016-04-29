@@ -1,0 +1,45 @@
+#
+# UnixBatch_Job_Header.dot
+#
+# 2011/04/12 original version
+# 2012/01/23 source profile before $jobcfg
+#
+# batch and immediate special header
+#
+
+if [[ "${JobHeader}" = UnixBatch*  ]]; then
+	SgeCell=${mach}
+	chmod 755 ${job_batch}      || FatalError cannot make UnixBatch job file ${job_batch} executable 
+	export SelfJobResubmit="echo 'bash -c ${job_batch} 2>/dev/null 1>/dev/null' | ssh -oBatchMode=yes -oStrictHostKeyChecking=no ${mach} batch"
+
+	cat >> ${job_batch} << EOFJOB
+#!${shell}
+exec 1>${listing}/${MachPrefix}${jn}.${ppid}${postfix}${seqno} 2>&1
+
+ulimit -m ${cm}${MemMultiplier}
+ulimit -d ${cm}${MemMultiplier}
+ulimit -S -s unlimited
+ulimit -t ${t}
+
+test "${immediate}" = "immediate" && export IMMEDIATE_MODE=1 
+[[ -n "$custom" ]] && export AnSwErD=$custom
+
+. /etc/profile
+. ./.profile
+EOFJOB
+
+	cat ${jobcfg} >> ${job_batch}
+
+	cat >> ${job_batch} << EOFJOB
+set -x
+export JOB_ID=$$
+set +x
+export SelfJobRemove="${SelfJobRemove}"
+test -n "${ssmuse}" && . r.ssmuse.dot NIL ${ssmuse}
+EOFJOB
+
+	Sys_AddWrapper ${jn} ${filnam} ${job_batch} ${listing} ${TrapArch} ${ConfigDir}
+	if [[ "${immediate}" = "immediate" ]]; then
+		export SelfJobResubmit="ssh -oBatchMode=yes -oStrictHostKeyChecking=no ${mach} 'nohup bash -c ${job_batch} 2>/dev/null 1>/dev/null' "
+	fi
+fi

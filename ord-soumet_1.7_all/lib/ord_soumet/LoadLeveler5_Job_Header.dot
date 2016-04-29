@@ -1,0 +1,244 @@
+#!/bin/bash
+#
+# LoadLeveler5_Job_Header.dot
+#
+# 2011/04/12 tmpfs fixes
+#
+# header for IBM LoadLeveler
+#
+
+function LLgeometry {
+	LL_TASK_GEOMETRY="{"
+	((taskno=0))
+	((taskspernode=TilesPerNode))
+	((ntasks=MpiTiles))
+	((nodes=Nodes))
+	#echo taskspernode=$taskspernode ntasks=$ntasks nodes=$nodes
+
+	while ((nodes>0)); do
+		((nodes=nodes-1))
+		LL_TASK_GEOMETRY="${LL_TASK_GEOMETRY}(${taskno}"
+		((lasttask=taskno+taskspernode-1))
+		((taskno=taskno+1))
+		while ((taskno<=lasttask && taskno<ntasks)); do
+			LL_TASK_GEOMETRY="${LL_TASK_GEOMETRY},${taskno}"
+			((taskno=taskno+1))
+		done
+		LL_TASK_GEOMETRY="${LL_TASK_GEOMETRY})"
+	done
+
+	LL_TASK_GEOMETRY="${LL_TASK_GEOMETRY}}"
+	# echo LL_TASK_GEOMETRY=${LL_TASK_GEOMETRY}
+}
+
+test -r ${geom:-..NoGeometry..} && LL_TASK_GEOMETRY="$(cat ${geom})"
+
+# unset cm when no override
+if [ -z "${ORDSOUMET_HONOR_CM}" ]; then
+	cm=""
+fi
+
+# use default if nothing specified
+if [ -z "${cm}" ]; then
+	cm=${MemoryPerCpu}
+	MemMultiplier=000
+fi
+
+((MemoryPerCpu=${cm}${MemMultiplier}/1000))
+((TotalMemory=${TotalCpus}*${MemoryPerCpu}/${smt}))
+
+if [[ "${JobHeader}" = LoadLeveler* ]]; then
+	SubmittedMarker="^llsubmit:.The.job.*has.been.submitted"
+	#export SelfJobResubmit="${LLSubmit1:-gmjob} ${SgeCell} ${LLSubmit2:-submit} ${job_batch} ${LLSubmit3}"
+	test "${OperationalUser}" != "" && JobClass=production
+	test "${queue}" != "" && JobClass=${queue}
+	LL_SystemPath=""
+	Sys_LoadLevelerHeader
+	#if [[ "${JobClass}" = proj* ]]; then JobClass=projects ; fi
+	((MemoryPerTile=${MemoryPerCpu:-3300}*${OMP_NUM_THREADS}))
+	((HardLimit=${t}+${ExtraTime:-300}))
+	PREEMPT="" ; ExportPreempt=""
+	[[ -n $preempt ]] && PREEMPT_OK="$preempt"
+	[[ -n ${PREEMPT_OK} ]] && PREEMPT="@ preemption_ok = ${PREEMPT_OK}" && ExportPreempt="export PREEMPT_OK=${PREEMPT_OK}"
+   
+	[[ -n $prio ]] && USER_PRIO="@ user_priority = ${prio}"
+	[[ -n $resid ]] && RESID="@ ll_res_id = ${resid}"
+
+	# temporaire jusqu'a ce que le submit filter soit en place
+	[[ ${SgeCell} = "spica.cmc.ec.gc.ca" ]] && PREEMPT='#'$PREEMPT
+	[[ ${SgeCell} = "hadar.cmc.ec.gc.ca" ]] && PREEMPT='#'$PREEMPT
+
+	test "${OperationalUser}" != ""  && PREEMPT="" && ExportPreempt=""
+
+	if [[ "${splitstd}" = "y" ]]; then
+		StdErr=".err"
+	else
+		StdErr="${postfix}"
+	fi
+
+	LLJobName="@ job_name = ${jn}"
+	test "${addstep}${laststep}" != "" && LLJobName=""
+	SETCLASS="@ class = ${JobClass:-development}"
+	test "${addstep}${laststep}" != ""  &&  SETCLASS=""
+
+	if [[ "${mpi}" != "" || "$OMP_NUM_THREADS" -gt 1 ]]; then
+		JobType="parallel"
+		Blocking1="@ total_tasks = ${MpiTiles}"
+		ConsCpus="${TotalCpus}"
+		((CpusPerNode=$CoresPerNode*$smt))
+		if [[ "${TotalCpus}" -ge "${CpusPerNode}" ]]; then
+			ConsCpus="${CpusPerNode}"
+		fi
+
+		if [[ "${TotalCpus}" -ge "${CpusPerNode}" && "$share" != force* ]]; then 
+			NODE_USAGE="not_shared"
+			#Blocking1="@ tasks_per_node = ${TilesPerNode}"
+		else
+			NODE_USAGE="shared"
+		fi
+
+		if [ ${TotalCpus} -ge ${CpusPerNode} ]; then
+			(( MemoryPerNode=TotalMemory/(((TotalCpus-1)/CpusPerNode)+1) ))
+		else
+			MemoryPerNode=${TotalMemory}
+		fi
+
+		if [ ${MemoryPerNode} -gt ${MaxMemoryPerNode} ]; then
+			echo "error: memory per node (${MemoryPerNode}) cannot exceed maximum memory per node (${MaxMemoryPerNode})"
+			exit 1
+		fi
+
+		if [[ "${TotalCpus}" -ge "${CpusPerNode}" ]]; then
+			NodeResources="@ node_resources = ConsumableMemory(${MemoryPerNode}) ConsumableVirtualMemory(${MemoryPerNode})"
+		else
+			NodeResources="@ node_resources = ConsumableMemory(${MemoryPerNode}) ConsumableVirtualMemory(${MemoryPerNode})"
+		fi
+
+		if [[ "${TotalCpus}" -lt "${CpusPerNode}" ]]; then 
+			Blocking2=""
+		else
+			#((Nodes=$Nodes/$smt+$Nodes%2)) # drole d'idee...
+			Blocking2="@ node = ${Nodes}"
+		fi
+
+		# pas de task affinity si un seul noeud
+		if [[ "${norset}" = "yes" || -z $Blocking2 ]]; then
+			NodeResources="$NodeResources ConsumableCpus(${ConsCpus})"
+		else
+			# on tient par la main...
+			CpusPerCore="@ cpus_per_core = ${smt}"
+			TaskAffinity=1
+			if [[ $OMP_NUM_THREADS -gt 1 ]]; then
+				ParallelThreads="@ parallel_threads = ${OMP_NUM_THREADS}"
+				((TaskAffinity=$OMP_NUM_THREADS/$smt))
+			fi
+			TaskAffinity="@ task_affinity = Core(${TaskAffinity})"
+		fi
+      
+		[[ "$geom" = AUTO ]] && LLgeometry && echo "COMPUTED task geometry=${LL_TASK_GEOMETRY}"
+		if [[ -n "${LL_TASK_GEOMETRY}" ]]; then
+			Blocking1="@ task_geometry = ${LL_TASK_GEOMETRY}"
+			Blocking2=""
+		fi
+
+		MPI1="@ network.MPI = ${Mpi_Network:-csss},shared,US,,instances=max,,"
+		MPI2="@ bulkxfer = yes"
+		submit_log_extra="tiles=${MpiTiles} CpuPerTile=${OMP_NUM_THREADS} MemoryPerTile=${MemoryPerTile}mb node=${Nodes} "
+	else
+		JobType="serial"
+		MPI1=""
+		MPI2=""
+		Blocking1=""
+		Blocking2=""
+		NodeResources="@ node_resources = ConsumableCpus(${TotalCpus}) ConsumableMemory(${TotalMemory}) ConsumableVirtualMemory(${TotalMemory})"
+		submit_log_extra="ConsumableMemory=${MemoryPerTile}mb wall_clock_limit=${HardLimit},${t}"
+	fi
+
+	# support for tag
+	if [ -n "${safe_tag}" ]; then
+		tag_directive="@ comment = ${safe_tag}"
+	fi
+
+	ListingFileBase="${jn}.${ppid}${postfix}"
+	submit_log_msg="machine=${mach} queue=${JobClass:-development} cpu=${cpus} job_type=${JobType} $Blocking1 ${submit_log_extra}"
+	[[ -n "$custom" ]] && llv_profile="@ environment = AnSwErD=$custom"
+
+	#
+	# generate job header if LoadLeveler
+	#
+	cat >> ${job_batch} << EOFJOB
+#
+# created by ord_soumet ${Version}
+#
+
+# @ output = ${listing}/${MachPrefix}${jn}.${ppid}${postfix}${seqno}
+# @ error = ${listing}/${MachPrefix}${jn}.${ppid}${StdErr}${seqno}
+# @ shell = ${shell}
+# @ notification = ${notify}
+# @ notify_user = ${mail:-$USER@ec.gc.ca}
+# ${SETCLASS}
+# ${LLJobName}
+# ${TaskAffinity}
+# ${CpusPerCore}
+# ${ParallelThreads}
+# @ step_name = ${step}
+# @ coschedule = ${coschedule}
+# ${NodeResources}
+# @ wall_clock_limit = ${HardLimit},${t}
+# @ job_type = ${JobType}
+# @ node_usage = ${NODE_USAGE}
+#${PREEMPT}
+# ${USER_PRIO}
+# ${RESID}
+# ${Blocking1}
+# ${Blocking2}
+# ${MPI1}
+# ${MPI2}
+# ${llv_profile}
+# ${llv_extra1}
+# ${llv_extra2}
+# ${llv_extra3}
+# ${llv_extra4}
+# ${llv_extra5}
+# ${tag_directive}
+# @ queue
+
+if [[ "\$LOADL_STEP_NAME" = "${step}" ]]; then
+	echo "=== BEGINNING of STEP ${step} ==="
+	if [ -z "\${ORDENV_SETUP}" -a -z "\${SETUP_DONE}" ]; then
+		. /etc/profile
+		. \${HOME}/.profile
+	fi
+
+	test -n "${ssmuse}" && . s.ssmuse.dot ${ssmuse}
+	test -n "${LL_TASK_GEOMETRY}" && export LL_TASK_GEOMETRY="${LL_TASK_GEOMETRY}"
+
+	if [[ "${mpi}" != "" ]]; then
+		export MP_USE_BULK_XFER=yes
+		export MP_SHARED_MEMORY=yes
+		export MP_BULK_MIN_MSG_SIZE=10k
+		export MP_EAGER_LIMIT=48k
+	fi
+
+	# avoid problems with preemption
+	export MP_PULSE=0
+
+	${ExportPreempt}
+	${LL_SystemPath}
+	export SelfJobRemove="${SelfJobRemove}"
+	export SelfJobResubmit="${SelfJobResubmit}"
+	export SelfJobKill="ssh ${SgeCell} llcancel \${LOADL_STEP_ID}"
+
+	if [[ "${tmpfs}" != "" ]]; then
+		export TMPFSDIR=\$(s.set_job_tmpfs ${tmpfs})
+	fi
+EOFJOB
+
+	cat ${jobcfg} >> ${job_batch}
+	Sys_AddWrapper ${jn} ${filnam} ${job_batch} ${listing} ${TrapArch} ${ConfigDir}
+
+	#
+	# touchup for LoadLeveler co-scheduled job steps
+	#
+	echo "fi" >> ${job_batch}
+fi

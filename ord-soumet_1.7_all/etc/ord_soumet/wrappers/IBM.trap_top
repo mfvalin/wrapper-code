@@ -1,0 +1,8 @@
+(
+trap 'trap "" 0 1 2 3 4 5 6 7 8 10 12 13 14 15 ; ${SelfJobRemove} ; exit 0' 0 15
+trap 'trap ""  0 1 2 3 4 5 6 7 8 10 12 13 14 15 24; ${SelfJobRemove} ; exit 1' 1 2 3 4 5 6 7 8 10 12 13 14 24
+date 
+if [[ "$LOADL_STEP_TYPE" = "PARALLEL" ]]; then
+   llq -x -l ${LOADL_STEP_ID} | grep Task\ Instance | grep -v '\-1' | awk '{print $3}' | cut -d: -f1,2| sed s/:/\ /g | awk '{print "Task " $2 " on node " $1}'
+fi
+

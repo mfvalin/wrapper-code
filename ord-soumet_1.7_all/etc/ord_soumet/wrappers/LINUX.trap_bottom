@@ -1,0 +1,9 @@
+)
+if [ -f $HOME/.logout_ksh ] ; then
+  . $HOME/.logout_ksh
+else
+  if [ -f /usr/local/env/env_univ/005/logout_ksh_usr.005 ] ; then
+    . /usr/local/env/env_univ/005/logout_ksh_usr.005
+  fi
+fi
+trap ""  0 1 2 3 4 5 6 7 8 10 12 13 14 15
