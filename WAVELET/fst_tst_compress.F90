@@ -54,8 +54,8 @@ program test_compress
       ilev = ilev + 1
 !      if(trim(nomvar) == 'TT') then
 !       if(ni > 5 .and. nj > 5 .and. trim(nomvar) .eq. 'TT' .and. ip1 <= 1000) then
-      if(ni > 5 .and. nj > 5 .and. ip1 <= 850 .and. ip1 > 0) then
-!       if(ni > 5 .and. nj > 5 ) then
+!       if(ni > 5 .and. nj > 5 .and. ip1 <= 850 .and. ip1 > 0) then
+      if(ni > 5 .and. nj > 5 ) then
 !         write(filename,100)nomvar,ip2,'.data'
 100     format(A2,I4.4,A5)
 !         print *,"'"//trim(filename)//"'"
@@ -221,6 +221,12 @@ subroutine un_quantize(z,iz,ni,nj,imode)
       integer(C_INT), value :: nelm
       integer(C_INT), intent(OUT) :: nbits
     end subroutine float_unpacker
+    subroutine fake_exp(X, scale0, n) bind(C,name='v_fake_log')
+      import C_FLOAT, C_INT
+      integer(C_INT), value :: n
+      real(C_FLOAT), value :: scale0
+      real(C_FLOAT), dimension(n), intent(INOUT) :: X
+    end subroutine fake_exp
   end interface
 
   integer :: mode, i, j, nbits
@@ -276,6 +282,12 @@ subroutine quantize(z,iz,ni,nj,span,rrange,imode)
       integer(C_INT), value :: nelm
       integer(C_INT), value :: nbits
     end subroutine float_packer
+    subroutine fake_log(X, scale0, n) bind(C,name='v_fake_log')
+      import C_FLOAT, C_INT
+      integer(C_INT), value :: n
+      real(C_FLOAT), value :: scale0
+      real(C_FLOAT), dimension(n), intent(INOUT) :: X
+    end subroutine fake_log
   end interface
 
   integer :: i, j, mode, mask, lowexp, maxexp, iszero, power, nonzero
