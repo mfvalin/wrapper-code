@@ -76,6 +76,10 @@
 #        July      30, 2012 - add -altcfgdir to override the default ConfigDir. ~/.ord_soumet.d/cfg still has precedence.
 #        October   01, 2013 - added logging code                                                  v1.0.39.uqam.09
 #        June      09, 2014 - got rid if jobinfo marker                                           v1.0.39.uqam.09a
+#        November  04, 2014 - added SOUMET_OVERRIDE environment variable                          v1.0.39.uqam.09b
+#        December  02, 2013 - no jobinfo entry if job is a cross submit                           v1.0.39.uqam.10
+#        December  02, 2013 - fixed cloning problems with listing names and clone ordinals        v1.0.39.uqam.11
+#        June      04, 2014 - listing directory not found is now fatal error                      v1.0.39.uqam.12
 #
 # description: submit jobs to batch queueing system (LoadLeveler LL, Grid Engine SGE or UNIX batch)
 #
@@ -214,6 +218,7 @@ echo =================== ord_soumet version ${Version}  =================
 
 extra="$(TeMp=$(head -1 ${filnam}) && echo "$TeMp"  | grep -q '^#ord_soumet=' &&  echo  "$TeMp" | sed 's/^[^=]*=//') $SOUMET_EXTRAS"
 test "${extra}" != "" && echo "WITH EXTRA ARGUMENTS: ${extra}"
+test "${SOUMET_OVERRIDE}" != "" && echo "WITH SOUMET_OVERRIDE ARGUMENTS: ${SOUMET_OVERRIDE}"
 
 # ===================
 # parse argument list
@@ -287,7 +292,7 @@ eval `cclargs -D "" $0 "[send a job for execution]"\
  -with "" "" "[batch subsystem to use (GridEngine LoadLeveler UnixBatch)]"\
  -wrapdir "${HOME}/.ord_soumet.d/wrap" "" "[job wrapper directories]"\
  -xterm "" "xterm" "[start an xterm in job]"\
-  ++ $extra $*`
+  ++ $extra $* ${SOUMET_OVERRIDE}`
 
 jobcfg=${jobcfg:-/dev/null}
 sys=${FORCE_BATCH:-$sys}
