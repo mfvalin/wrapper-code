@@ -5,6 +5,9 @@ typedef union{
   int i;
   } intfloat;
 
+// X    vector to take "pseudo log" of  (base 2)
+//min0  smallest absolute value larger thatn 0 from X
+//n     number of elements in X
 void v_fake_log(float *X, float min0, int n) {  /* |x.f| will be adjusted  >= 1.0 (inverse function of fake_exp) */
   int exp;
   int sign;
@@ -41,6 +44,9 @@ static float fake_log(intfloat x, float min0) {  /* |x.f| must be  >= 1.0 (inver
   return (x.f);
 }
 
+// X    vector to take "pseudo exp" of  (base 2)
+//min0  smallest absolute value larger thatn 0 from X
+//n     number of elements in X
 void v_fake_exp(float *f, float min0, int n){   /* |result| will be >= 1.0 (inverse function of fake_log) */
   intfloat x;
   int exp;
@@ -56,7 +62,7 @@ void v_fake_exp(float *f, float min0, int n){   /* |result| will be >= 1.0 (inve
     sign = x.i & (1 << 31);                         /* save sign */
     x.i = x.i & 0x7FFFFFFF;                         /* strip sign */
     exp = x.f;                                      /* get log2-1  */
-    x.f = x.f - exp + 1;                            /*  1.0 <= X < 2.0 */
+    x.f = x.f - exp + 1;                            /*  1.0 <= x.f < 2.0 */
     exp = exp + lowexp;                             /* IEEE exponent with proper offset */
     x.i = (x.i & 0x7FFFFF ) | (exp << 23) | sign;   /* rebuild float and restore sign */
     f[j] = x.f;
