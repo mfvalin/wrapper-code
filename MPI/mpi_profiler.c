@@ -135,12 +135,13 @@ void dump_mpi_stats()
    if(stat_table[i].calls>0) {
      AVG=stat_table[i].sbytes;
      AVG=AVG/stat_table[i].calls;
-     fprintf(listfile,"%5.5d: %-20s %6d messages %15Ld [%15Ld] bytes (avg=%15f), %12.6f seconds\n",
+     fprintf(listfile,"%5.5d: %-20s %6d calls %15Ld [%15Ld] bytes (avg=%15f), %12.6f seconds\n",
 	    my_rank,stat_table[i].name,stat_table[i].calls,stat_table[i].sbytes,
 	    stat_table[i].sbytes_coll,AVG,stat_table[i].time);
    }
    i++;
  }
+ fprintf(listfile,"%5.5d: SUMMARY %12d calls, needing %12.6f seconds\n",my_rank,pmpi_r_statistics.calls,pmpi_r_statistics.time);
  i=0;
  while(stat_table[i].name != NULL){
      PMPI_Allreduce(&stat_table[i].calls,&tcalls,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD);
@@ -149,7 +150,7 @@ void dump_mpi_stats()
      PMPI_Allreduce(&stat_table[i].time,&tmin,1,MPI_REAL8,MPI_MIN,MPI_COMM_WORLD);
      PMPI_Allreduce(&stat_table[i].time,&tmean,1,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD);
      if(my_rank==0 && tcalls>0) {
-       fprintf(listfile,"TOTAL: %-20s %6d messages %15Ld bytes, min/max/avg= %f/%f/%f seconds\n",
+       fprintf(listfile,"TOTAL: %-20s %6d calls %15Ld bytes, min/max/avg= %f/%f/%f seconds\n",
 	      stat_table[i].name,tcalls,tbytes,tmin,tmax,tmean/size);
      }
    i++;
