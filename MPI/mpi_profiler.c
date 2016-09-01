@@ -135,7 +135,7 @@ void dump_mpi_stats()
    if(stat_table[i].calls>0) {
      AVG=stat_table[i].sbytes;
      AVG=AVG/stat_table[i].calls;
-     fprintf(listfile,"%5.5d: %-20s %6d messages %9Ld [%9Ld] bytes (avg=%f), %12.6f seconds\n",
+     fprintf(listfile,"%5.5d: %-20s %6d messages %15Ld [%15Ld] bytes (avg=%15f), %12.6f seconds\n",
 	    my_rank,stat_table[i].name,stat_table[i].calls,stat_table[i].sbytes,
 	    stat_table[i].sbytes_coll,AVG,stat_table[i].time);
    }
@@ -149,7 +149,7 @@ void dump_mpi_stats()
      PMPI_Allreduce(&stat_table[i].time,&tmin,1,MPI_REAL8,MPI_MIN,MPI_COMM_WORLD);
      PMPI_Allreduce(&stat_table[i].time,&tmean,1,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD);
      if(my_rank==0 && tcalls>0) {
-       fprintf(listfile,"TOTAL: %-20s %6d messages %9Ld bytes, min/max/avg= %f/%f/%f seconds\n",
+       fprintf(listfile,"TOTAL: %-20s %6d messages %15Ld bytes, min/max/avg= %f/%f/%f seconds\n",
 	      stat_table[i].name,tcalls,tbytes,tmin,tmax,tmean/size);
      }
    i++;
@@ -566,7 +566,7 @@ void main(int argc, char **argv)
    MPI_Send(&buf,8,MPI_INTEGER,1,0,MPI_COMM_WORLD);
    MPI_Recv(&buf,6,MPI_INTEGER,1,0,MPI_COMM_WORLD,&status);
    MPI_Recv(&buf,4,MPI_INTEGER,1,0,MPI_COMM_WORLD,&status);
- }else{
+ }else if(my_rank==1){
    MPI_Recv(&buf,10,MPI_INTEGER,0,0,MPI_COMM_WORLD,&status);
    MPI_Recv(&buf,8,MPI_INTEGER,0,0,MPI_COMM_WORLD,&status);
    MPI_Send(&buf,6,MPI_INTEGER,0,0,MPI_COMM_WORLD);
