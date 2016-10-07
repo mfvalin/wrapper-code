@@ -1,6 +1,6 @@
 module globalstats
   implicit none
-  integer, dimension(-1:2), save :: biases, nbiases
+  integer, dimension(-1:4), save :: biases, nbiases
 end module globalstats
 program test_compress
   use ISO_C_BINDING
@@ -60,16 +60,18 @@ program test_compress
 100     format(A2,I4.4,A5)
 !         print *,"'"//trim(filename)//"'"
         call fstluk(z,key,ni,nj,nk)
+        call test_quantizing(z,ni,nj,nomvar,3)
+        call test_quantizing(z,ni,nj,nomvar,4)
 !         open(33,file=trim(filename),form='FORMATTED')
 !         write(33,*)ni,nj
 !         write(33,*)((z(i,j),i=1,ni),j=1,nj)
 !         close(33)
-        call test_quantizing(z,ni,nj,nomvar,0)
-        call test_quantizing(z,ni,nj,nomvar,-1)
+!         call test_quantizing(z,ni,nj,nomvar,0)
+!         call test_quantizing(z,ni,nj,nomvar,-1)
 !         z = max(z,0.0)
   !      call test_compression(z,ni,nj,nomvar)
-        call test_quantizing(z,ni,nj,nomvar,1)
-        call test_quantizing(z,ni,nj,nomvar,2)
+!         call test_quantizing(z,ni,nj,nomvar,1)
+!         call test_quantizing(z,ni,nj,nomvar,2)
       endif
       if(nomvar .ne. oldnam) then
 !         if(oldnam .ne. '    ') write(0,*)'NAME=',oldnam,' levels=',ilev
@@ -389,23 +391,94 @@ contains
   end subroutine pseudo_ieee_quantize
 end subroutine quantize
 
+subroutine box22(z,z2,ni,nj)
+  integer, intent(IN) :: ni,nj
+  real, dimension(ni,nj) :: z, z2
+
+  integer :: i,j,ni2,nj2
+
+  ni2 = ni/2
+  nj2 = nj/2
+  do j=1,nj2
+  do i=1,ni2
+    z2(i,j) = .25 * ( z(2*i,2*j) + z(2*i-1,2*j) + z(2*i,2*j-1) + z(2*i-1,2*j-1) )
+  enddo
+  enddo
+end subroutine box22
+
+subroutine unbox22(z,z2,ni,nj)
+  integer, intent(IN) :: ni,nj
+  real, dimension(ni,nj) :: z, z2
+
+  integer :: i,j,ni2,nj2
+  real, dimension(ni) :: tmp
+
+  ni2 = ni/2
+  nj2 = nj/2
+  z(1:ni2,1) = 1.25*z2(1:ni2,1) - .25*z2(1:ni2,2)
+  do j=1,nj2-1
+  do i=1,ni2-1
+    z(1:ni2,2*j    ) = .75*z2(1:ni2,j) + .25*z2(1:ni2,j+1)
+    z(1:ni2,2*j + 1) = .25*z2(1:ni2,j) + .75*z2(1:ni2,j+1)
+  enddo
+  enddo
+   z(1:ni2,nj) = 1.25*z2(1:ni2,nj2) - .25*z2(1:ni2,nj2-1)
+   do j=1,nj
+     tmp(1:ni2) = z(1:ni2,j)
+     z(1,j)  = 1.25*tmp(1) - .25*tmp(2)
+     do i=1,ni2-1
+       z(2*i  ,j) = .75*tmp(i) + .25*tmp(i+1)
+       z(2*i+1,j) = .25*tmp(i) + .75*tmp(i+1)
+     enddo
+     z(ni,j) = 1.25*tmp(ni2) - .25*tmp(ni2-1)
+   enddo
+end subroutine unbox22
+
 subroutine test_quantizing(z,ni,nj,nomvar,imode)
   use ISO_C_BINDING
   implicit none
+  interface
+    subroutine fwd_dwt(z,nj,ni,stride) bind(C,name='ForwardTransform_53')
+      import C_INT
+      integer(C_INT), intent(IN), value :: nj,ni,stride
+      real*4, dimension(ni,nj), intent(INOUT) :: z
+    end  subroutine fwd_dwt
+    subroutine inv_dwt(z,nj,ni,stride) bind(C,name='InverseTransform_53')
+      import C_INT
+      integer(C_INT), intent(IN), value :: nj,ni,stride
+      real*4, dimension(ni,nj), intent(INOUT) :: z
+    end  subroutine inv_dwt
+  end interface
   integer, intent(IN) :: ni,nj
   real, dimension(ni,nj), intent(IN) :: z
   character(len=4), intent(IN) :: nomvar
   integer, intent(IN) :: imode
 
-  integer :: nbits
+  integer :: nbits, i, j
   integer, dimension(ni,nj) :: iz
-  real, dimension(ni,nj) :: zz
+  real, dimension(ni,nj) :: zz, zz2
   integer :: mode
   real, dimension(NSCORES) :: s
   real :: span,rrange, toler
 
-!   if(mode .ne. 0) return
   mode = imode
+  if(mode == 4) then
+    zz = 1.0E+37
+    zz2 = 1.0E+37
+    call box22(z,zz2,ni,nj)
+    call unbox22(zz,zz2,ni,nj)
+    call scores(s,z,zz,ni,nj,toler,.true.,'    ',mode)
+    return
+  endif
+  if(mode == 3) then
+!     print *, 'testing'
+    zz = z
+    call fwd_dwt(zz,nj,ni,ni)
+    call inv_dwt(zz,nj,ni,ni)
+    call scores(s,z,zz,ni,nj,toler,.true.,'    ',mode)
+    return
+  endif
+!   if(mode .ne. 0) return
   do nbits = 16, 16, 4
     call quantize(z,iz,ni,nj,span,rrange,mode)
     if(rrange == 0.0) return
