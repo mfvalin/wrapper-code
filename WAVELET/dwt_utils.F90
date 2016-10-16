@@ -1,4 +1,95 @@
 
+subroutine dwt_fwd_lift_linear53_r(z,ni,nj)
+! in place FORWARD lifting transform using linear prediction wavelet for real numbers
+  implicit none
+  integer, intent(IN) :: ni, nj
+  real, intent(INOUT), dimension(0:ni-1,0:nj-1) :: z
+
+  integer :: i, j, jp, jm1, j0, jm2, j00
+  logical oddi
+
+  oddi = mod(ni,2) .eq. 1
+  j00 = 0
+  do j = 1 , nj-1 , 2
+    jm2 = abs(j - 2)
+    jm1 = j - 1
+    jp = j + 1
+    if(jp == nj) jp = nj - 2                                ! upper mirror boundary condition
+
+    do j0 = j00 , max(jp,j)  ! check that all needed rows have been transformed along i
+      call fwd_linear53_1d_r(z(:,j0),ni)
+    enddo
+    j00 = jp + 1
+
+    z(:,  j) = z(:,  j) -  .5 * (z(:,jm1) + z(:,jp))        ! predict odd rows
+    z(:,jm1) = z(:,jm1) + .25 * (z(:,jm2) + z(:, j))        ! update even rows
+
+  enddo
+
+  if(mod(nj,2)==1) z(:,nj-1) = z(:,nj-1) + .5 * z(:,nj-2)   ! odd number of rows, last row is en even row
+  return
+
+  contains
+  subroutine fwd_linear53_1d_r(f,ni)
+    implicit none
+    integer, intent(IN) :: ni
+    real, intent(INOUT), dimension(0:ni-1) :: f
+    integer :: i
+    do i = 1 , ni-2 , 2                          ! predict pass for odd elements
+      f(i) = f(i) - .5 * (f(i-1) + f(i+1))
+    enddo
+    if(.not. oddi) f(ni-1) = f(ni-1) - f(ni-2)   ! upper mirror boundary condition
+    f(0) = f(0) + .5 * f(1)                      ! lower mirror boundary condition
+    do i = 2 , ni-2 , 2                          ! update pass for even elements
+      f(i) = f(i) + .25 * (f(i-1) + f(i+1))
+    enddo
+    if(oddi) f(ni-1) = f(ni-1) + .5 * f(ni-2)    ! upper mirror boundary condition
+  end subroutine fwd_linear53_1d_r
+end subroutine dwt_fwd_lift_linear53_r
+
+subroutine dwt_inv_lift_linear53_r(z,ni,nj)
+! in place INVERSE lifting transform using linear prediction wavelet for real numbers
+  implicit none
+  integer, intent(IN) :: ni, nj
+  real, intent(INOUT), dimension(0:ni-1,0:nj-1) :: z
+
+  logical, dimension(nj) :: xdone
+  integer :: i, j, jp, jm, j0
+  logical oddi
+
+  xdone = .false.
+  oddi = mod(ni,2) .eq. 1
+  do j = 0 , nj-1 , 2   ! unupdate pass on even rows
+    jm = abs(j - 1)     ! mirror condition at lower boundary
+    jp = j + 1
+    if(jp == nj) jp = nj - 2  ! upper mirror boundary condition
+
+    do j0 = min(jm,j) , max(jp,j)  ! check that all needed rows have been transformed along i
+      if(.not. xdone(j0)) then   ! transform along i not done yet for this row (j0)
+        xdone(j0) = .true.
+        z(0,j0) = z(0,j0) - .5 * z(1,j)   ! mirror boundary condition
+        do i = 2 , ni-2 , 2   ! unupdate pass along i
+          z(i,j0) = z(i,j0) - .25 * (z(i-1,j0) + z(i+1,j0))
+        enddo
+        if(oddi) z(ni-1,j0) = z(ni-1,j0) - .5 * z(ni-2,j0)   ! mirror boundary condition
+        do i = 1 , ni-2 , 2   ! unpredict pass along i
+          z(i,j0) = z(i,j0) + .5 * (z(i-1,j0) + z(i+1,j0))
+        enddo
+        if(.not. oddi) z(ni-1,j0) = z(ni-1,j0) + z(ni-2,j0)   ! mirror boundary condition
+      endif
+
+      z(:,j) = z(:,j) - .25 * (z(:,jm) + z(:,jp))
+
+    enddo
+  enddo
+  do j = 1 , nj-1 , 2   ! unpredict pass on odd rows
+    jm = j - 1
+    jp = j + 1
+    if(jp == nj) jp = nj - 2  ! upper mirror boundary condition
+    z(:,j) = z(:,j) + .5 * (z(:,jm) + z(:,jp))
+  enddo
+end subroutine dwt_inv_lift_linear53_r
+
 subroutine dwt_fwd_lift_haar_r(z,ni,nj,alongx,alongy)
 ! in place FORWARD Haar lifting transform
 ! output is stored interleaved (shuffled) into array z
@@ -360,7 +451,7 @@ function dwt_quantize_b(z,n,ib,nb,nbts,error,the_min,the_max) result(eff_nbits)
   integer, intent(IN) :: nbts   ! use eror if <= 0
   real, intent(IN) :: error     ! ignored if nbts > 0
   real, dimension(n), intent(IN) :: z
-  integer(C_CHAR), dimension(nb), intent(OUT) :: ib
+  integer(C_SIGNED_CHAR), dimension(nb), intent(OUT) :: ib
   real, intent(INOUT) :: the_min, the_max
   integer :: eff_nbits
 
@@ -432,7 +523,7 @@ function dwt_pack(iz,n,ib,nb,nbts) result(nbytes)
   integer, intent(IN) :: n, nb
   integer, intent(IN) :: nbts
   integer, dimension(n), intent(IN) :: iz
-  integer(C_CHAR), dimension(nb), intent(OUT) :: ib
+  integer(C_SIGNED_CHAR), dimension(nb), intent(OUT) :: ib
   integer :: nbytes
 
   integer :: i, i0, ival, nbits
