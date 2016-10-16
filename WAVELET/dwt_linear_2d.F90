@@ -1,4 +1,33 @@
 #define ARGUMENT_TYPE real*4
+subroutine low_pass_dwt2d_r4(z,ni,nj,nx,ny)
+! 2D low pass filter using 53 dwt linear prediction wavelet
+  implicit none
+  integer, intent(IN) :: ni, nj, nx, ny
+  ARGUMENT_TYPE, intent(INOUT), dimension(0:nx-1,0:ny-1) :: z
+
+  call fwd_linear53_dwt2d_r4(z,ni,nj,nx,ny)   ! forward transform
+  call zero_high_dwt2d_r4(z,ni,nj,nx,ny)      ! get rid of high frequency terms
+  call inv_linear53_dwt2d_r4(z,ni,nj,nx,ny)   ! inverse transform
+end subroutine low_pass_dwt2d_r4
+
+subroutine zero_high_dwt2d_r4(z,ni,nj,nx,ny)
+! zero out all odd (high frequency) terms in dwt transformed data
+! this routine assumes the transform layout used by fwd_linear53_dwt2d_r4 / inv_linear53_dwt2d_r4
+  implicit none
+  integer, intent(IN) :: ni, nj, nx, ny
+  ARGUMENT_TYPE, intent(INOUT), dimension(0:nx-1,0:ny-1) :: z
+
+  integer :: j, neven
+
+  neven = (ni+1)/2            ! number of even (low frequency) terms in a row
+  do j = 1 , nj-1 , 2         ! loop over odd rows
+    z(0:ni-1    ,j  ) = 0.0   ! full row zeroed in odd rows
+    z(neven:ni-1,j-1) = 0.0   ! odd terms zeroed in even rows (upper half)
+  enddo
+  if(iand(nj,1) == 1) z(neven:ni-1,nj-1) = 0.0  ! last row is an even row (odd number of rows)
+  return
+end subroutine zero_high_dwt2d_r4
+
 subroutine inv_linear53_dwt2d_r4(z,ni,nj,nx,ny)   ! 2D inverse transform , along j first, then along i
 ! in place INVERSE lifting transform using linear prediction wavelet for ARGUMENT_TYPE numbers
   use ISO_C_BINDING
@@ -120,9 +149,9 @@ contains
   end subroutine fwd_linear53_dwt1d_r4
 end subroutine fwd_linear53_dwt2d_r4
 #if defined(SELF_TEST)
-#define NI 12001
-#define NJ 9001
-#define NREP 10
+#define NI 12000
+#define NJ 8000
+#define NREP 1
 program test
   ARGUMENT_TYPE, dimension(0:NI-1,0:NJ-1) :: z, z0
   integer :: i, j, ni, nj, ni2, nj2, ni4, nj4, ni8, nj8
@@ -183,7 +212,13 @@ program test
   print *,'min,max z0',minval(z0),maxval(z0)
   print *,'min,max z',minval(z),maxval(z)
   z0 = (z0-z)/z0
-  print *,'total error:',sum(z0)/ni/nj
+  print *,'average,max,min per point relative error:',sum(z0)/ni/nj,maxval(z0),minval(z0)
+  print *,'=========================================================='
+  print *,'after linear filtering'
+  z0 = z
+  call low_pass_dwt2d_r4(z,ni,nj,ni,nj)
+  z0 = (z0-z)/z0
+  print *,'average,max,min per point relative error:',sum(z0)/ni/nj,maxval(z0),minval(z0)
   stop
 end program test
 #endif
