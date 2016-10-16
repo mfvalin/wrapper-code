@@ -125,63 +125,65 @@ end subroutine fwd_linear53_dwt2d_r4
 #define NREP 10
 program test
   ARGUMENT_TYPE, dimension(0:NI-1,0:NJ-1) :: z, z0
-  integer :: i, j, ni2, nj2, ni4, nj4, ni8, nj8
+  integer :: i, j, ni, nj, ni2, nj2, ni4, nj4, ni8, nj8
   real*8, dimension(NREP) :: T0,T1,T2,T3
   real*8, external :: MPI_WTIME
-  do j = 0,NJ-1
-  do i = 0,NI-1
+  ni = NI
+  nj = NJ
+  do j = 0,nj-1
+  do i = 0,ni-1
     z(i,j) = 1 + i*1.2 + j*1.7
     z0(i,j) = z(i,j)
   enddo
   enddo
   print *,'min,max z0',minval(z0),maxval(z0)
 1 format(12F6.2)
-  if(NI <=10 .and. NJ <=10) then
+  if(ni <=10 .and. nj <=10) then
     print *,'=========================================================='
-    do j = NJ-1,0,-1
+    do j = nj-1,0,-1
       print 1,z(:,j)
     enddo
   endif
-  ni2 = (NI+1)/2
-  nj2 = (NJ+1)/2
+  ni2 = (ni+1)/2
+  nj2 = (nj+1)/2
   ni4 = (ni2+1)/2
   nj4 = (nj2+1)/2
   ni8 = (nj4+1)/2
   nj8 = (nj4+1)/2
   do irep = 1, NREP
   T0(irep) = MPI_WTIME()
-  call fwd_linear53_dwt2d_r4(z,NI,NJ,NI,NJ)
-  call fwd_linear53_dwt2d_r4(z,ni2,nj2,NI*2,nj2)
-  call fwd_linear53_dwt2d_r4(z,ni4,nj4,NI*4,nj4)
-  call fwd_linear53_dwt2d_r4(z,ni8,nj8,NI*8,nj8)
+  call fwd_linear53_dwt2d_r4(z,ni,nj,ni,nj)
+  call fwd_linear53_dwt2d_r4(z,ni2,nj2,ni*2,nj2)
+  call fwd_linear53_dwt2d_r4(z,ni4,nj4,ni*4,nj4)
+  call fwd_linear53_dwt2d_r4(z,ni8,nj8,ni*8,nj8)
   T1(irep) = MPI_WTIME()
-  if(NI <=10 .and. NJ <=10) then
+  if(ni <=10 .and. nj <=10) then
     print *,'=========================================================='
-    do j = NJ-1,0,-1
+    do j = nj-1,0,-1
       print 1,z(:,j)
     enddo
   endif
   T2(irep) = MPI_WTIME()
-  call inv_linear53_dwt2d_r4(z,ni8,nj8,NI*8,nj8)
-  call inv_linear53_dwt2d_r4(z,ni4,nj4,NI*4,nj4)
-  call inv_linear53_dwt2d_r4(z,ni2,nj2,NI*2,nj2)
-  call inv_linear53_dwt2d_r4(z,NI,NJ,NI,NJ)
+  call inv_linear53_dwt2d_r4(z,ni8,nj8,ni*8,nj8)
+  call inv_linear53_dwt2d_r4(z,ni4,nj4,ni*4,nj4)
+  call inv_linear53_dwt2d_r4(z,ni2,nj2,ni*2,nj2)
+  call inv_linear53_dwt2d_r4(z,ni,nj,ni,nj)
   T3(irep) = MPI_WTIME()
   enddo
-  if(NI <=10 .and. NJ <=10) then
+  if(ni <=10 .and. nj <=10) then
     print *,'=========================================================='
-    do j = NJ-1,0,-1
+    do j = nj-1,0,-1
       print 1,z(:,j)
     enddo
   endif
   t1 = t1-t0
   t3 = t3-t2
-  print *,'min transform time:',minval(t1),minval(t3),minval(t1)/NI/NJ,minval(t3)/NI/NJ
-  print *,'max transform time:',maxval(t1),maxval(t3),maxval(t1)/NI/NJ,maxval(t3)/NI/NJ
+  print *,'min transform time:',minval(t1),minval(t3),minval(t1)/ni/nj,minval(t3)/ni/nj
+  print *,'max transform time:',maxval(t1),maxval(t3),maxval(t1)/ni/nj,maxval(t3)/ni/nj
   print *,'min,max z0',minval(z0),maxval(z0)
   print *,'min,max z',minval(z),maxval(z)
   z0 = (z0-z)/z0
-  print *,'total error:',sum(z0)/NI/NJ
+  print *,'total error:',sum(z0)/ni/nj
   stop
 end program test
 #endif
