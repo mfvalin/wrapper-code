@@ -1,10 +1,10 @@
 #define ARGUMENT_TYPE real*4
-subroutine inv_linear53_dwt2d_r4(z,ni,nj)   ! 2D inverse transform , along j first, then along i
+subroutine inv_linear53_dwt2d_r4(z,ni,nj,nx,ny)   ! 2D inverse transform , along j first, then along i
 ! in place INVERSE lifting transform using linear prediction wavelet for ARGUMENT_TYPE numbers
   use ISO_C_BINDING
   implicit none
-  integer, intent(IN) :: ni, nj
-  ARGUMENT_TYPE, intent(INOUT), dimension(0:ni-1,0:nj-1) :: z
+  integer, intent(IN) :: ni, nj, nx, ny
+  ARGUMENT_TYPE, intent(INOUT), dimension(0:nx-1,0:ny-1) :: z
 
   ARGUMENT_TYPE, dimension(-1:ni) :: even, odd
   integer :: i, j, j00, jm1, jm2, jp1, jj
@@ -19,15 +19,15 @@ subroutine inv_linear53_dwt2d_r4(z,ni,nj)   ! 2D inverse transform , along j fir
     jm1 = abs(j - 1)      ! mirror condition at lower boundary
     jp1 = j + 1
     if(jp1 == nj) jp1 = nj - 2                     ! upper mirror boundary condition
-    z(:,j) = z(:,j) - .25 * (z(:,jm1) + z(:,jp1))  ! unupdate even row j
+    z(0:ni-1,j) = z(0:ni-1,j) - .25 * (z(0:ni-1,jm1) + z(0:ni-1,jp1))  ! unupdate even row j
     if(j > 0) then
-      z(:,jm1) = z(:,jm1) + .5 * (z(:,jm2) + z(:,j)) ! unpredict odd row jm1
+      z(0:ni-1,jm1) = z(0:ni-1,jm1) + .5 * (z(0:ni-1,jm2) + z(0:ni-1,j)) ! unpredict odd row jm1
       call inv_linear53_dwt1d_r4(z(:,j-2))
       call inv_linear53_dwt1d_r4(z(:,j-1))
       j00 = j
     endif
   enddo
-  if(iand(nj,1)==0) z(:,nj-1) = z(:,nj-1) + z(:,nj-2) ! last row is odd, unpredict it
+  if(iand(nj,1)==0) z(0:ni-1,nj-1) = z(0:ni-1,nj-1) + z(0:ni-1,nj-2) ! last row is odd, unpredict it
   do j = j00 , nj-1
     call inv_linear53_dwt1d_r4(z(:,j))
   enddo
@@ -64,12 +64,12 @@ contains
   end subroutine inv_linear53_dwt1d_r4
 end subroutine inv_linear53_dwt2d_r4
 
-subroutine fwd_linear53_dwt2d_r4(z,ni,nj)   ! 2D forward transform, along i first, then along j
+subroutine fwd_linear53_dwt2d_r4(z,ni,nj,nx,ny)   ! 2D forward transform, along i first, then along j
 ! in place FORWARD lifting transform using linear prediction wavelet for ARGUMENT_TYPE numbers
   use ISO_C_BINDING
   implicit none
-  integer, intent(IN) :: ni, nj
-  ARGUMENT_TYPE, intent(INOUT), dimension(0:ni-1,0:nj-1) :: z
+  integer, intent(IN) :: ni, nj, nx, ny
+  ARGUMENT_TYPE, intent(INOUT), dimension(0:nx-1,0:ny-1) :: z
 
   ARGUMENT_TYPE, dimension(-1:ni) :: even, odd
   integer :: i, j, j00, jm1, jm2, jp1, jj
@@ -87,10 +87,10 @@ subroutine fwd_linear53_dwt2d_r4(z,ni,nj)   ! 2D forward transform, along i firs
       call fwd_linear53_dwt1d_r4(z(:,jj))
     enddo
     j00 = jp1 + 1
-    z(:,  j) = z(:,  j) -  .5 * (z(:,jm1) + z(:,jp1))       ! predict odd rows
-    z(:,jm1) = z(:,jm1) + .25 * (z(:,jm2) + z(:,  j))       ! update even rows (below odd row)
+    z(0:ni-1,  j) = z(0:ni-1,  j) -  .5 * (z(0:ni-1,jm1) + z(0:ni-1,jp1))       ! predict odd rows
+    z(0:ni-1,jm1) = z(0:ni-1,jm1) + .25 * (z(0:ni-1,jm2) + z(0:ni-1,  j))       ! update even rows (below odd row)
   enddo
-  if(mod(nj,2)==1) z(:,nj-1) = z(:,nj-1) + .5 * z(:,nj-2)   ! odd number of rows, last row is en even row
+  if(mod(nj,2)==1) z(0:ni-1,nj-1) = z(0:ni-1,nj-1) + .5 * z(0:ni-1,nj-2)   ! odd number of rows, last row is en even row
   return
 contains
   subroutine fwd_linear53_dwt1d_r4(f)   ! 1D along i transform
@@ -122,10 +122,11 @@ end subroutine fwd_linear53_dwt2d_r4
 #if defined(SELF_TEST)
 #define NI 12001
 #define NJ 9001
+#define NREP 10
 program test
   ARGUMENT_TYPE, dimension(0:NI-1,0:NJ-1) :: z, z0
-  integer :: i, j
-  real*8 :: T0,T1,T2,T3
+  integer :: i, j, ni2, nj2, ni4, nj4, ni8, nj8
+  real*8, dimension(NREP) :: T0,T1,T2,T3
   real*8, external :: MPI_WTIME
   do j = 0,NJ-1
   do i = 0,NI-1
@@ -141,19 +142,31 @@ program test
       print 1,z(:,j)
     enddo
   endif
-  do irep = 1, 100
-  T0 = MPI_WTIME()
-  call fwd_linear53_dwt2d_r4(z,NI,NJ)
-  T1 = MPI_WTIME()
+  ni2 = (NI+1)/2
+  nj2 = (NJ+1)/2
+  ni4 = (ni2+1)/2
+  nj4 = (nj2+1)/2
+  ni8 = (nj4+1)/2
+  nj8 = (nj4+1)/2
+  do irep = 1, NREP
+  T0(irep) = MPI_WTIME()
+  call fwd_linear53_dwt2d_r4(z,NI,NJ,NI,NJ)
+  call fwd_linear53_dwt2d_r4(z,ni2,nj2,NI*2,nj2)
+  call fwd_linear53_dwt2d_r4(z,ni4,nj4,NI*4,nj4)
+  call fwd_linear53_dwt2d_r4(z,ni8,nj8,NI*8,nj8)
+  T1(irep) = MPI_WTIME()
   if(NI <=10 .and. NJ <=10) then
     print *,'=========================================================='
     do j = NJ-1,0,-1
       print 1,z(:,j)
     enddo
   endif
-  T2 = MPI_WTIME()
-  call inv_linear53_dwt2d_r4(z,NI,NJ)
-  T3 = MPI_WTIME()
+  T2(irep) = MPI_WTIME()
+  call inv_linear53_dwt2d_r4(z,ni8,nj8,NI*8,nj8)
+  call inv_linear53_dwt2d_r4(z,ni4,nj4,NI*4,nj4)
+  call inv_linear53_dwt2d_r4(z,ni2,nj2,NI*2,nj2)
+  call inv_linear53_dwt2d_r4(z,NI,NJ,NI,NJ)
+  T3(irep) = MPI_WTIME()
   enddo
   if(NI <=10 .and. NJ <=10) then
     print *,'=========================================================='
@@ -161,7 +174,10 @@ program test
       print 1,z(:,j)
     enddo
   endif
-  print *,'transform time:',t1-t0,t3-t2,(t1-t0)/NI/NJ,(t3-t2)/NI/NJ
+  t1 = t1-t0
+  t3 = t3-t2
+  print *,'min transform time:',minval(t1),minval(t3),minval(t1)/NI/NJ,minval(t3)/NI/NJ
+  print *,'max transform time:',maxval(t1),maxval(t3),maxval(t1)/NI/NJ,maxval(t3)/NI/NJ
   print *,'min,max z0',minval(z0),maxval(z0)
   print *,'min,max z',minval(z),maxval(z)
   z0 = (z0-z)/z0
