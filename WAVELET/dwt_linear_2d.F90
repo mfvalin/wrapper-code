@@ -28,6 +28,60 @@ subroutine zero_high_dwt2d_r4(z,ni,nj,nx,ny)
   return
 end subroutine zero_high_dwt2d_r4
 
+subroutine inv_linear53_dwt2d_r4z(z,ni,nj,nx,ny)   ! 2D inverse transform , along j first, then along i
+! in place INVERSE lifting transform using linear prediction wavelet for ARGUMENT_TYPE numbers
+! all odd terms are asumed to be zero
+  use ISO_C_BINDING
+  implicit none
+  integer, intent(IN) :: ni, nj, nx, ny
+  ARGUMENT_TYPE, intent(INOUT), dimension(0:nx-1,0:ny-1) :: z
+
+  ARGUMENT_TYPE, dimension(-1:ni) :: even, odd
+  integer :: i, j, j00, jm1, jm2, jp1, jj
+  integer :: nodd, neven
+
+  nodd  = ishft(ni,-1)     ! number of odd terms
+  neven = ishft(ni+1,-1)   ! number of even terms (nodd + 1 if ni is odd)
+  j00 = 0
+
+  do j = 0 , nj-1 , 2
+    jm2 = j - 2           ! not used for j == 0
+    jm1 = abs(j - 1)      ! mirror condition at lower boundary
+    jp1 = j + 1
+    if(jp1 == nj) jp1 = nj - 2                     ! upper mirror boundary condition
+    z(0:neven-1,j) = z(0:neven-1,j) - .25 * (z(0:neven-1,jm1) + z(0:neven-1,jp1))  ! unupdate even row j
+    if(j > 0) then
+      z(0:neven-1,jm1) = z(0:neven-1,jm1) + .5 * (z(0:neven-1,jm2) + z(0:neven-1,j)) ! unpredict odd row jm1
+      call inv_linear53_dwt1d_r4z(z(:,j-2))
+      call inv_linear53_dwt1d_r4z(z(:,j-1))
+      j00 = j
+    endif
+  enddo
+  if(iand(nj,1)==0) z(0:neven-1,nj-1) = z(0:neven-1,nj-1) + z(0:neven-1,nj-2) ! last row is odd, unpredict it
+  do j = j00 , nj-1
+    call inv_linear53_dwt1d_r4z(z(:,j))
+  enddo
+contains
+  subroutine inv_linear53_dwt1d_r4z(f)  ! 1D along i transform
+    use ISO_C_BINDING
+    implicit none
+    ARGUMENT_TYPE, intent(INOUT), dimension(0:ni-1) :: f
+
+    integer :: i
+
+    do i=0,nodd-1           ! split into even / odd (assumed zero)
+      even(i) = f(i)
+    enddo
+    if(iand(ni,1) .ne. 0) even(nodd) = f(nodd)      ! one more even values than odd values if ni is odd
+    if(iand(ni,1) .eq. 0) even(nodd) = even(nodd-1) ! mirror condition at upper boundary if ni is even
+    do i = 0,nodd-1
+      f(2*i)   = even(i)
+      f(2*i+1) = .5 * (even(i) + even(i+1))
+    enddo
+    if(iand(ni,1) .ne. 0) f(ni-1) = even(neven-1)   ! odd number of points, one extra even element
+  end subroutine inv_linear53_dwt1d_r4z
+end subroutine inv_linear53_dwt2d_r4z
+
 subroutine inv_linear53_dwt2d_r4(z,ni,nj,nx,ny)   ! 2D inverse transform , along j first, then along i
 ! in place INVERSE lifting transform using linear prediction wavelet for ARGUMENT_TYPE numbers
   use ISO_C_BINDING
@@ -92,6 +146,62 @@ contains
     if(iand(ni,1) .ne. 0) f(ni-1) = even(neven-1)  ! odd number of points, one extra even element
   end subroutine inv_linear53_dwt1d_r4
 end subroutine inv_linear53_dwt2d_r4
+
+subroutine fwd_linear53_dwt2d_r4z(z,ni,nj,nx,ny)   ! 2D forward transform, along i first, then along j
+! in place FORWARD lifting transform using linear prediction wavelet for ARGUMENT_TYPE numbers
+! all odd terms in transform will be assumed 0 by inverse transform and are not stored
+  use ISO_C_BINDING
+  implicit none
+  integer, intent(IN) :: ni, nj, nx, ny
+  ARGUMENT_TYPE, intent(INOUT), dimension(0:nx-1,0:ny-1) :: z
+
+  ARGUMENT_TYPE, dimension(-1:ni) :: even, odd
+  integer :: i, j, j00, jm1, jm2, jp1, jj
+  integer :: nodd, neven
+
+  nodd  = ishft(ni,-1)     ! number of odd terms
+  neven = ishft(ni+1,-1)   ! number of even terms (nodd + 1 if ni is odd)
+  j00 = 0
+  do j = 1,nj-1,2
+    jm2 = abs(j - 2)
+    jm1 = j - 1
+    jp1 = j + 1
+    if(jp1 == nj) jp1 = nj - 2                              ! upper mirror boundary condition
+    do jj = j00,max(j,jp1)
+      call fwd_linear53_dwt1d_r4z(z(:,jj))
+    enddo
+    j00 = jp1 + 1   ! odd terms are ignored in the following 2 lines
+    z(0:neven-1,  j) = z(0:neven-1,  j) -  .5 * (z(0:neven-1,jm1) + z(0:neven-1,jp1))       ! predict odd rows
+    z(0:neven-1,jm1) = z(0:neven-1,jm1) + .25 * (z(0:neven-1,jm2) + z(0:neven-1,  j))       ! update even rows (below odd row)
+  enddo
+  if(mod(nj,2)==1) z(0:neven-1,nj-1) = z(0:neven-1,nj-1) + .5 * z(0:neven-1,nj-2)   ! odd number of rows, last row is en even row
+  return
+contains
+  subroutine fwd_linear53_dwt1d_r4z(f)   ! 1D along i transform
+    implicit none
+    ARGUMENT_TYPE, intent(INOUT), dimension(0:ni-1) :: f
+
+    integer :: i
+
+    do i=0,nodd-1           ! split into even / odd
+      even(i) = f(2*i)
+      odd(i)  = f(2*i+1)
+    enddo
+    if(iand(ni,1) .ne. 0) then  ! is ni odd ?
+      even(nodd) = f(ni-1)      ! one more even values than odd values if ni is odd
+    else
+      even(nodd) = even(nodd-1) ! mirror condition at upper boundary if ni is even
+    endif
+    do i = 0, nodd-1           ! predict odd values (and copy updated values into f)
+      odd(i) = odd(i) - .5 * (even(i) + even(i+1))
+    enddo
+    odd(-1)   = odd(0)         ! mirror condition at lower boundary
+    odd(nodd) = odd(nodd-1)    ! mirror condition at upper boundary, used only of ni is odd
+    do  i=0,neven-1            ! update even values (and copy updated values into f)
+      f(i) = even(i) + .25 * (odd(i) + odd(i-1))
+    enddo
+  end subroutine fwd_linear53_dwt1d_r4z
+end subroutine fwd_linear53_dwt2d_r4z
 
 subroutine fwd_linear53_dwt2d_r4(z,ni,nj,nx,ny)   ! 2D forward transform, along i first, then along j
 ! in place FORWARD lifting transform using linear prediction wavelet for ARGUMENT_TYPE numbers
