@@ -10,6 +10,20 @@ subroutine low_pass_dwt2d_r4(z,ni,nj,nx,ny)
   call inv_linear53_dwt2d_r4(z,ni,nj,nx,ny)   ! inverse transform
 end subroutine low_pass_dwt2d_r4
 
+subroutine low_pass_dwt2d_r4_4x4(z,ni,nj,nx,ny)
+! 2D low pass filter using 53 dwt linear prediction wavelet
+  implicit none
+  integer, intent(IN) :: ni, nj, nx, ny
+  ARGUMENT_TYPE, intent(INOUT), dimension(0:nx-1,0:ny-1) :: z
+
+  call fwd_linear53_dwt2d_r4(z,ni,nj,ni,nj)   ! forward transform
+  call zero_high_dwt2d_r4(z,ni,nj,ni,nj)      ! get rid of high frequency terms
+  call fwd_linear53_dwt2d_r4(z,ni/2,nj/2,ni*2,nj/2)
+  call zero_high_dwt2d_r4(z,ni/2,nj/2,ni*2,nj/2)      ! get rid of high frequency terms
+  call inv_linear53_dwt2d_r4(z,ni2,nj2,ni*2,nj2)
+  call inv_linear53_dwt2d_r4(z,ni,nj,ni,nj)   ! inverse transform
+end subroutine low_pass_dwt2d_r4
+
 subroutine low_pass_quant_dwt2d_r4(z,ni,nj,nx,ny)
 ! 2D low pass filter using 53 dwt linear prediction wavelet
   implicit none
