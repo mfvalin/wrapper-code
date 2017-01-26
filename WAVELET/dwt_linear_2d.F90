@@ -60,6 +60,7 @@ subroutine quant_low_r4(z,ni,nj,nx,ny)
   endif
 
   the_range = the_max - the_min
+  if(the_range == 0) the_range = 1.0
   delta = the_range / 65535.0      ! quantification interval
   print *,'DEBUG: the_min, the_max, the_range, delta', the_min, the_max, the_range, delta
 
@@ -67,7 +68,7 @@ subroutine quant_low_r4(z,ni,nj,nx,ny)
     z(0:neven-1,j-1) = the_min + (delta * nint( (z(0:neven-1,j-1)-the_min) / delta) )
   enddo
   if(iand(nj,1) == 1) z(0:neven-1,nj-1) = the_min + (delta * nint( (z(0:neven-1,nj-1)-the_min) / delta) )
-  print *,'DEBUG: end of quant_low_r4'
+!   print *,'DEBUG: end of quant_low_r4'
   return
 end subroutine quant_low_r4
 
