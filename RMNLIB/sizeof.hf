@@ -1,0 +1,10 @@
+! declaration of a dummy variable neede by the following macros
+  character(C_CHAR), dimension(:), allocatable :: char_allocatable_for_sizeof
+#if ! defined(SIZEOF)
+! the SIZEOF macro returns the size in bytes of a variable of any type
+#define SIZEOF(a) size(transfer(a,char_allocatable_for_sizeof))
+! the CSTRING macro transforms a Fortran character string into a NULL terminated C compatible string
+#define CSTRING(a) transfer(trim(a)//achar(0),char_allocatable_for_sizeof)
+! FSTRING copies a C type string into a Fortran type string
+#define FSTRING(f,c) f = transfer(c,f)
+#endif
