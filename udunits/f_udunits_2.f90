@@ -96,7 +96,42 @@
 	implicit none
 	include 'f_udunits_2.inc'
 
+	interface UD_is_null
+	  module procedure UT_SYSTEM_PTR_is_null
+	  module procedure UT_UNIT_PTR_is_null
+	  module procedure CV_CONVERTER_PTR_is_null
+	  module procedure CHAR_STAR_is_null
+	end interface
+
 	contains
+!=============================================================================
+        logical function UT_SYSTEM_PTR_is_null(item)
+          use ISO_C_BINDING
+          implicit none
+          type(UT_SYSTEM_PTR), intent(IN) :: item
+          UT_SYSTEM_PTR_is_null = C_ASSOCIATED(item%ptr)
+        end function UT_SYSTEM_PTR_is_null
+!=============================================================================
+        logical function UT_UNIT_PTR_is_null(item)
+          use ISO_C_BINDING
+          implicit none
+          type(UT_UNIT_PTR), intent(IN) :: item
+          UT_UNIT_PTR_is_null = C_ASSOCIATED(item%ptr)
+        end function UT_UNIT_PTR_is_null
+!=============================================================================
+        logical function CV_CONVERTER_PTR_is_null(item)
+          use ISO_C_BINDING
+          implicit none
+          type(CV_CONVERTER_PTR), intent(IN) :: item
+          CV_CONVERTER_PTR_is_null = C_ASSOCIATED(item%ptr)
+        end function CV_CONVERTER_PTR_is_null
+!=============================================================================
+        logical function CHAR_STAR_is_null(item)
+          use ISO_C_BINDING
+          implicit none
+          type(CHAR_STAR), intent(IN) :: item
+          CHAR_STAR_is_null = ASSOCIATED(item%ptr)
+        end function CHAR_STAR_is_null
 !=============================================================================
 	type(UT_SYSTEM_PTR) function f_ut_read_xml(path)
 	use ISO_C_BINDING
