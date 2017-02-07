@@ -40,9 +40,9 @@
 !
 !	for all the C functions that have been interfaced:
 !
-!   0-  the calling FORTRAN code must include
-!       use f_udunits_2
-!       to use these FORTRAN functions/subroutines
+!	0-  the calling FORTRAN code must include
+!           use f_udunits_2
+!           to use these FORTRAN functions/subroutines
 !
 !	1-  the FORTRAN name will be the C name prefixed with f_
 !	    FORTRAN function f_ut_read_xml mimics C function ut_read_xml

@@ -31,14 +31,17 @@
 	type, bind(C) :: UT_SYSTEM_PTR
 	type(C_PTR) :: ptr
 	end type
+	type(UT_SYSTEM_PTR), parameter :: UT_SYSTEM_PTR_NULL = UT_SYSTEM_PTR(C_NULL_PTR)
 
 	type, bind(C) :: UT_UNIT_PTR
 	type(C_PTR) :: ptr
 	end type
+	type(UT_UNIT_PTR), parameter ::UT_UNIT_PTR_NULL = UT_UNIT_PTR(C_NULL_PTR)
 
 	type, bind(C) :: CV_CONVERTER_PTR
 	type(C_PTR) :: ptr
 	end type
+	type(CV_CONVERTER_PTR), parameter ::CV_CONVERTER_PTR_NULL = CV_CONVERTER_PTR(C_NULL_PTR)
 
 	type, bind(C) :: UT_STATUS
 	integer(C_INT) :: value
@@ -47,6 +50,7 @@
 	type :: CHAR_STAR
 	character(len=1),dimension(:),pointer :: ptr
 	end type
+	type(CHAR_STAR), parameter ::CHAR_STAR_NULL = CHAR_STAR(NULL())
 !
 !   the following constants are lifted from C enum in udunits2.h
 !   and may have to be adjusted should any change be made to that file

@@ -89,47 +89,75 @@ main() {
   union{
   float f;
   int i;
-  } x;
+  } x, y;
   float z, zz;
   float zero = 0.0;
   float z0 = 2.0000001;
+  int i, j, mask, mask0, sign;
 
   x.i = 127 << 23;
   x.i += 1<<22;
   printf("%f %f %f\n",x.f,fake_exp(zero,z0),fake_log((intfloat)zero,z0));
-  for( z = z0 ; z < 5000.0 ; z = z*-1.17) { 
-
-    x.f = (z/fake_exp(fake_log((intfloat)z,z0),z0)) ;
-    printf("S: %12.6f %12.6f %13.8f %8d\n", z, fake_log((intfloat)z,z0), x.f, (x.i << 9) >> 9 ); 
-
-    zz = z ; v_fake_log(&zz,z0,1) ; x.f = zz ; v_fake_exp(&x.f,z0,1);
-    x.f = z / x.f;
-    printf("V: %12.6f %12.6f %13.8f %8d\n", z, zz, x.f, (x.i << 9) >> 9 ); 
+  x.i = 126 << 23;
+  x.i |= 0x7FFFFF;
+  printf("%13.8f  %8.8x\n",x.f,x.i);
+  y.i = 150 << 23;
+  z = x.f * y.f;
+  i = z ;
+  printf("%13.8G  %8.8x\n",z,i);
+  y.i = 0;
+  z = x.f * y.f;
+  i = z ;
+  printf("%13.8G  %8.8x\n",z,i);
+  mask = 1;
+  x.i = 126 << 23;
+  y.i = 151 << 23;
+  mask0 = 0;
+  sign = 1;
+  for (i=103 ; i<127 ; i++) {
+    x.i = (i << 23) | mask0;
+    z = x.f * y.f * sign ;
+    j = z + .5;
+    j = j ;
+    printf("%2d %13.9f %8.8x %8.8x\n",i,x.f*sign,(j > 0 ? j : -j)>>1,mask0);
+//     x.i |= mask ;
+    mask0 |= mask;
+    mask = mask << 1;
+    sign = sign;
   }
-
-  x.i = 0x3f800005;
-  printf("%13.8f  %8.8x\n",x.f,x.i);
-  x.i -= 1;
-  printf("%13.8f  %8.8x\n",x.f,x.i);
-  x.i -= 1;
-  printf("%13.8f  %8.8x\n",x.f,x.i);
-  x.i -= 1;
-  printf("%13.8f  %8.8x\n",x.f,x.i);
-  x.i -= 1;
-  printf("%13.8f  %8.8x\n",x.f,x.i);
-  x.i -= 1;
-  printf("%13.8f  %8.8x\n",x.f,x.i);
-  x.i -= 1;
-  printf("%13.8f  %8.8x\n",x.f,x.i);
-  x.i -= 1;
-  printf("%13.8f  %8.8x\n",x.f,x.i);
-  x.i -= 1;
-  printf("%13.8f  %8.8x\n",x.f,x.i);
-  x.i -= 1;
-  printf("%13.8f  %8.8x\n",x.f,x.i);
-  x.i -= 1;
-  printf("%13.8f  %8.8x\n",x.f,x.i);
-  x.i -= 1;
-  printf("%13.8f  %8.8x\n",x.f,x.i);
+//   for( z = z0 ; z < 5000.0 ; z = z*-1.17) { 
+// 
+//     x.f = (z/fake_exp(fake_log((intfloat)z,z0),z0)) ;
+//     printf("S: %12.6f %12.6f %13.8f %8d\n", z, fake_log((intfloat)z,z0), x.f, (x.i << 9) >> 9 ); 
+// 
+//     zz = z ; v_fake_log(&zz,z0,1) ; x.f = zz ; v_fake_exp(&x.f,z0,1);
+//     x.f = z / x.f;
+//     printf("V: %12.6f %12.6f %13.8f %8d\n", z, zz, x.f, (x.i << 9) >> 9 ); 
+//   }
+// 
+//   x.i = 0x3f800005;
+//   printf("%13.8f  %8.8x\n",x.f,x.i);
+//   x.i -= 1;
+//   printf("%13.8f  %8.8x\n",x.f,x.i);
+//   x.i -= 1;
+//   printf("%13.8f  %8.8x\n",x.f,x.i);
+//   x.i -= 1;
+//   printf("%13.8f  %8.8x\n",x.f,x.i);
+//   x.i -= 1;
+//   printf("%13.8f  %8.8x\n",x.f,x.i);
+//   x.i -= 1;
+//   printf("%13.8f  %8.8x\n",x.f,x.i);
+//   x.i -= 1;
+//   printf("%13.8f  %8.8x\n",x.f,x.i);
+//   x.i -= 1;
+//   printf("%13.8f  %8.8x\n",x.f,x.i);
+//   x.i -= 1;
+//   printf("%13.8f  %8.8x\n",x.f,x.i);
+//   x.i -= 1;
+//   printf("%13.8f  %8.8x\n",x.f,x.i);
+//   x.i -= 1;
+//   printf("%13.8f  %8.8x\n",x.f,x.i);
+//   x.i -= 1;
+//   printf("%13.8f  %8.8x\n",x.f,x.i);
 }
 #endif
