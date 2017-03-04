@@ -1,3 +1,15 @@
+
+typedef struct {
+  int o;    // offset
+  int e;    // exponent
+} PackHeader;
+
+typedef union{
+    unsigned int i;
+    float f;
+} FltInt;
+
+#if defined(ALL)
 #if defined(__SSE4_1__)
 #include <x86intrin.h>
 static unsigned char shuf[] = {  0,  1,  4,  5,  8,  9, 12, 13,128,128,128,128,128,128,128,128};
@@ -43,24 +55,27 @@ void quantize(unsigned short int *iz, float *z, int n, float fac, int round, int
 #endif
   }
 }
-
 // nbits MUST BE <= 16 for this routine to work
-void fast_quantize(unsigned short int *iz, float *z, int n, int nbits, float maxval, float minval) {
-  union {
-    unsigned int i;
-    float f;
-  } m1, m2, m3;
+// if 8 < nbits <= 16, unsigned shorts will be stored
+// if 0 < nbits <= 8, unsigned bytes will be stored
+#endif
+
+void fast_quantize(void *iz, float *z, int n, int nbits, float maxval, float minval, PackHeader *p ) {
+  FltInt m1, m2, m3;
   int exp1, exp2, exp3, i, it;
   float fac, range;
   int mask_trunc ;
   int mask_nbits ;
   int offset, irange;
-  int round ;
+  int round = 0 ;
+  unsigned char *izb = (unsigned char *) iz;
+  unsigned short *izs = (unsigned short *) iz;
 
+  if(nbits <= 0 ) return;
   range = maxval - minval;
   round = 1 << (23 - nbits);
   mask_nbits = ~( -1 << nbits );
-  mask_trunc = ~( -1 << (24 - nbits) );
+  mask_trunc = ( -1 << (24 - nbits) );
   m1.f = maxval;
   m2.f = minval;
   m3.f = range;
@@ -77,9 +92,74 @@ void fast_quantize(unsigned short int *iz, float *z, int n, int nbits, float max
   round = round - offset;         // integer offset, (reflects rounded minimum value)
   irange = range * fac ;          // compute right shift count needed to make irange <= mask_nbits
 
-  for ( i=0 ; i<n ; i++){
-    it = z[i] * fac;          // "normalize" to largest exponent
-    it = (it + round) >> (24-nbits);   // remove offset, add rounding term
-    iz[i] = (it > mask_nbits) ? mask_nbits : it; // clamp values at FFFF
+  if(nbits > 8) {               // produce a stream of unsigned shorts
+    for ( i=0 ; i<n ; i++){
+      it = z[i] * fac;          // "normalize" to largest exponent
+      it = (it + round) >> (24-nbits);   // remove offset, add rounding term
+      izs[i] = (it > mask_nbits) ? mask_nbits : it; // clamp values at FFFF
+    }
+  }else{                        // produce a stream of unsigned bytes
+    for ( i=0 ; i<n ; i++){
+      it = z[i] * fac;          // "normalize" to largest exponent
+      it = (it + round) >> (24-nbits);   // remove offset, add rounding term
+      izb[i] = (it > mask_nbits) ? mask_nbits : it; // clamp values at FFFF
+    }
   }
+  p->o = offset;
+  p->e = exp1;
+}
+void fast_unquantize(void *iz, float *z, int n, int nbits, PackHeader *p) {
+  FltInt m1;
+  float fac;
+  int i, t;
+  unsigned char *izb = (unsigned char *) iz;
+  unsigned short *izs = (unsigned short *) iz;
+  int offset = p->o;
+  int exp = p->e;
+
+  m1.i = (exp - 23) << 23;  // inverse of factor to bring largest exponent to 23
+  fac = m1.f;
+  if(nbits > 8) {
+    for ( i=0 ; i<n ; i++){
+      t = izs[i] << (24-nbits) ;
+      z[i] = (t + offset) * fac;
+    }
+  }else{
+    for ( i=0 ; i<n ; i++){
+      t = izb[i] << (24-nbits) ;
+      z[i] = (t + offset) * fac;
+    }
+  }
+
+}
+
+#define NTEST 32800
+#define NBITS 14
+#define ABS(a) ((a) > 0 ? a : -(a))
+#include <stdio.h>
+main(){
+  float zi[NTEST] ;
+  float zo[NTEST] ;
+  short iz[NTEST] ;
+  PackHeader p;
+  int i;
+  float toler;
+  double avg = 0.0;
+  int error=0;
+
+  for(i=0 ; i<NTEST ; i++) { zi[i] = .00001 + .012345 * (i - NTEST/2 ) ;  zo[i] = -99999.0 ; }
+  toler = (zi[NTEST-1] - zi[0]);
+  i = 1 << (NBITS);
+  toler /= i; //  toler *= 2;
+  fast_quantize(iz, zi, NTEST, NBITS, zi[NTEST-1], zi[0], &p );
+  printf("offset = %10d \n",p.o);
+  fast_unquantize(iz, zo, NTEST, NBITS, &p);
+  for(i=0 ; i<NTEST ; i++) {
+    if(ABS(zo[i]-zi[i])>toler) error++;
+//     printf("%3d %10.5f %10.5f %10.5f %10.5f (%8.5f) %s\n",i,zi[i],zo[i],(zo[i]-zi[i]) / zi[i],(zo[i]-zi[i]) , toler, (ABS(zo[i]-zi[i])>toler)?"*":" ");
+    avg += (zo[i]-zi[i]);
+  }
+  avg /= NTEST;
+   printf("from %15.8f to %15.8f\n",zi[0],zi[NTEST-1]);
+  printf("bias = %15.8f, toler = %7.5f, bias/toler = %6.4f, toler exceeded=%d\n",avg,toler,avg/toler,error);
 }
