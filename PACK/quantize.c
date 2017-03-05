@@ -9,6 +9,9 @@ typedef union{
     float f;
 } FltInt;
 
+#define MAX(a,b) ( ((a) > (b)) ? (a) : (b) )
+#define MIN(a,b) ( ((a) < (b)) ? (a) : (b) )
+
 #if defined(ALL)
 #if defined(__SSE4_1__)
 #include <x86intrin.h>
@@ -60,9 +63,9 @@ void quantize(unsigned short int *iz, float *z, int n, float fac, int round, int
 // if 0 < nbits <= 8, unsigned bytes will be stored
 #endif
 
-void fast_quantize(void *iz, float *z, int n, int nbits, float maxval, float minval, PackHeader *p ) {
+void fast_quantize(void *iz, float *z, int n, int nbits, PackHeader *p ) {
   FltInt m1, m2, m3;
-  int exp1, exp2, exp3, i, it;
+  int exp1, exp2, exp3, i, j, it;
   float fac, range;
   int mask_trunc ;
   int mask_nbits ;
@@ -70,8 +73,30 @@ void fast_quantize(void *iz, float *z, int n, int nbits, float maxval, float min
   int round = 0 ;
   unsigned char *izb = (unsigned char *) iz;
   unsigned short *izs = (unsigned short *) iz;
+  float mi[8], ma[8], su[8];
+  float maxval, minval;
 
   if(nbits <= 0 ) return;
+
+  for(i=0; i<8 ; i++) mi[i] = z[i];
+  for(i=0; i<8 ; i++) ma[i] = z[i];
+  for(i=0; i<8 ; i++) su[i] = z[i];
+
+  for(j=(n&7) ; j<n ; j+=8){
+    for(i=0; i<8 ; i++){
+      ma[i] = MAX(ma[i] , z[j+i]);
+      mi[i] = MIN(mi[i] , z[j+i]);
+      su[i] = su[i] + z[i];
+    }
+  }
+  for(i=1; i<8 ; i++) {
+    ma[0] = MAX(ma[0] , ma[i]);
+    mi[0] = MIN(mi[0] , mi[i]);
+    su[0] += su[i];
+  }
+  maxval = ma[0];
+  minval = mi[0];
+
   range = maxval - minval;
   round = 1 << (23 - nbits);
   mask_nbits = ~( -1 << nbits );
@@ -132,7 +157,7 @@ void fast_unquantize(void *iz, float *z, int n, int nbits, PackHeader *p) {
   }
 
 }
-
+#if defined(SELF_TEST)
 #define NTEST 32800
 #define NBITS 14
 #define ABS(a) ((a) > 0 ? a : -(a))
@@ -151,7 +176,7 @@ main(){
   toler = (zi[NTEST-1] - zi[0]);
   i = 1 << (NBITS);
   toler /= i; //  toler *= 2;
-  fast_quantize(iz, zi, NTEST, NBITS, zi[NTEST-1], zi[0], &p );
+  fast_quantize(iz, zi, NTEST, NBITS, &p );
   printf("offset = %10d \n",p.o);
   fast_unquantize(iz, zo, NTEST, NBITS, &p);
   for(i=0 ; i<NTEST ; i++) {
@@ -163,3 +188,4 @@ main(){
    printf("from %15.8f to %15.8f\n",zi[0],zi[NTEST-1]);
   printf("bias = %15.8f, toler = %7.5f, bias/toler = %6.4f, toler exceeded=%d\n",avg,toler,avg/toler,error);
 }
+#endif
