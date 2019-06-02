@@ -37,6 +37,33 @@ void DFWT53_1d(float *f1, float *f, int n){
   }
 }
 
+// discrete forward linear lifted wavelet transform (scalar in place no copy form)
+// with split even/odd components
+// number of points n is neven + nodd ( nodd <= neven <=nodd+1 )
+void DFWT53_1d_spliteo(float *even, int neven, float *odd, int nodd, float *f){
+  int i, j ;
+  float olo, ohi, elo, ehi ;
+  int n = neven + nodd;
+
+  elo = f[0] ;
+  olo = f[1] - 0.5f * (f[2] + elo) ;         // first predicted odd term
+  for(i = 0, j=0 ; i < n - 2 ; i += 2, j++){           
+    ehi = f[i+2] ;                           // upper even term
+    ohi = f[i+1]  - 0.5f * (elo  + ehi ) ;   // predict odd term
+    odd[j]  = ohi ;                          // store odd term
+    even[j] = elo + .25f * (olo + ohi) ;     // update even term and store it
+    elo = ehi ;                              
+    olo = ohi ;                              
+  }                                          
+  if(n & 1) {                                // n is odd
+    even[neven-1] = f[n-1] + 0.5f * ohi ;          // update and store last even term
+  }else{                                     
+    ohi = f[n-1] - ehi ;                     // predict last odd term
+    odd[nodd]     = ohi ;                          // store last odd term
+    even[neven-1] = f[n-2] + .25f * (olo + ohi) ;  // update and store last even term
+  }
+}
+
 // discrete inverse linear lifted wavelet transform (scalar in place no copy form)
 void DIWT53_1d(float *f1, float *f, int n){
   int i ;
@@ -66,6 +93,38 @@ void DIWT53_1d(float *f1, float *f, int n){
   }
 }
 
+// discrete inverse linear lifted wavelet transform (scalar in place no copy form)
+// with split even/odd components
+// number of points n is neven + nodd ( nodd <= neven <=nodd+1 )
+void DIWT53_1d_spliteo(float *even, int neven, float *odd, int nodd, float *f){
+  int i, j ;
+  float olo, ohi, elo, ehi ;
+  int n = neven + nodd;
+
+  olo = odd[0] ;
+  elo = even[0] - 0.5f * olo ;
+  f[0] = elo ;
+  for(i = 2, j = 1 ; i < n - 2 ; i += 2, j++){
+    ohi = odd[j] ;
+    ehi = even[j] - 0.25f * (olo + ohi) ;
+    f[i-1] = olo  + 0.5f * (elo + ehi) ;
+    f[i] = ehi ;
+    olo = ohi ;
+    elo = ehi ;
+  }
+  if(n & 1) {                                      // n is odd
+    ehi    = even[neven-1] - 0.5f * odd[nodd-1] ;  // unupdate last even
+    f[n-1] = ehi                      ;            // store last even
+    f[n-2] = odd[nodd-1] + 0.5f * (elo + ehi) ;    // unpredict and store last odd
+  }else{
+    ohi = odd[nodd-1] ;
+    ehi = even[neven-1] - 0.25f * (olo + ohi) ;    // unupdate last even
+    f[n-2] = ehi ;                                 // store last even
+    f[n-3] = odd[nodd-2] + 0.5f * (elo + ehi ) ;   // unpredict and store next to last odd
+    f[n-1] = odd[nodd-1] + ehi ;                   // unpredict and store last odd
+  }
+}
+
 #if defined(SELF_TEST)
 #include <stdio.h>
 #include <stdlib.h>
@@ -74,7 +133,7 @@ void DIWT53_1d(float *f1, float *f, int n){
 #define NPP 13
 
 int main(){
-  float f[NP], f1[NP] ;
+  float f[NP], f1[NP], even[NP], odd[NP] ;
   float g[NPP], g1[NPP] ;
   int i ;
   float delta = 1.0f ;
@@ -83,12 +142,20 @@ int main(){
   start = 1.0; f[0] = start ; f[1] = start + delta ;
 //   for(i=0 ; i<NP ; i++){ f[i] = i + 1 ; }
   for(i=2 ; i<NP ; i+=2){ delta = delta + delta ; f[i] = f[i-1] + delta ; f[i+1] = f[i] + delta ; }
+
   DFWT53_1d(f1, f, NP) ;
   for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f[i]) ; } fprintf(stderr,"\n");
   for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f1[i]) ; } fprintf(stderr,"\n");
   for(i=0 ; i<NP ; i++){ f[i] = -1.0f ; }
   DIWT53_1d(f1, f, NP) ;
   for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f[i]) ; } fprintf(stderr,"\n\n");
+
+  DFWT53_1d_spliteo(f1, (NP+1)/2, f1+(NP+1)/2, NP/2, f) ;
+  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f1[i]) ; } fprintf(stderr,"\n");
+  DIWT53_1d_spliteo(f1, (NP+1)/2, f1+(NP+1)/2, NP/2, f) ;
+  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f[i]) ; } fprintf(stderr,"\n\n");
+
+  DFWT53_1d(f1, f, NP) ;
   for(i=3 ; i<NP-2 ; i+=2) f1[i] = 0.0 ;   // zero out odd terms
   DIWT53_1d(f1, f, NP) ;
   for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f1[i]) ; } fprintf(stderr,"\n");
@@ -98,13 +165,20 @@ int main(){
 //   for(i=0 ; i<NPP ; i++){ g[i] = i + 1 ; }
   for(i=2 ; i<NP ; i+=2){ delta = delta + delta ; g[i] = g[i-1] + delta ; g[i+1] = g[i] + delta ; }
   g[NPP-1] = g[NPP-2] + delta;
+
   DFWT53_1d(g1, g, NPP) ;
   for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8f ",g[i]) ; } fprintf(stderr,"\n");
   for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8f ",g1[i]) ; } fprintf(stderr,"\n");
   for(i=0 ; i<NPP ; i++){ g[i] = -1.0f ; }
   DIWT53_1d(g1, g, NPP) ;
   for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8f ",g[i]) ; } fprintf(stderr,"\n\n");
-  DIWT53_1d(g1, g, NPP) ;
+
+  DFWT53_1d_spliteo(g1, (NPP+1)/2, g1+(NPP+1)/2, NPP/2, g) ;
+  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8f ",g1[i]) ; } fprintf(stderr,"\n");
+  DIWT53_1d_spliteo(g1, (NPP+1)/2, g1+(NPP+1)/2, NPP/2, g) ;
+  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8f ",g[i]) ; } fprintf(stderr,"\n\n");
+
+  DFWT53_1d(g1, g, NPP) ;
   for(i=3 ; i<NPP-2 ; i+=2) g1[i] = 0.0 ;   // zero out odd terms
   DIWT53_1d(g1, g, NPP) ;
   for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8f ",g1[i]) ; } fprintf(stderr,"\n");
