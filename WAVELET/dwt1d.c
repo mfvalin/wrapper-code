@@ -13,7 +13,7 @@
  * Library General Public License for more details.
  */
 
-// discrete forward linear lifted wavelet transform (scalar no copy form)
+// discrete forward linear lifted wavelet transform (scalar in place no copy form)
 void DFWT53_1d(float *f1, float *f, int n){
   int i ;
   float olo, ohi, elo, ehi ;
@@ -32,15 +32,37 @@ void DFWT53_1d(float *f1, float *f, int n){
     f1[n-1] = f[n-1] + 0.5f * f1[n-2] ;    // update and store last even term
   }else{
     f1[n-1] = f[n-1] - f[n-2] ;                      // predict and store last odd term
-    f1[n-2] = f[n-2] - .25f * (f1[n-3] + f1[n-1]) ;  // update and store last even term
+    f1[n-2] = f[n-2] + .25f * (f1[n-3] + f1[n-1]) ;  // update and store last even term
   }
 }
 
-// discrete inverse linear lifted wavelet transform (scalar no copy form)
-void DIWT_1d_full(float *f1, float *f, int n){
+// discrete inverse linear lifted wavelet transform (scalar in place no copy form)
+void DIWT53_1d(float *f1, float *f, int n){
   int i ;
   float olo, ohi, elo, ehi ;
 
+  olo = f1[1] ;
+  elo = f1[0] - 0.5f * olo ;
+  f[0] = elo ;
+  for(i = 2 ; i < n - 2 ; i += 2){
+    ohi = f1[i+1] ;
+    ehi = f1[i] - 0.25f * (olo + ohi) ;
+    f[i-1] = olo  + 0.5f * (elo + ehi) ;
+    f[i] = ehi ;
+    olo = ohi ;
+    elo = ehi ;
+  }
+  if(n & 1) {                                 // n is odd
+    ehi    = f1[n-1] - 0.5f * f1[n-2] ;       // unupdate last even
+    f[n-1] = ehi                      ;       // store last even
+    f[n-2] = f1[n-2] + 0.5f * (elo + ehi) ;   // unpredict and store last odd
+  }else{
+    ohi = f1[n-1] ;
+    ehi = f1[n-2] - 0.25f * (olo + ohi) ;     // unupdate last even
+    f[n-2] = ehi ;                            // store last even
+    f[n-3] = f1[n-3] + 0.5f * (elo + ehi ) ;  // unpredict and store next to last odd
+    f[n-1] = f1[n-1] + ehi ;                  // unpredict and store last odd
+  }
 }
 
 #if defined(SELF_TEST)
@@ -59,12 +81,18 @@ int main(){
   for(i=0 ; i<NP ; i++){ f[i] = i + 1 ; }
   DFWT53_1d(f1, f, NP) ;
   for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f[i]) ; } fprintf(stderr,"\n");
-  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f1[i]) ; } fprintf(stderr,"\n\n");
+  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f1[i]) ; } fprintf(stderr,"\n");
+  for(i=0 ; i<NP ; i++){ f[i] = -1.0f ; }
+  DIWT53_1d(f1, f, NP) ;
+  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f[i]) ; } fprintf(stderr,"\n\n");
 
   for(i=0 ; i<NPP ; i++){ g[i] = i + 1 ; }
   DFWT53_1d(g1, g, NPP) ;
   for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8f ",g[i]) ; } fprintf(stderr,"\n");
   for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8f ",g1[i]) ; } fprintf(stderr,"\n");
+  for(i=0 ; i<NPP ; i++){ g[i] = -1.0f ; }
+  DIWT53_1d(g1, g, NPP) ;
+  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8f ",g[i]) ; } fprintf(stderr,"\n");
 
   return 0;
 }
