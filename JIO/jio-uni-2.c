@@ -850,7 +850,7 @@ off_t lseek(int fd, off_t offset, int whence)
   jio_add_info(t0,jio_num,SLOT_lseek,fd,0,NULL);
   return result;
 }
-#ifdef ioroutines64
+#ifdef ioroutines64_offset
 off64_t lseek64(int fd, off64_t offset, int whence)
 {
   int result;
