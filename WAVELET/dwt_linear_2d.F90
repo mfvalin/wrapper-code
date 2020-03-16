@@ -1,8 +1,9 @@
-#define ARGUMENT_TYPE real*4
-subroutine low_pass_dwt2d_r4(z,ni,nj,nx,ny)
+#define ARGUMENT_TYPE real(C_FLOAT)
+subroutine low_pass_dwt2d_r4(z,ni,nj,nx,ny) BIND(C,name='low_pass_dwt2d_r4')
 ! 2D low pass filter using 53 dwt linear prediction wavelet
+  use ISO_C_BINDING
   implicit none
-  integer, intent(IN) :: ni, nj, nx, ny
+  integer(C_INT), intent(IN) :: ni, nj, nx, ny
   ARGUMENT_TYPE, intent(INOUT), dimension(0:nx-1,0:ny-1) :: z
 
   call fwd_linear53_dwt2d_r4(z,ni,nj,nx,ny)   ! forward transform
@@ -10,24 +11,29 @@ subroutine low_pass_dwt2d_r4(z,ni,nj,nx,ny)
   call inv_linear53_dwt2d_r4(z,ni,nj,nx,ny)   ! inverse transform
 end subroutine low_pass_dwt2d_r4
 
-subroutine low_pass_dwt2d_r4_4x4(z,ni,nj,nx,ny)
+subroutine low_pass_dwt2d_r4_4x4(z,ni,nj,nx,ny) BIND(C,name='low_pass_dwt2d_r4_4x4')
 ! 2D low pass filter using 53 dwt linear prediction wavelet
+  use ISO_C_BINDING
   implicit none
-  integer, intent(IN) :: ni, nj, nx, ny
+  integer(C_INT), intent(IN) :: ni, nj, nx, ny
   ARGUMENT_TYPE, intent(INOUT), dimension(0:nx-1,0:ny-1) :: z
+  integer :: ni2, nj2
 
-  call fwd_linear53_dwt2d_r4(z,ni,nj,ni,nj)   ! forward transform
-  call zero_high_dwt2d_r4(z,ni,nj,ni,nj)      ! get rid of high frequency terms
-  call fwd_linear53_dwt2d_r4(z,ni/2,nj/2,ni*2,nj/2)
-  call zero_high_dwt2d_r4(z,ni/2,nj/2,ni*2,nj/2)      ! get rid of high frequency terms
-  call inv_linear53_dwt2d_r4(z,ni2,nj2,ni*2,nj2)
-  call inv_linear53_dwt2d_r4(z,ni,nj,ni,nj)   ! inverse transform
-end subroutine low_pass_dwt2d_r4
+  ni2 = (ni+1)/2
+  nj2 = (nj+1)/2
+  call fwd_linear53_dwt2d_r4(z,ni,nj,ni,nj)          ! outer forward transform
+  call zero_high_dwt2d_r4(z,ni,nj,ni,nj)             ! get rid of high frequency terms
+  call fwd_linear53_dwt2d_r4(z,ni2,nj2,ni*2,nj2)     ! inner forward transform
+  call zero_high_dwt2d_r4(z,ni2,nj2,ni*2,nj2)        ! get rid of high frequency terms
+  call inv_linear53_dwt2d_r4(z,ni2,nj2,ni*2,nj2)     ! inner inverse transform
+  call inv_linear53_dwt2d_r4(z,ni,nj,ni,nj)          ! outer inverse transform
+end subroutine low_pass_dwt2d_r4_4x4
 
 subroutine low_pass_quant_dwt2d_r4(z,ni,nj,nx,ny)
 ! 2D low pass filter using 53 dwt linear prediction wavelet
+  use ISO_C_BINDING
   implicit none
-  integer, intent(IN) :: ni, nj, nx, ny
+  integer(C_INT), intent(IN) :: ni, nj, nx, ny
   ARGUMENT_TYPE, intent(INOUT), dimension(0:nx-1,0:ny-1) :: z
 
   call fwd_linear53_dwt2d_r4(z,ni,nj,nx,ny)   ! forward transform
@@ -36,11 +42,12 @@ subroutine low_pass_quant_dwt2d_r4(z,ni,nj,nx,ny)
   call inv_linear53_dwt2d_r4(z,ni,nj,nx,ny)   ! inverse transform
 end subroutine low_pass_quant_dwt2d_r4
 
-subroutine quant_low_r4(z,ni,nj,nx,ny)
+subroutine quant_low_r4(z,ni,nj,nx,ny) BIND(C,name='quant_low_r4')
 ! quantize (2**16 intervals) non zero terms terms in dwt transformed data
 ! this routine assumes the transform layout used by fwd_linear53_dwt2d_r4 / inv_linear53_dwt2d_r4
+  use ISO_C_BINDING
   implicit none
-  integer, intent(IN) :: ni, nj, nx, ny
+  integer(C_INT), intent(IN) :: ni, nj, nx, ny
   ARGUMENT_TYPE, intent(INOUT), dimension(0:nx-1,0:ny-1) :: z
 
   integer :: j, neven
@@ -72,11 +79,12 @@ subroutine quant_low_r4(z,ni,nj,nx,ny)
   return
 end subroutine quant_low_r4
 
-subroutine zero_high_dwt2d_r4(z,ni,nj,nx,ny)
+subroutine zero_high_dwt2d_r4(z,ni,nj,nx,ny) BIND(C,name='zero_high_dwt2d_r4')
 ! zero out all odd (high frequency) terms in dwt transformed data
 ! this routine assumes the transform layout used by fwd_linear53_dwt2d_r4 / inv_linear53_dwt2d_r4
+  use ISO_C_BINDING
   implicit none
-  integer, intent(IN) :: ni, nj, nx, ny
+  integer(C_INT), intent(IN) :: ni, nj, nx, ny
   ARGUMENT_TYPE, intent(INOUT), dimension(0:nx-1,0:ny-1) :: z
 
   integer :: j, neven
@@ -90,16 +98,18 @@ subroutine zero_high_dwt2d_r4(z,ni,nj,nx,ny)
   return
 end subroutine zero_high_dwt2d_r4
 
-subroutine inv_linear53_dwt2d_r4z(z,ni,nj,nx,ny)   ! 2D inverse transform , along j first, then along i
+! 2D inverse transform , along j first, then along i
+subroutine inv_linear53_dwt2d_r4z(z,ni,nj,nx,ny) BIND(C,name='inv_linear53_dwt2d_r4z')
+! (nx,ny) == (ni,nj)  : full array
 ! in place INVERSE lifting transform using linear prediction wavelet for ARGUMENT_TYPE numbers
-! all odd terms are asumed to be zero
+! all odd terms are asumed to be zero, odd rows are assumed to be zero
   use ISO_C_BINDING
   implicit none
-  integer, intent(IN) :: ni, nj, nx, ny
+  integer(C_INT), intent(IN) :: ni, nj, nx, ny
   ARGUMENT_TYPE, intent(INOUT), dimension(0:nx-1,0:ny-1) :: z
 
-  ARGUMENT_TYPE, dimension(-1:ni) :: even, odd
-  integer :: i, j, j00, jm1, jm2, jp1, jj
+  ARGUMENT_TYPE, dimension(-1:ni) :: even
+  integer :: j, j00, jm1, jm2, jp1
   integer :: nodd, neven
 
   nodd  = ishft(ni,-1)     ! number of odd terms
@@ -131,7 +141,7 @@ contains
 
     integer :: i
 
-    do i=0,nodd-1           ! split into even / odd (assumed zero)
+    do i=0,nodd-1           ! split into even / odd (assumed zero, therefore not stored)
       even(i) = f(i)
     enddo
     if(iand(ni,1) .ne. 0) even(nodd) = f(nodd)      ! one more even values than odd values if ni is odd
@@ -144,15 +154,18 @@ contains
   end subroutine inv_linear53_dwt1d_r4z
 end subroutine inv_linear53_dwt2d_r4z
 
-subroutine inv_linear53_dwt2d_r4(z,ni,nj,nx,ny)   ! 2D inverse transform , along j first, then along i
+! 2D inverse transform , along j first, then along i
+subroutine inv_linear53_dwt2d_r4(z,ni,nj,nx,ny) BIND(C,name='inv_linear53_dwt2d_r4')
+! (nx,ny) == (ni,nj)  : full array
 ! in place INVERSE lifting transform using linear prediction wavelet for ARGUMENT_TYPE numbers
+! input row j : neven even terms, followed by nodd odd terms (same as the output of the forward transform)
   use ISO_C_BINDING
   implicit none
-  integer, intent(IN) :: ni, nj, nx, ny
+  integer(C_INT), intent(IN) :: ni, nj, nx, ny
   ARGUMENT_TYPE, intent(INOUT), dimension(0:nx-1,0:ny-1) :: z
 
   ARGUMENT_TYPE, dimension(-1:ni) :: even, odd
-  integer :: i, j, j00, jm1, jm2, jp1, jj
+  integer :: j, j00, jm1, jm2, jp1
   integer :: nodd, neven
 
   nodd  = ishft(ni,-1)     ! number of odd terms
@@ -209,16 +222,18 @@ contains
   end subroutine inv_linear53_dwt1d_r4
 end subroutine inv_linear53_dwt2d_r4
 
-subroutine fwd_linear53_dwt2d_r4z(z,ni,nj,nx,ny)   ! 2D forward transform, along i first, then along j
+! 2D forward transform, along i first, then along j
+subroutine fwd_linear53_dwt2d_r4z(z,ni,nj,nx,ny) BIND(C,name='fwd_linear53_dwt2d_r4z')
+! (nx,ny) == (ni,nj)  : full array
 ! in place FORWARD lifting transform using linear prediction wavelet for ARGUMENT_TYPE numbers
-! all odd terms in transform will be assumed 0 by inverse transform and are not stored
+! all odd terms in transform will be assumed 0 by inverse transform and therefore will not be stored
   use ISO_C_BINDING
   implicit none
-  integer, intent(IN) :: ni, nj, nx, ny
+  integer(C_INT), intent(IN) :: ni, nj, nx, ny
   ARGUMENT_TYPE, intent(INOUT), dimension(0:nx-1,0:ny-1) :: z
 
   ARGUMENT_TYPE, dimension(-1:ni) :: even, odd
-  integer :: i, j, j00, jm1, jm2, jp1, jj
+  integer :: j, j00, jm1, jm2, jp1, jj
   integer :: nodd, neven
 
   nodd  = ishft(ni,-1)     ! number of odd terms
@@ -254,7 +269,7 @@ contains
     else
       even(nodd) = even(nodd-1) ! mirror condition at upper boundary if ni is even
     endif
-    do i = 0, nodd-1           ! predict odd values (and copy updated values into f)
+    do i = 0, nodd-1           ! predict odd values (do not copy updated values into f)
       odd(i) = odd(i) - .5 * (even(i) + even(i+1))
     enddo
     odd(-1)   = odd(0)         ! mirror condition at lower boundary
@@ -265,15 +280,18 @@ contains
   end subroutine fwd_linear53_dwt1d_r4z
 end subroutine fwd_linear53_dwt2d_r4z
 
-subroutine fwd_linear53_dwt2d_r4(z,ni,nj,nx,ny)   ! 2D forward transform, along i first, then along j
+! 2D forward transform, along i first, then along j
+subroutine fwd_linear53_dwt2d_r4(z,ni,nj,nx,ny) BIND(C,name='fwd_linear53_dwt2d_r4')
+! (nx,ny) == (ni,nj)  : full array
 ! in place FORWARD lifting transform using linear prediction wavelet for ARGUMENT_TYPE numbers
+! output row j : neven even terms, followed by nodd odd terms (ready for inverse transform)
   use ISO_C_BINDING
   implicit none
-  integer, intent(IN) :: ni, nj, nx, ny
+  integer(C_INT), intent(IN) :: ni, nj, nx, ny
   ARGUMENT_TYPE, intent(INOUT), dimension(0:nx-1,0:ny-1) :: z
 
   ARGUMENT_TYPE, dimension(-1:ni) :: even, odd
-  integer :: i, j, j00, jm1, jm2, jp1, jj
+  integer :: j, j00, jm1, jm2, jp1, jj
   integer :: nodd, neven
 
   nodd  = ishft(ni,-1)     ! number of odd terms
@@ -325,10 +343,11 @@ end subroutine fwd_linear53_dwt2d_r4
 #define NJ 8000
 #define NREP 1
 program test
+  use ISO_C_BINDING
   ARGUMENT_TYPE, dimension(0:NI-1,0:NJ-1) :: z, z0, z1
   integer :: i, j, ni, nj, ni2, nj2, ni4, nj4, ni8, nj8
   real*8, dimension(NREP) :: T0,T1,T2,T3
-  real*8, external :: MPI_WTIME
+!   real*8, external :: MPI_WTIME
   ni = NI
   nj = NJ
   do j = 0,nj-1
@@ -352,24 +371,24 @@ program test
   ni8 = (nj4+1)/2
   nj8 = (nj4+1)/2
   do irep = 1, NREP
-  T0(irep) = MPI_WTIME()
+!   T0(irep) = MPI_WTIME()
   call fwd_linear53_dwt2d_r4(z,ni,nj,ni,nj)
   call fwd_linear53_dwt2d_r4(z,ni2,nj2,ni*2,nj2)
   call fwd_linear53_dwt2d_r4(z,ni4,nj4,ni*4,nj4)
   call fwd_linear53_dwt2d_r4(z,ni8,nj8,ni*8,nj8)
-  T1(irep) = MPI_WTIME()
+!   T1(irep) = MPI_WTIME()
   if(ni <=10 .and. nj <=10) then
     print *,'=========================================================='
     do j = nj-1,0,-1
       print 1,z(:,j)
     enddo
   endif
-  T2(irep) = MPI_WTIME()
+!   T2(irep) = MPI_WTIME()
   call inv_linear53_dwt2d_r4(z,ni8,nj8,ni*8,nj8)
   call inv_linear53_dwt2d_r4(z,ni4,nj4,ni*4,nj4)
   call inv_linear53_dwt2d_r4(z,ni2,nj2,ni*2,nj2)
   call inv_linear53_dwt2d_r4(z,ni,nj,ni,nj)
-  T3(irep) = MPI_WTIME()
+!   T3(irep) = MPI_WTIME()
   enddo
   if(ni <=10 .and. nj <=10) then
     print *,'=========================================================='
@@ -379,8 +398,8 @@ program test
   endif
   t1 = t1-t0
   t3 = t3-t2
-  print *,'min transform time:',minval(t1),minval(t3),minval(t1)/ni/nj,minval(t3)/ni/nj
-  print *,'max transform time:',maxval(t1),maxval(t3),maxval(t1)/ni/nj,maxval(t3)/ni/nj
+!   print *,'min transform time:',minval(t1),minval(t3),minval(t1)/ni/nj,minval(t3)/ni/nj
+!   print *,'max transform time:',maxval(t1),maxval(t3),maxval(t1)/ni/nj,maxval(t3)/ni/nj
   print *,'min,max z0',minval(z0),maxval(z0)
   print *,'min,max z',minval(z),maxval(z)
   z1 = abs(z0-z)/z0

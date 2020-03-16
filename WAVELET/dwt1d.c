@@ -13,7 +13,11 @@
  * Library General Public License for more details.
  */
 
-// discrete forward linear lifted wavelet transform (scalar, possibly in place no copy form)
+// discrete forward linear lifted wavelet transform (scalar, possibly in place no copy variant)
+// IN
+//   f[n]    : original data
+// OUT
+//   f1[n]   : transformed data
 void DFWT53_1d(float *f1, float *f, int n){
   int i ;
   float olo, ohi, elo, ehi ;
@@ -28,18 +32,23 @@ void DFWT53_1d(float *f1, float *f, int n){
     elo = ehi ;                              
     olo = ohi ;                              
   }                                          
-  if(n & 1) {                                // n is odd
+  if(n & 1) {                                // n is ODD
     f1[n-1] = f[n-1] + 0.5f * ohi ;          // update and store last even term
-  }else{                                     
+  }else{                                     // n is EVEN
     ohi = f[n-1] - ehi ;                     // predict last odd term
     f1[n-1] = ohi ;                          // store last odd term
     f1[n-2] = f[n-2] + .25f * (olo + ohi) ;  // update and store last even term
   }
 }
 
-// discrete forward linear lifted wavelet transform (scalar form)
+// discrete forward linear lifted wavelet transform (scalar variant)
 // with split even/odd components
 // number of points n is neven + nodd ( nodd <= neven <=nodd+1 )
+// IN
+//   f[neven+nodd] : original data
+// OUT
+//   even[neven]   : even components of transform
+//   odd[nodd]     : odd components of transform
 void DFWT53_1d_spliteo(float *even, int neven, float *odd, int nodd, float *f){
   int i, j ;
   float olo, ohi, elo, ehi ;
@@ -89,6 +98,10 @@ static void DFWT53_1d_spliteo_v(float *even, int neven, float *odd, int nodd, fl
 }
 
 // discrete inverse linear lifted wavelet transform (scalar, possibly in place no copy form)
+// IN
+//   f1[n]   : transformed data
+// OUT
+//   f[n]    : reconstituted data
 void DIWT53_1d(float *f1, float *f, int n){
   int i ;
   float olo, ohi, elo, ehi ;
@@ -120,6 +133,11 @@ void DIWT53_1d(float *f1, float *f, int n){
 // discrete inverse linear lifted wavelet transform (scalar form)
 // with split even/odd components
 // number of points n is neven + nodd ( nodd <= neven <=nodd+1 )
+// IN
+//   even[neven]   : even components
+//   odd[nodd]     : odd components
+// OUT
+//   f[neven+nodd] : reconstituted data
 void DIWT53_1d_spliteo(float *even, int neven, float *odd, int nodd, float *f){
   int i, j ;
   float olo, ohi, elo, ehi ;
@@ -166,65 +184,78 @@ int main(){
   start = 1.0f; f[0] = start ; f[1] = start + delta ;
   for(i=2 ; i<NP ; i+=2){ delta = delta + delta ; f[i] = f[i-1] + delta ; f[i+1] = f[i] + delta ; }
 
-  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f[i]) ; } fprintf(stderr,"\n");
+  fprintf(stderr,"=========== even number of points ============\n\n");
+
+  fprintf(stderr,"===== initial, transformed, reconstituted (IN PLACE) =====\n");
+  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8.3f ",f[i]) ; } fprintf(stderr,"\n");
   DFWT53_1d(f, f, NP) ;
-  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f[i]) ; } fprintf(stderr,"\n");
+  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8.3f ",f[i]) ; } fprintf(stderr,"\n");
   DIWT53_1d(f, f, NP) ;
-  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f[i]) ; } fprintf(stderr,"\n\n");
+  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8.3f ",f[i]) ; } fprintf(stderr,"\n\n");
   
   delta = 1.0f ; start = 1.0; f[0] = start ; f[1] = start + delta ;
   for(i=2 ; i<NP ; i+=2){ delta = delta + delta ; f[i] = f[i-1] + delta ; f[i+1] = f[i] + delta ; }
 
+  fprintf(stderr,"===== initial, transformed, reconstituted =====\n");
   DFWT53_1d(f1, f, NP) ;
-  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f[i]) ; } fprintf(stderr,"\n");
-  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f1[i]) ; } fprintf(stderr,"\n");
+  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8.3f ",f[i]) ; } fprintf(stderr,"\n");
+  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8.3f ",f1[i]) ; } fprintf(stderr,"\n");
   for(i=0 ; i<NP ; i++){ f[i] = -1.0f ; }
   DIWT53_1d(f1, f, NP) ;
-  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f[i]) ; } fprintf(stderr,"\n\n");
+  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8.3f ",f[i]) ; } fprintf(stderr,"\n\n");
 
+  fprintf(stderr,"===== split transform, reconstituted =====\n");
   DFWT53_1d_spliteo_v(f1, (NP+1)/2, f1+(NP+1)/2, NP/2, f) ;
-  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f1[i]) ; } fprintf(stderr,"\n");
+  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8.3f ",f1[i]) ; } fprintf(stderr,"\n");
   DIWT53_1d_spliteo(f1, (NP+1)/2, f1+(NP+1)/2, NP/2, f) ;
-  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f[i]) ; } fprintf(stderr,"\n\n");
+  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8.3f ",f[i]) ; } fprintf(stderr,"\n\n");
 
+  fprintf(stderr,"===== initial, reconstituted(zeroed odd terms) =====\n");
   DFWT53_1d(f1, f, NP) ;
   for(i=3 ; i<NP-2 ; i+=2) f1[i] = 0.0 ;   // zero out odd terms
   DIWT53_1d(f1, f, NP) ;
-  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f1[i]) ; } fprintf(stderr,"\n");
-  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8f ",f[i]) ; } fprintf(stderr,"\n\n=======================\n\n");
+  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8.3f ",f1[i]) ; } fprintf(stderr,"\n");
+  for(i=0 ; i<NP ; i++){ fprintf(stderr,"%8.3f ",f[i]) ; } 
+
+  fprintf(stderr,"\n\n=========== odd number of points ============\n\n");
 
   start = 1.0f; g[0] = start ; delta = 1.0f; g[1] = start + delta ;
 //   for(i=0 ; i<NPP ; i++){ g[i] = i + 1 ; }
   for(i=2 ; i<NP ; i+=2){ delta = delta + delta ; g[i] = g[i-1] + delta ; g[i+1] = g[i] + delta ; }
   g[NPP-1] = g[NPP-2] + delta;
 
-  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8f ",g[i]) ; } fprintf(stderr,"\n");
+  fprintf(stderr,"===== initial, transformed, reconstituted (IN PLACE) =====\n");
+  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8.3f ",g[i]) ; } fprintf(stderr,"\n");
   DFWT53_1d(g, g, NPP) ;
-  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8f ",g[i]) ; } fprintf(stderr,"\n");
+  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8.3f ",g[i]) ; } fprintf(stderr,"\n");
   DIWT53_1d(g, g, NPP) ;
-  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8f ",g[i]) ; } fprintf(stderr,"\n\n");
+  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8.3f ",g[i]) ; } fprintf(stderr,"\n\n");
 
   start = 1.0f; g[0] = start ; delta = 1.0f; g[1] = start + delta ;
   for(i=2 ; i<NP ; i+=2){ delta = delta + delta ; g[i] = g[i-1] + delta ; g[i+1] = g[i] + delta ; }
   g[NPP-1] = g[NPP-2] + delta;
 
+  fprintf(stderr,"===== initial, transformed, reconstituted =====\n");
   DFWT53_1d(g1, g, NPP) ;
-  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8f ",g[i]) ; } fprintf(stderr,"\n");
-  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8f ",g1[i]) ; } fprintf(stderr,"\n");
+  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8.3f ",g[i]) ; } fprintf(stderr,"\n");
+  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8.3f ",g1[i]) ; } fprintf(stderr,"\n");
   for(i=0 ; i<NPP ; i++){ g[i] = -1.0f ; }
   DIWT53_1d(g1, g, NPP) ;
-  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8f ",g[i]) ; } fprintf(stderr,"\n\n");
+  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8.3f ",g[i]) ; } fprintf(stderr,"\n\n");
 
+  fprintf(stderr,"===== vector split transform, reconstituted =====\n");
   DFWT53_1d_spliteo_v(g1, (NPP+1)/2, g1+(NPP+1)/2, NPP/2, g) ;
-  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8f ",g1[i]) ; } fprintf(stderr,"\n");
+  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8.3f ",g1[i]) ; } fprintf(stderr,"\n");
   DIWT53_1d_spliteo(g1, (NPP+1)/2, g1+(NPP+1)/2, NPP/2, g) ;
-  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8f ",g[i]) ; } fprintf(stderr,"\n\n");
+  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8.3f ",g[i]) ; } fprintf(stderr,"\n\n");
 
+  fprintf(stderr,"===== initial, reconstituted(zeroed odd terms) =====\n");
   DFWT53_1d(g1, g, NPP) ;
+  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8.3f ",g[i]) ; } fprintf(stderr,"\n");
   for(i=3 ; i<NPP-2 ; i+=2) g1[i] = 0.0 ;   // zero out odd terms
   DIWT53_1d(g1, g, NPP) ;
-  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8f ",g1[i]) ; } fprintf(stderr,"\n");
-  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8f ",g[i]) ; } fprintf(stderr,"\n");
+  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8.3f ",g1[i]) ; } fprintf(stderr,"\n");
+  for(i=0 ; i<NPP ; i++){ fprintf(stderr,"%8.3f ",g[i]) ; } fprintf(stderr,"\n");
 
   return 0;
 }
