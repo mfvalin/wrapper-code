@@ -96,6 +96,17 @@
 	implicit none
 	include 'f_udunits_2.inc'
 
+	interface
+    subroutine ut_ignore() bind(C,name='ut_ignore')
+    end subroutine ut_ignore
+    subroutine ut_write_to_stderr() bind(C,name='ut_write_to_stderr')
+    end subroutine ut_write_to_stderr
+    subroutine ut_set_error_message_handler(what) bind(C,name='ut_set_error_message_handler')
+      import :: C_FUNPTR
+      type(C_FUNPTR), value :: what
+    end subroutine ut_set_error_message_handler
+  end interface
+
 	interface UD_is_null
 	  module procedure UT_SYSTEM_PTR_is_null
 	  module procedure UT_UNIT_PTR_is_null
