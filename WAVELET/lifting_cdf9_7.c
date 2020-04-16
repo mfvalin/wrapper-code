@@ -175,16 +175,15 @@ void I_CDF97_1D_split_N_even(float *x, float *e, float *o, int n){
 void I_CDF97_1D_inplace_N_even(float *x, int n){
   int i;
   
-  x[1] *= (-S);
-  x[0] = x[0]*Z - 2 * D * x[1];                                     // unscale all, then unupdate even terms #2
-  for (i = 2; i < n; i += 2){ x[i+1] *= (-S); x[i] = x[i]/S - D * (x[i+1] + x[i-1]); }
+  for(i = 0 ; i < n-1 ; i+=2 ) { x[i] *= Z ; x[i+1] *= (-S) ; }
+  x[0] = x[0] - 2 * D * x[1];
+  for (i = 2; i < n; i += 2) x[i] -= D * (x[i+1] + x[i-1]);         // unupdate even terms #2
 
   for (i = 1; i < n - 2; i += 2) x[i] -= C * (x[i-1] + x[i+1]);     // unpredict odd terms #2
   x[n - 1] -= 2 * C * x[n - 2];
   
   x[0] -= 2 * B * x[1];                                             // unupdate even terms #1
   for (i = 2; i < n; i += 2) x[i] -= B * (x[i+1] + x[i-1]);
-  x[n - 1] -= 2 * B * x[n - 2];
   
   for (i = 1; i < n - 2; i += 2)  x[i] -= A * (x[i-1] + x[i+1]);    // unpredict odd terms #1
   x[n - 1] -= 2 * A * x[n - 2];
@@ -203,7 +202,7 @@ void I_CDF97_1D_split_N_odd(float *x, float *e, float *o, int n){
   for(i = 0 ; i < nodd ; i++){ x[i+i] = e[i] * Z ; x[i+i+1] = o[i] * (-S) ; }  // unscale and move to x
   x[n-1] = e[neven-1] * Z;
 
-  x[0] -= 2 * D * x[1];                                             // unupdate even terms #2 and unscale
+  x[0] -= 2 * D * x[1];                                             // unupdate even terms #2
   for (i = 2; i < n - 2; i += 2)  x[i] -= D * (x[i+1] + x[i-1]);
   x[n - 1] -= 2 * D * x[n - 2];
 
@@ -222,11 +221,12 @@ void I_CDF97_1D_split_N_odd(float *x, float *e, float *o, int n){
 void I_CDF97_1D_inplace_N_odd(float *x, int n){
   int i;
   
-  for (i = 1; i < n - 1; i += 2) x[i] *= (-S);                      // unscale odd terms
+  for(i = 0 ; i < n-2 ; i+=2 ) { x[i] *= Z ; x[i+1] *= (-S) ; }        // unscale odd and even terms
+  x[n-1] *= Z;
 
-  x[0] = x[0] * Z - 2 * D * x[1];                                   // unupdate even terms #2 and unscale
-  for (i = 2; i < n - 2; i += 2) x[i] = x[i] * Z - D * (x[i+1] + x[i-1]);
-  x[n - 1] = x[n - 1] * Z - 2 * D * x[n - 2];
+  x[0] -= 2 * D * x[1];
+  for (i = 2; i < n - 2; i += 2) x[i] -= D * (x[i+1] + x[i-1]);     // unupdate even terms #2
+  x[n - 1] -= 2 * D * x[n - 2];
 
   for (i = 1; i < n - 1; i += 2)  x[i] -= C * (x[i-1] + x[i+1]);    // unpredict odd terms #2
 
@@ -261,24 +261,151 @@ void I_CDF97_1D_inplace(float *x, int n){
   }
 }
 
+#define VCONTRIB(DEST,SCALE,SRC1,SRC2,N) { int i; for(i=0 ; i<N ; i++) {DEST[i] += SCALE *(SRC1[i] + SRC2[i]) ; } }
+#define VSCALE(WHAT,FAC,N)  { int i; for(i=0 ; i<N ; i++) {WHAT[i] *= FAC ; } } 
+
+void I_CDF97_2D_inplace(float *x, int ni, int lni, int nj){
+  int neven = (nj+1) >> 1;
+  int nodd = nj >> 1;
+  int j;
+  float *rowd, *rows1, *rows2;
+  int lni2 = lni+lni;
+
+  rowd = x;
+  for(j = 0 ; j < nj ; j++){                 // un scaling pass
+    if(j & 1){    // odd rows
+      VSCALE(rowd,(-S),ni)
+    }else{         // even rows
+      VSCALE(rowd,(Z),ni)
+    }
+    rowd += lni;
+  }
+
+  rowd = x; rows1 = x + lni;                 // unupdate even rows #2
+  VCONTRIB(rowd, (-D), rows1, rows1, ni);    // row 0, first even row
+  rowd += lni2;
+  for(j = 1 ; j < nodd ; j++){
+    rows1 = rowd - lni; rows2 = rowd + lni;
+    VCONTRIB(rowd, (-D), rows1, rows2, ni);
+    rowd += lni2;
+  }
+  if(neven > nodd) { rows1 = rowd - lni ; VCONTRIB(rowd, (-D), rows1, rows1, ni); }  // nj odd, last row is even
+
+  rowd = x + lni;
+  for(j = 0 ; j < neven-1 ; j++){            // un predict odd rows #2
+    rows1 = rowd - lni; rows2 = rowd + lni;
+    VCONTRIB(rowd, (-C), rows1, rows2, ni);
+    rowd += lni2;
+  }
+  if(nodd == neven){rows1 = rowd - lni ; VCONTRIB(rowd, (-C), rows1, rows1, ni); }  // nj even, last row is odd
+
+  rowd = x; rows1 = x + lni;                 // un update even rows #1
+  VCONTRIB(rowd, (-B), rows1, rows1, ni);    // row 0, first even row
+  rowd += lni2;
+  for(j = 1 ; j < nodd ; j++){
+    rows1 = rowd - lni; rows2 = rowd + lni;
+    VCONTRIB(rowd, (-B), rows1, rows2, ni);
+    rowd += lni2;
+  }
+  if(neven > nodd) { rows1 = rowd - lni ; VCONTRIB(rowd, (-B), rows1, rows1, ni); }  // nj odd, last row is even
+
+  // perform the 1D transform on the last pass after row is used (odd row unprediction)
+  rowd = x + lni;
+  for(j = 0 ; j < neven-1 ; j++){            // predict odd rows #1
+    rows1 = rowd - lni; rows2 = rowd + lni;
+    VCONTRIB(rowd, (-A), rows1, rows2, ni);
+    // insert 1D in place ransform for rowd
+    // F_CDF97_1D_inplace(rowd, ni);
+    // insert 1D in place ransform for rows1 (previous odd row)
+    // F_CDF97_1D_inplace(rows1, ni);
+    rowd += lni2;
+  }
+  if(nodd == neven){rows1 = rowd - lni ; VCONTRIB(rowd, (-A), rows1, rows1, ni); }  // nj even, last row is odd
+  // if(nodd == neven) F_CDF97_1D_inplace(rowd, ni);
+  // if(nodd == neven) F_CDF97_1D_inplace(rows1, ni);
+}
+
+void F_CDF97_2D_inplace(float *x, int ni, int lni, int nj){
+  int neven = (nj+1) >> 1;
+  int nodd = nj >> 1;
+  int j;
+  float *rowd, *rows1, *rows2;
+  int lni2 = lni+lni;
+
+  // perform the 1D transform on the first pass before row is used (odd row prediction)
+  rowd = x + lni;
+  // insert 1D in place ransform for row 0
+  // F_CDF97_1D_inplace(x, ni);
+  for(j = 0 ; j < neven-1 ; j++){            // predict odd rows #1
+    // insert 1D in place ransform for rowd
+    // F_CDF97_1D_inplace(rowd, ni);
+    // insert 1D in place ransform for rows2
+    // F_CDF97_1D_inplace(rows2, ni);
+    rows1 = rowd - lni; rows2 = rowd + lni;
+    VCONTRIB(rowd, A, rows1, rows2, ni);
+    rowd += lni2;
+  }
+  // if(nodd == neven) F_CDF97_1D_inplace(rowd, ni);
+  if(nodd == neven){rows1 = rowd - lni ; VCONTRIB(rowd, A, rows1, rows1, ni); }  // nj even, last row is odd
+
+  rowd = x; rows1 = x + lni;                 // update even rows #1
+  VCONTRIB(rowd, B, rows1, rows1, ni);       // row 0, first even row
+  rowd += lni2;
+  for(j = 1 ; j < nodd ; j++){
+    rows1 = rowd - lni; rows2 = rowd + lni;
+    VCONTRIB(rowd, B, rows1, rows2, ni);
+    rowd += lni2;
+  }
+  if(neven > nodd) { rows1 = rowd - lni ; VCONTRIB(rowd, B, rows1, rows1, ni); }  // nj odd, last row is even
+
+  rowd = x + lni;
+  for(j = 0 ; j < neven-1 ; j++){            // predict odd rows #2
+    rows1 = rowd - lni; rows2 = rowd + lni;
+    VCONTRIB(rowd, C, rows1, rows2, ni);
+    rowd += lni2;
+  }
+  if(nodd == neven){rows1 = rowd - lni ; VCONTRIB(rowd, C, rows1, rows1, ni); }  // nj even, last row is odd
+
+  rowd = x; rows1 = x + lni;                 // update even rows #2
+  VCONTRIB(rowd, D, rows1, rows1, ni);       // row 0, first even row
+  rowd += lni2;
+  for(j = 1 ; j < nodd ; j++){
+    rows1 = rowd - lni; rows2 = rowd + lni;
+    VCONTRIB(rowd, D, rows1, rows2, ni);
+    rowd += lni2;
+  }
+  if(neven > nodd) { rows1 = rowd - lni ; VCONTRIB(rowd, D, rows1, rows1, ni); }  // nj odd, last row is even
+
+  rowd = x;
+  for(j = 0 ; j < nj ; j++){                 // scaling pass
+    if(j & 1){    // odd rows
+      VSCALE(rowd,(-Z),ni)
+    }else{         // even rows
+      VSCALE(rowd,(S),ni)
+    }
+    rowd += lni;
+  }
+}
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 
-#define NPTS 15
+#define NPTS 12
 
 int main() {
-  float x[NPTS+1], y[NPTS+1], e[NPTS+1], o[NPTS+1], z[NPTS+1];
+  float x[NPTS+1], y[NPTS+1], e[NPTS+1], o[NPTS+1], z[NPTS+1], d[NPTS+1];
   int i;
 
   // Makes a fancy cubic signal
   for (i=0;i<NPTS;i++) x[i]=5+i+0.4*i*i-0.02*i*i*i;
   for (i=0;i<NPTS;i++) y[i]=x[i];
+  for (i=0;i<NPTS;i++) d[i]=x[i];
   for (i=0;i<NPTS;i++) { e[i] = 0 ; o[i] = 0 ; }
   
   // Prints original sigal x
-//   printf("Original signal:\n");
-//   for (i=0;i<NPTS;i++) printf("x[%2d]=%10f\n",i,x[i]);
+  printf("Original signal:\n");
+  for (i=0;i<NPTS;i++) printf("x[%2d]=%10f\n",i,x[i]);
   printf("\n");
 
   // Do the forward 9/7 transform
@@ -286,20 +413,23 @@ int main() {
   I_CDF97_1D_split(z,e,o,NPTS);
   F_CDF97_1D_inplace(x,NPTS);
   F_CDF97_1D_inplace(y,NPTS);
-  for (i=1;i<NPTS;i+=2) y[i] = (fabs(y[i]) > .01) ? y[i] : 0;
+  F_CDF97_2D_inplace(d, 1, 1, NPTS);
+//   for (i=1;i<NPTS;i+=2) y[i] = (fabs(y[i]) > .01) ? y[i] : 0;
   
   // Prints the wavelet coefficients
   printf("Wavelets coefficients:\n");
-  for (i=0;i<NPTS;i+=2) printf("wc[%2d,%2d]=%10f,%10f,%10f,%10f,%10f,%10f\n",i,i+1,x[i],x[i+1],y[i],y[i+1],e[i>>1],o[i>>1]);
+  for (i=0;i<NPTS;i+=2) printf("wc[%2d,%2d]=%10f,%10f,%10f,%10f,%10f,%10f,%10f,%10f\n",
+                               i,i+1,x[i],x[i+1],y[i],y[i+1],e[i>>1],o[i>>1],d[i],d[i+1]);
   printf("\n");
 
   // Do the inverse 9/7 transform
   I_CDF97_1D_inplace(x,NPTS); 
   I_CDF97_1D_inplace(y,NPTS); 
+  I_CDF97_2D_inplace(d, 1, 1, NPTS);
 
   // Prints the reconstructed signal 
   printf("Reconstructed signal:\n");
-  for (i=0;i<NPTS;i++) printf("xx[%2d]=%10f,%10f,%10f,%10f,%10f\n",i,x[i]-(5+i+0.4*i*i-0.02*i*i*i), y[i]-x[i],(5+i+0.4*i*i-0.02*i*i*i),x[i],z[i]);
+  for (i=0;i<NPTS;i++) printf("xx[%2d]=%10f,%10f,%10f,%10f,%10f,%10f,%10f\n",i,x[i]-(5+i+0.4*i*i-0.02*i*i*i), y[i]-x[i],(5+i+0.4*i*i-0.02*i*i*i),x[i],y[i],z[i],d[i]);
 
 //   x[31] = 0.0;
 //   F_CDF97_1D_inplace(x,31);
