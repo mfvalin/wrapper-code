@@ -12,13 +12,21 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Library General Public License for more details.
  */
-
+#if defined(ORIGINAL)
 #define A    (-1.58615986717275f)
 #define B    (-0.05297864003258f)
 #define C      0.88293362717904f
 #define D      0.44350482244527f
 #define S      1.14960430535816f
 #define Z      0.86986452237446f
+#else
+#define A    (-1.586134342f)
+#define B    (-0.05298011854f)
+#define C      0.8829110762f
+#define D      0.4435068522f
+#define S      1.149604398f
+#define Z      0.869864452f
+#endif
 
 // Cohen-Daubechies-Favreau 9/7 wavelets
 // lifting implementation
