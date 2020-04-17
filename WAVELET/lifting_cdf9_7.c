@@ -270,7 +270,7 @@ void I_CDF97_2D_inplace(float *x, int ni, int lni, int nj){
   int j;
   float *rowd, *rows1, *rows2;
   int lni2 = lni+lni;
-
+#if ! defined(COMBINED)
   rowd = x;
   for(j = 0 ; j < nj ; j++){                 // un scaling pass
     if(j & 1){    // odd rows
@@ -298,7 +298,35 @@ void I_CDF97_2D_inplace(float *x, int ni, int lni, int nj){
     rowd += lni2;
   }
   if(nodd == neven){rows1 = rowd - lni ; VCONTRIB(rowd, (-C), rows1, rows1, ni); }  // nj even, last row is odd
-
+#else
+// combined unscale, unupdate #2, unpredict #2
+  rowd = x; rows1 = x + lni;                 // unupdate even rows #2, unpredict odd rows #2
+  VSCALE(rowd,(Z),ni) ;                      // unscale first even row
+  VSCALE(rows1,(-S),ni) ;                    // unscale first odd row
+  VCONTRIB(rowd, (-D), rows1, rows1, ni);    // row 0, first even row
+  rowd += lni2;
+  for(j = 1 ; j < nodd ; j++){
+    VSCALE(rowd,(Z),ni) ;                    // unscale even row
+    rows1 = rowd - lni; rows2 = rowd + lni;
+    VSCALE(rows2,(-S),ni) ;                  // unscale odd row above
+    VCONTRIB(rowd, (-D), rows1, rows2, ni);  // unupdate even rows
+    rows2 = rowd - lni2;
+    VCONTRIB(rows1, (-C), rowd, rows2, ni);  // unpredict odd row below 
+    rowd += lni2;
+  }
+  if(nodd == neven){                         // last row is odd, unpredict it
+    rows1 = rowd - lni; rowd =  rowd - lni2;
+    VCONTRIB(rows1, (-C), rowd, rowd, ni);
+  }else{                                     // last row is even, unupdate it, then unpredict odd row below
+    VSCALE(rowd,(Z),ni) ;                    // unscale last even row
+    rows1 = rowd - lni;                      // odd row below last even row
+    VCONTRIB(rowd, (-D), rows1, rows1, ni);  // unupdate even row
+    rows2 = rowd - lni2;                     // even row below last odd row
+    VCONTRIB(rows1, (-C), rowd, rows2, ni);
+  }
+  
+#endif
+#if ! defined(COMBINED)
   rowd = x; rows1 = x + lni;                 // un update even rows #1
   VCONTRIB(rowd, (-B), rows1, rows1, ni);    // row 0, first even row
   rowd += lni2;
@@ -311,18 +339,55 @@ void I_CDF97_2D_inplace(float *x, int ni, int lni, int nj){
 
   // perform the 1D transform on the last pass after row is used (odd row unprediction)
   rowd = x + lni;
-  for(j = 0 ; j < neven-1 ; j++){            // predict odd rows #1
+  for(j = 0 ; j < neven-1 ; j++){            // un predict odd rows #1
     rows1 = rowd - lni; rows2 = rowd + lni;
     VCONTRIB(rowd, (-A), rows1, rows2, ni);
     // insert 1D in place ransform for rowd
-    // F_CDF97_1D_inplace(rowd, ni);
+    // I_CDF97_1D_inplace(rowd, ni);
     // insert 1D in place ransform for rows1 (previous odd row)
-    // F_CDF97_1D_inplace(rows1, ni);
+    // I_CDF97_1D_inplace(rows1, ni);
     rowd += lni2;
   }
   if(nodd == neven){rows1 = rowd - lni ; VCONTRIB(rowd, (-A), rows1, rows1, ni); }  // nj even, last row is odd
   // if(nodd == neven) F_CDF97_1D_inplace(rowd, ni);
   // if(nodd == neven) F_CDF97_1D_inplace(rows1, ni);
+#else
+  rowd = x; rows1 = x + lni;                 // un update even rows #1
+  VCONTRIB(rowd, (-B), rows1, rows1, ni);    // row 0, first even row
+printf("unupdate  %p\n",rowd);
+  rowd += lni2;
+  for(j = 1 ; j < nodd ; j++){
+    rows1 = rowd - lni; rows2 = rowd + lni;
+    VCONTRIB(rowd, (-B), rows1, rows2, ni);  // un update even row
+printf("unupdate  %p\n",rowd);
+    rows2 = rowd - lni2;
+    VCONTRIB(rows1, (-A), rowd, rows2, ni);  // unpredict odd row below 
+printf("unpredict %p\n",rows1);
+//     I_CDF97_1D_inplace(rows2, ni);
+printf("unadjust  %p\n",rows2);
+//     I_CDF97_1D_inplace(rows1, ni);
+printf("unadjust  %p\n",rows1);
+    rowd += lni2;
+  }
+  if(nodd == neven){                         // nj even, last row is odd
+    rows1 = rowd - lni; rowd =  rowd - lni2;
+    VCONTRIB(rows1, (-A), rowd, rowd, ni);   // unpredict last odd row
+printf("unpredict %p\n",rows1);
+  }else{                                     // last row is even, unupdate it, then unpredict odd row below
+    rows2 = rowd - lni2;
+    rows1 = rowd - lni;                      // odd row below last even row
+    VCONTRIB(rowd, (-B), rows1, rows1, ni);  // unupdate even row
+printf("unupdate  %p\n",rowd);
+    VCONTRIB(rows1, (-A), rowd, rows2, ni);
+printf("unpredict %p\n",rows1);
+//     I_CDF97_1D_inplace(rows2, ni);
+printf("unadjust  %p\n",rows2);
+  }
+//     I_CDF97_1D_inplace(rows1, ni);
+printf("unadjust  %p\n",rows1);
+//     I_CDF97_1D_inplace(rowd, ni);
+printf("unadjust  %p\n",rowd);
+#endif
 }
 
 void F_CDF97_2D_inplace(float *x, int ni, int lni, int nj){
@@ -332,7 +397,41 @@ void F_CDF97_2D_inplace(float *x, int ni, int lni, int nj){
   float *rowd, *rows1, *rows2;
   int lni2 = lni+lni;
 
-  // perform the 1D transform on the first pass before row is used (odd row prediction)
+// combined pass : 1D transform, predict #1 , update #1
+#if defined(COMBINED)
+  // perform the 1D transform on the first pass before row is used
+  rowd = x + lni ; rows1 = rowd-lni ; rows2 = rowd+lni ; 
+  // F_CDF97_1D_inplace(x, ni);
+  // F_CDF97_1D_inplace(rowd, ni);
+  // F_CDF97_1D_inplace(rows2, ni);
+// printf("adjust^ %p\nadjust^ %p\nadjust^ %p\n",x,rowd,rows2);
+  VCONTRIB(rowd, A, rows1, rows2, ni) ;                                        // predict first odd row
+  VCONTRIB(x, B, rowd, rowd, ni) ;                                             // update first even row
+// printf("predict %p\nupdate  %p\n",rowd,x);
+  rowd += lni2 ;                                                               // next odd row
+  for(j = 1 ; j < neven-1 ; j++){
+    rows1 = rowd-lni ; rows2 = rowd+lni ;
+    // F_CDF97_1D_inplace(rowd, ni);
+    // F_CDF97_1D_inplace(rows2, ni);
+// printf("adjust- %p\nadjust- %p\n",rowd,rows2);
+    VCONTRIB(rowd, A, rows1, rows2, ni);                                       // predict odd row
+    rows2 = rowd-lni2 ; VCONTRIB(rows1, B, rowd, rows2, ni) ;                  // update even row below odd row
+// printf("predict %p\nupdate  %p\n",rowd,rows1);
+    rowd += lni2 ;                                                             // next odd row
+  }
+  rows1 = rowd-lni ;
+  if(nodd == neven){                          // nj even
+//     F_CDF97_1D_inplace(rowd, ni);
+// printf("adjust_ %p\n",rowd);
+    VCONTRIB(rowd, A, rows1, rows1, ni);      // last row is odd, predict it
+// printf("predict  %p\n",rowd);
+    rows2 = rowd-lni2 ; VCONTRIB(rows1, B, rowd, rows2, ni);    // update even row below last odd row
+  }else{                                      // nj odd, 
+    rows1 = rowd-lni ; rowd = rowd - lni2;
+    VCONTRIB(rows1, B, rowd, rowd, ni);    // last row is even, update it
+// printf("update  %p\n",rows1);
+  }
+#else
   rowd = x + lni;
   // insert 1D in place ransform for row 0
   // F_CDF97_1D_inplace(x, ni);
@@ -347,7 +446,6 @@ void F_CDF97_2D_inplace(float *x, int ni, int lni, int nj){
   }
   // if(nodd == neven) F_CDF97_1D_inplace(rowd, ni);
   if(nodd == neven){rows1 = rowd - lni ; VCONTRIB(rowd, A, rows1, rows1, ni); }  // nj even, last row is odd
-
   rowd = x; rows1 = x + lni;                 // update even rows #1
   VCONTRIB(rowd, B, rows1, rows1, ni);       // row 0, first even row
   rowd += lni2;
@@ -357,7 +455,36 @@ void F_CDF97_2D_inplace(float *x, int ni, int lni, int nj){
     rowd += lni2;
   }
   if(neven > nodd) { rows1 = rowd - lni ; VCONTRIB(rowd, B, rows1, rows1, ni); }  // nj odd, last row is even
-
+#endif
+// combined pass : predict #2 , update #2, scaling
+#if defined(COMBINED)
+  rowd = x + lni ; rows1 = rowd-lni ; rows2 = rowd+lni ; 
+  VCONTRIB(rowd, C, rows1, rows2, ni) ;                                        // predict first odd row
+  VCONTRIB(x, D, rowd, rowd, ni) ;                                             // update first even row
+  VSCALE(x,(S),ni);
+  rowd += lni2 ;                                                               // next odd row
+  for(j = 1 ; j < neven-1 ; j++){
+    rows1 = rowd-lni ; rows2 = rowd+lni ;
+    VCONTRIB(rowd, C, rows1, rows2, ni);                                       // predict odd row
+    rows2 = rowd-lni2 ; VCONTRIB(rows1, D, rowd, rows2, ni) ;                  // update even row below odd row
+    VSCALE(rows2,(-Z),ni);
+    VSCALE(rows1,(S),ni);
+    rowd += lni2 ;                                                             // next odd row
+  }
+  rows1 = rowd-lni ;
+  if(nodd == neven){                          // nj even
+    VCONTRIB(rowd, C, rows1, rows1, ni);      // last row is odd, predict it
+    rows2 = rowd-lni2 ; VCONTRIB(rows1, D, rowd, rows2, ni);    // update even row below last odd row
+    VSCALE(rows2,(-Z),ni);
+    VSCALE(rows1,(S),ni);
+    VSCALE(rowd,(-Z),ni);
+  }else{                                      // nj odd, 
+    rows1 = rowd-lni ; rowd = rowd - lni2;
+    VCONTRIB(rows1, D, rowd, rowd, ni);    // last row is even, update it
+    VSCALE(rowd,(-Z),ni);
+    VSCALE(rows1,(S),ni);
+  }
+#else
   rowd = x + lni;
   for(j = 0 ; j < neven-1 ; j++){            // predict odd rows #2
     rows1 = rowd - lni; rows2 = rowd + lni;
@@ -385,13 +512,14 @@ void F_CDF97_2D_inplace(float *x, int ni, int lni, int nj){
     }
     rowd += lni;
   }
+#endif
 }
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 
-#define NPTS 12
+#define NPTS 9
 
 int main() {
   float x[NPTS+1], y[NPTS+1], e[NPTS+1], o[NPTS+1], z[NPTS+1], d[NPTS+1];
