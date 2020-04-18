@@ -243,6 +243,7 @@ void I_CDF97_1D_inplace_N_odd(float *x, int n){
 // e[(n+1)/2]  : even coefficients of the transform (approximation)
 // o[n/2]      : odd coefficients of the transform (detail)
 void I_CDF97_1D_split(float *x, float *e, float *o, int n){
+  if(n < 3) return;   // 3 points minimum
   if(n & 1){
     I_CDF97_1D_split_N_odd(x, e, o, n);
   }else{
@@ -254,6 +255,7 @@ void I_CDF97_1D_split(float *x, float *e, float *o, int n){
 // n           : number of data points (even or odd)
 // x[n]        : input data
 void I_CDF97_1D_inplace(float *x, int n){
+  if(n < 3) return;   // 3 points minimum
   if(n & 1){
     I_CDF97_1D_inplace_N_odd(x, n);
   }else{
@@ -388,6 +390,11 @@ printf("unadjust  %p\n",rows1);
 //     I_CDF97_1D_inplace(rowd, ni);
 printf("unadjust  %p\n",rowd);
 #endif
+  rowd = x;
+  for(j = 0 ; j < nj ; j++){          // temporary last pass for 1D transform
+      I_CDF97_1D_inplace(rowd, ni);
+      row += lni;
+  }
 }
 
 void F_CDF97_2D_inplace(float *x, int ni, int lni, int nj){
@@ -397,6 +404,11 @@ void F_CDF97_2D_inplace(float *x, int ni, int lni, int nj){
   float *rowd, *rows1, *rows2;
   int lni2 = lni+lni;
 
+  rowd = x;
+  for(j = 0 ; j < nj ; j++){          // temporary first pass for 1D transform
+      F_CDF97_1D_inplace(rowd, ni);
+      row += lni;
+  }
 // combined pass : 1D transform, predict #1 , update #1
 #if defined(COMBINED)
   // perform the 1D transform on the first pass before row is used
