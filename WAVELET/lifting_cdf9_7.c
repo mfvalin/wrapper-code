@@ -633,9 +633,7 @@ void I_CDF97_2D_split_inplace(float *x, int ni, int lni, int nj){    // InTc
     VCONTRIB(row2, (-D), rowt, rowt, ni);    // unupdate last even row
     VCONTRIB(rowt, (-C), row1, row2, ni);    // unpredict last odd row
   }
-// printf("even1: "); for(j=0 ; j<neven ; j++) printf("%8.3f ",x[j]); printf("\n");
-// printf("odd1 : "); for(j=0 ; j<neven ; j++) printf("%8.3f ",t[j]); printf("\n");
-  // unupdate #1, unpredict #1
+  // combined unupdate #1, unpredict #1
   rowt = t ;                                 // first temporary odd row
   row1 = x ; row2 = row1 ;                   // first even row
   VCONTRIB(row1, (-B), rowt, rowt, ni);      // unupdate #2 first even row
@@ -652,9 +650,7 @@ void I_CDF97_2D_split_inplace(float *x, int ni, int lni, int nj){    // InTc
     VCONTRIB(row2, (-B), rowt, rowt, ni);    // unupdate even row
     VCONTRIB(rowt, (-A), row1, row2, ni);
   }
-// printf("even2: "); for(j=0 ; j<neven ; j++) printf("%8.3f ",x[j]); printf("\n");
-// printf("odd2 : "); for(j=0 ; j<neven ; j++) printf("%8.3f ",t[j]); printf("\n");
-// printf("all : "); for(j=0 ; j<nj    ; j++) printf("%8.3f ",x[j]); printf("\n");
+  // last pass, 1D split inverse transform (to be eventually combined wit unupdate/unpredict #1)
   rows = x + (nj -1 ) * lni ;                // last row in x
   rowt = t + (nodd - 1) * ni ;               // last odd row in t
   rowd = x + (neven - 1) * lni ;             // last even row in split x
@@ -669,7 +665,6 @@ void I_CDF97_2D_split_inplace(float *x, int ni, int lni, int nj){    // InTc
     rows -= lni;
   }
   I_CDF97_1D_split_inplace(x, ni);           // first even row is in place
-// printf("all : "); for(j=0 ; j<nj    ; j++) printf("%8.3f ",x[j]); printf("\n");
 }
 
 // interface        !InTf
@@ -823,38 +818,27 @@ void F_CDF97_2D_split_inplace(float *x, int ni, int lni, int nj){    // InTc
   int ieven = (ni+1) >> 1;
   int nodd = nj >> 1;
   int i, j;
-  float *rowd, *row0, *rows, *row1, *row2;
+  float *rowd, *row0, *row1, *row2;
   int lni2 = lni+lni;
   float t[(nj*ni) >> 1];
-  float *rowt, *oddrow;;
+  float *rowt, *rowx, *rows, *top ;
 
-  rowd = x;                           // first array row
-  row1 = x;                           // first even row storage
+  top = x + nj * lni ;                // top of array (one row above last, rows must be < top)
+  rowx = x;                           // first even row storage
   rowt = t;                           // first odd row temporary storage
-  F_CDF97_1D_split_inplace(rowd, ni); // split, inplace 1D transform (first even row)
-  for(j = 1 ; j < nj ; j++){          // temporary first pass for 1D transform
-    rowd += lni;                                       // next row
-    if(j & 1) {                       // odd rows, store into temporary array
-      F_CDF97_1D_split(rowd, rowt, rowt + ieven, ni) ; // split 1D transform
-      rowt += ni ;                                     // next split odd row
-    }else{                            // even rows, store at the bottom of the input array
-      row1 += lni;                                     // next split even row
-      F_CDF97_1D_split(rowd, row1, row1 + ieven, ni) ; // split 1D transform
-    }
-  }
-// printf("after 1D pre transform\n");
-// rowt=t+nodd*ni;
-// for(j=nodd ; j>0 ; j--) { rowt -= ni ; for(i=0;i<ni;i++) printf("%8.3f ",rowt[i]) ; printf("\n") ;}
-// rowt=x+neven*lni;
-// for(j=neven ; j>0 ; j--) { rowt -= lni ; for(i=0;i<ni;i++) printf("%8.3f ",rowt[i]) ; printf("\n") ;}
+  // 1 D transform for the first 4 rows
+  rows = x; F_CDF97_1D_split_inplace(rowx, ni); rowx += lni ;  // split, inplace 1D transform (first even row)
+  rows += lni ; if(rows < top) F_CDF97_1D_split(rows, rowt, rowt + ieven, ni) ; rowt += ni ;  // first odd row
+  rows += lni ; if(rows < top) F_CDF97_1D_split(rows, rowx, rowx + ieven, ni) ; rowx += lni ; // next even row
+  rows += lni ; if(rows < top) F_CDF97_1D_split(rows, rowt, rowt + ieven, ni) ; rowt += ni ;  // next odd row
   // combined pass : predict #1 , update #1
-  // perform the 1D transform on the first pass before row is used
+  // perform the 1D transform on on the fly in the first pass before row is needed
   rowd = t ; row1 = x ; row2 = row1 + lni;
-// printf("even: ") ; for(j=0 ; j<neven ; j++) printf("%8.3f ",row1[j]) ; printf("\n");
-// printf("odd : ") ; for(j=0 ; j<nodd ; j++) printf("%8.3f ",rowd[j]) ; printf("\n");
   VCONTRIB(rowd, A, row1, row2, ni) ;         // predict first odd row
   VCONTRIB(row1, B, rowd, rowd, ni) ;         // update first even row
   for(j = 1 ; j < neven-1 ; j++){
+    rows += lni ; if(rows < top) F_CDF97_1D_split(rows, rowx, rowx + ieven, ni) ; rowx += lni ; // next even row
+    rows += lni ; if(rows < top) F_CDF97_1D_split(rows, rowt, rowt + ieven, ni) ; rowt += ni ;  // next odd row
     rowd += ni ;                              // next odd row
     row1 = row2 ; row2 = row1 + lni ;         // next pair of even rows
     VCONTRIB(rowd, A, row1, row2, ni) ;       // predict odd row
@@ -913,6 +897,8 @@ int main() {
   int i, j, k;
   double sum2;
   float quantum;
+  int npts2 = (NPTS+1)/2;
+  int npts4 = (npts2+1)/2;
 
   // Makes a fancy cubic signal
   for (i=0;i<NPTS;i++) x[i]=5+i+0.4*i*i-0.02*i*i*i;
@@ -929,7 +915,10 @@ int main() {
     for (i=0;i<NPTS;i++) printf(" %8.3f",xy[j][i]);
     printf("\n");
   }
-  F_CDF97_2D_split_inplace((float *)xy, NPTS, NPTS, NPTS);
+// void F_CDF97_2D_split_inplace(float *x, int ni, int lni, int nj)
+  F_CDF97_2D_split_inplace((float *)xy, NPTS,  NPTS, NPTS);
+  F_CDF97_2D_split_inplace((float *)xy, npts2, NPTS, npts2);
+  F_CDF97_2D_split_inplace((float *)xy, npts4, NPTS, npts4);
 //   F_CDF97_2D_inplace((float *)xy, NPTS, NPTS, NPTS);
 //   for (j=0;j<NPTS;j++) {
 //     for (i=0;i<NPTS;i++) xy[j][i] = 0;
@@ -941,7 +930,7 @@ int main() {
     for (i=0;i<NPTS;i++) printf(" %8.3f",xy[j][i]);
     printf("\n");
   }
-  quantum = .001;
+  quantum = .025;
   printf("quantum used = %8.3f\n",quantum);
   for (j=0;j<NPTS;j++) {               // quantification pass
     for (i=0;i<NPTS;i++) { k = xy[j][i] / quantum + .5f ; xy[j][i] = k * quantum ; }
@@ -956,7 +945,9 @@ int main() {
 //   for (j=0;j<NPTS;j++) {
 //     for (i=0;i<NPTS;i++) sum2 += xy[j][i]*xy[j][i];
 //   }
-  I_CDF97_2D_split_inplace((float *)xy, NPTS, NPTS, NPTS);
+  I_CDF97_2D_split_inplace((float *)xy, npts4, NPTS, npts4);
+  I_CDF97_2D_split_inplace((float *)xy, npts2, NPTS, npts2);
+  I_CDF97_2D_split_inplace((float *)xy, NPTS,  NPTS, NPTS);
 //   printf("Restored 2D signal:\n");
 //   for (j=NPTS-1;j>=0;j--) {
 //     for (i=0;i<NPTS;i++) printf(" %8.3f",xy[j][i]);
