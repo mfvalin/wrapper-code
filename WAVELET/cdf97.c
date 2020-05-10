@@ -12,7 +12,64 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Library General Public License for more details.
  */
+//****P* librkl/wavelet-transforms
+// Synopsis
+//
+// Cohen-Daubechies-Favreau 9/7 wavelets
+// https://en.wikipedia.org/wiki/Cohen%E2%80%93Daubechies%E2%80%93Feauveau_wavelet
+//
+// this code is using a lifting implementation
+// https://en.wikipedia.org/wiki/Lifting_scheme
+//
+// 1 dimensional transform, "in place", "even/odd split", or "in place with even/odd split"
+//   original data
+//   +--------------------------------------------------------+
+//   |                  N data                                |
+//   +--------------------------------------------------------+
+//
+//   transformed data (in place, no split, even number of data)
+//   +--------------------------------------------------------+
+//   |   N data, even/odd, even/odd, ..... , even/odd         +
+//   +--------------------------------------------------------+
+//
+//   transformed data (in place, no split, odd number of data)
+//   +--------------------------------------------------------+
+//   |   N data, even/odd, even/odd, ..... , even/odd, even   +
+//   +--------------------------------------------------------+
+//
+//   transformed data, in place with even/odd split
+//   +--------------------------------------------------------+
+//   | (N+1)/2 even data            |    (N/2) odd data       |
+//   +--------------------------------------------------------+
+//
+//   original data                     transformed data (2 output arrays)
+//   +------------------------------+  +-------------------+  +------------------+
+//   |             N data           |  | (N+1)/2 even data |  |   N/2 odd data   |
+//   +------------------------------+  +-------------------+  +------------------+
+//
+//   even data are the "approximation" terms ("low frequency" terms)
+//   odd data are the "detail" terms         ("high frequency" terms)
+//
+// 2 dimensional in place with 2 D split
+//   original data                               transformed data (in same array)
+//   +------------------------------------+      +-------------------+----------------+
+//   |                  ^                 |      +                   |                |
+//   |                  |                 |      +   even i/odd j    |  odd i/odd j   |
+//   |                  |                 |      +                   |                |
+//   |                  |                 |      +                   |                |
+//   |                  |                 |      +-------------------+----------------+
+//   |               NJ data              |      +                   |                |
+//   |                  |                 |      +                   |                |
+//   |                  |                 |      +   even i/even j   |  odd i/even j  |
+//   |<----- NI data ---|---------------->|      +                   |                |
+//   |                  v                 |      +                   |                |
+//   +------------------------------------+      +-------------------+----------------+
+//   the process can be applied again to the even/even transformed part to achieve a multi level transform
+//
+//****
+
 #include <stdio.h>
+#include <cdf97.h>
 
 #define A    (-1.586134342f)
 #define B    (-0.0529801185f)
@@ -29,10 +86,6 @@
 //     real(C_FLOAT), dimension(*), intent(OUT) :: e, o     !InTf
 //   end subroutine F_CDF97_1D_split_N_even                 !InTf
 // end interface    !InTf
-
-// Cohen-Daubechies-Favreau 9/7 wavelets
-// lifting implementation
-// in place or  even/odd split 
 
 // Forward DWT transform (analysis)
 // n           : number of data points (even)
@@ -595,11 +648,43 @@ void F_CDF97_2D_split_inplace(float *x, int ni, int lni, int nj){    // InTc
   }
 }
 
-#include <stdio.h>
+// interface        !InTf
+// subroutine I_CDF97_2D_split_inplace_n(x, ni, lni, nj, levels) BIND(C,name='I_CDF97_2D_split_inplace_n') !InTf
+//     import :: C_FLOAT, C_INT                             !InTf
+//     integer, intent(IN), value :: ni, nj, lni, levels    !InTf
+//     real(C_FLOAT), dimension(*), intent(INOUT) :: x      !InTf
+// end subroutine I_CDF97_2D_split_inplace_n                !InTf
+// end interface    !InTf
+
+void I_CDF97_2D_split_inplace_n(float *x, int ni, int lni, int nj, int levels){    // InTc
+  if(levels > 1) {
+    I_CDF97_2D_split_inplace_n(x, (ni+1)/2, lni, (nj+1)/2, levels - 1);
+  }
+  I_CDF97_2D_split_inplace(x, ni, lni, nj);
+}
+
+// interface        !InTf
+// subroutine F_CDF97_2D_split_inplace_n(x, ni, lni, nj, levels) BIND(C,name='F_CDF97_2D_split_inplace_n') !InTf
+//     import :: C_FLOAT, C_INT                             !InTf
+//     integer, intent(IN), value :: ni, nj, lni, levels    !InTf
+//     real(C_FLOAT), dimension(*), intent(INOUT) :: x      !InTf
+// end subroutine F_CDF97_2D_split_inplace_n                !InTf
+// end interface    !InTf
+
+void F_CDF97_2D_split_inplace_n(float *x, int ni, int lni, int nj, int levels){    // InTc
+  F_CDF97_2D_split_inplace(x, ni, lni, nj);
+  if(levels > 1) {
+    F_CDF97_2D_split_inplace_n(x, (ni+1)/2, lni, (nj+1)/2, levels - 1);
+  }
+}
+
+#if defined(SELF_TEST)
 #include <stdlib.h>
 #include <math.h>
 
+#if ! defined(NPTS)
 #define NPTS 16
+#endif
 
 int main() {
   float x[NPTS+1], y[NPTS+1], e[NPTS+1], o[NPTS+1], z[NPTS+1], d[NPTS+1];
@@ -625,9 +710,10 @@ int main() {
     for (i=0;i<NPTS;i++) printf(" %8.3f",xy[j][i]);
     printf("\n");
   }
-  F_CDF97_2D_split_inplace((float *)xy, NPTS,  NPTS, NPTS);
-  F_CDF97_2D_split_inplace((float *)xy, npts2, NPTS, npts2);
-  F_CDF97_2D_split_inplace((float *)xy, npts4, NPTS, npts4);
+  F_CDF97_2D_split_inplace_n((float *)xy, NPTS,  NPTS, NPTS, 3);
+//   F_CDF97_2D_split_inplace((float *)xy, NPTS,  NPTS, NPTS);
+//   F_CDF97_2D_split_inplace((float *)xy, npts2, NPTS, npts2);
+//   F_CDF97_2D_split_inplace((float *)xy, npts4, NPTS, npts4);
   
   printf("Transformed 2D signal (before quantification):\n");
   for (j=NPTS-1;j>=0;j--) {
@@ -639,9 +725,10 @@ int main() {
   for (j=0;j<NPTS;j++) {               // quantification pass
     for (i=0;i<NPTS;i++) { k = xy[j][i] / quantum + .5f ; xy[j][i] = k * quantum ; }
   }
-  I_CDF97_2D_split_inplace((float *)xy, npts4, NPTS, npts4);
-  I_CDF97_2D_split_inplace((float *)xy, npts2, NPTS, npts2);
-  I_CDF97_2D_split_inplace((float *)xy, NPTS,  NPTS, NPTS);
+  I_CDF97_2D_split_inplace_n((float *)xy, NPTS,  NPTS, NPTS, 3);
+//   I_CDF97_2D_split_inplace((float *)xy, npts4, NPTS, npts4);
+//   I_CDF97_2D_split_inplace((float *)xy, npts2, NPTS, npts2);
+//   I_CDF97_2D_split_inplace((float *)xy, NPTS,  NPTS, NPTS);
 //   printf("Restored 2D signal:\n");
 //   for (j=NPTS-1;j>=0;j--) {
 //     for (i=0;i<NPTS;i++) printf(" %8.3f",xy[j][i]);
@@ -654,3 +741,4 @@ int main() {
   }
 
 }
+#endif
