@@ -78,6 +78,16 @@
 #define S      1.149604398f
 #define Z      0.869864452f
 
+//****f* librkl/F_CDF97_1D_split_N_even
+// Synopsis
+//
+// Forward DWT transform (analysis)
+// n           : number of data points (even)
+// x[n]        : input data
+// e[(n+1)/2]  : even coefficients of the transform (approximation)
+// o[(n+1)/2]  : odd coefficients of the transform (detail)
+//
+// FORTRAN interface
 // interface        !InTf
 //   subroutine F_CDF97_1D_split_N_even(x, e, o, n) bind(C,name='F_CDF97_1D_split_N_even')    !InTf
 //     import :: C_FLOAT, C_INT                             !InTf
@@ -86,13 +96,9 @@
 //     real(C_FLOAT), dimension(*), intent(OUT) :: e, o     !InTf
 //   end subroutine F_CDF97_1D_split_N_even                 !InTf
 // end interface    !InTf
-
-// Forward DWT transform (analysis)
-// n           : number of data points (even)
-// x[n]        : input data
-// e[(n+1)/2]  : even coefficients of the transform (approximation)
-// o[(n+1)/2]  : odd coefficients of the transform (detail)
+// ARGUMENTS
 void F_CDF97_1D_split_N_even(float *x, float *e, float *o, int n){    // InTc
+//****
   int i;
   int neven = (n+1) >> 1;
   int nodd  = neven;
@@ -111,6 +117,14 @@ void F_CDF97_1D_split_N_even(float *x, float *e, float *o, int n){    // InTc
   o[nodd-1] *= (-Z);
 }
 
+//****f* librkl/F_CDF97_1D_inplace_N_even
+// Synopsis
+//
+// Forward DWT transform (analysis) (in place, x is overwritten)
+// n           : number of data points (even)
+// x[n]        : input data
+//
+// FORTRAN interface
 // interface        !InTf
 //   subroutine F_CDF97_1D_inplace_N_even(x, e, o, n) bind(C,name='F_CDF97_1D_inplace_N_even')    !InTf
 //     import :: C_FLOAT, C_INT                             !InTf
@@ -118,11 +132,9 @@ void F_CDF97_1D_split_N_even(float *x, float *e, float *o, int n){    // InTc
 //     real(C_FLOAT), dimension(n), intent(INOUT) :: x      !InTf
 //   end subroutine F_CDF97_1D_inplace_N_even               !InTf
 // end interface    !InTf
-
-// Forward DWT transform (analysis) (in place, x is overwritten)
-// n           : number of data points (even)
-// x[n]        : input data
+// ARGUMENTS
 void F_CDF97_1D_inplace_N_even(float *x, int n){    // InTc
+//****
   int i;
   
   for (i = 1; i < n - 2; i += 2) x[i] += A * (x[i-1] + x[i+1]);  // predict odd terms #1
@@ -139,6 +151,16 @@ void F_CDF97_1D_inplace_N_even(float *x, int n){    // InTc
   x[n-1] *= (-Z);                                                // scale last (odd) term
 }
 
+//****f* librkl/F_CDF97_1D_split_N_odd
+// Synopsis
+//
+// Forward DWT transform (analysis)
+// n           : number of data points (even)
+// x[n]        : input data
+// e[(n+1)/2]  : even coefficients of the transform (approximation)
+// o[n/2]      : odd coefficients of the transform (detail)
+//
+// FORTRAN interface
 // interface        !InTf
 //   subroutine F_CDF97_1D_split_N_odd(x, e, o, n) bind(C,name='F_CDF97_1D_split_N_odd')    !InTf
 //     import :: C_FLOAT, C_INT                             !InTf
@@ -147,13 +169,9 @@ void F_CDF97_1D_inplace_N_even(float *x, int n){    // InTc
 //     real(C_FLOAT), dimension(*), intent(OUT) :: e, o     !InTf
 //   end subroutine F_CDF97_1D_split_N_odd                  !InTf
 // end interface    !InTf
-
-// Forward DWT transform (analysis)
-// n           : number of data points (even)
-// x[n]        : input data
-// e[(n+1)/2]  : even coefficients of the transform (approximation)
-// o[n/2]      : odd coefficients of the transform (detail)
+// ARGUMENTS
 void F_CDF97_1D_split_N_odd(float *x, float *e, float *o, int n){    // InTc
+//****
   int i;
   int neven = (n+1) >> 1;
   int nodd  = n >> 1;
@@ -172,6 +190,14 @@ void F_CDF97_1D_split_N_odd(float *x, float *e, float *o, int n){    // InTc
   o[nodd-1] *= (-Z);
 }
 
+//****f* librkl/F_CDF97_1D_inplace_N_odd
+// Synopsis
+//
+// Forward DWT transform  (analysis) (in place, x is overwritten)
+// n           : number of data points (odd)
+// x[n]        : input data
+//
+// FORTRAN interface
 // interface        !InTf
 //   subroutine F_CDF97_1D_inplace_N_odd(x, e, o, n) bind(C,name='F_CDF97_1D_inplace_N_odd')    !InTf
 //     import :: C_FLOAT, C_INT                             !InTf
@@ -179,11 +205,9 @@ void F_CDF97_1D_split_N_odd(float *x, float *e, float *o, int n){    // InTc
 //     real(C_FLOAT), dimension(n), intent(INOUT) :: x      !InTf
 //   end subroutine F_CDF97_1D_inplace_N_odd                !InTf
 // end interface    !InTf
-
-// Forward DWT transform  (analysis) (in place, x is overwritten)
-// n           : number of data points (odd)
-// x[n]        : input data
+// ARGUMENTS
 void F_CDF97_1D_inplace_N_odd(float *x, int n){    // InTc
+//****
   int i;
 
   for (i = 1; i < n - 1; i += 2) x[i] += A * (x[i-1] + x[i+1]);  // predict odd terms #1
@@ -200,6 +224,16 @@ void F_CDF97_1D_inplace_N_odd(float *x, int n){    // InTc
   x[n - 2] *= (-Z);                                             // scale last odd term
   }
   
+//****f* librkl/F_CDF97_1D_split
+// Synopsis
+//
+// Forward DWT transform (analysis)
+// n           : number of data points (even or odd)
+// x[n]        : input data
+// e[(n+1)/2]  : even coefficients of the transform (approximation)
+// o[n/2]      : odd coefficients of the transform (detail)
+//
+// FORTRAN interface
 // interface        !InTf
 //   subroutine F_CDF97_1D_split(x, e, o, n) bind(C,name='F_CDF97_1D_split')    !InTf
 //     import :: C_FLOAT, C_INT                             !InTf
@@ -208,13 +242,9 @@ void F_CDF97_1D_inplace_N_odd(float *x, int n){    // InTc
 //     real(C_FLOAT), dimension(*), intent(OUT) :: e, o     !InTf
 //   end subroutine F_CDF97_1D_split                        !InTf
 // end interface    !InTf
-
-// Forward DWT transform (analysis)
-// n           : number of data points (even or odd)
-// x[n]        : input data
-// e[(n+1)/2]  : even coefficients of the transform (approximation)
-// o[n/2]      : odd coefficients of the transform (detail)
+// ARGUMENTS
 void F_CDF97_1D_split(float *x, float *e, float *o, int n){    // InTc
+//****
   if(n < 3) {
     if(n > 0) e[0] = x[0];
     if(n > 1) o[0] = x[1];
@@ -226,7 +256,15 @@ void F_CDF97_1D_split(float *x, float *e, float *o, int n){    // InTc
     F_CDF97_1D_split_N_even(x, e, o, n);
   }
 }
-  
+
+//****f* librkl/F_CDF97_1D_inplace
+// Synopsis
+//
+// Forward DWT transform  (analysis) (in place, x is overwritten)
+// n           : number of data points (even or odd)
+// x[n]        : input data
+//
+// FORTRAN interface
 // interface        !InTf
 //   subroutine F_CDF97_1D_inplace(x, e, o, n) bind(C,name='F_CDF97_1D_inplace')    !InTf
 //     import :: C_FLOAT, C_INT                             !InTf
@@ -234,11 +272,9 @@ void F_CDF97_1D_split(float *x, float *e, float *o, int n){    // InTc
 //     real(C_FLOAT), dimension(n), intent(INOUT) :: x      !InTf
 //   end subroutine F_CDF97_1D_inplace                      !InTf
 // end interface    !InTf
-  
-// Forward DWT transform  (analysis) (in place, x is overwritten)
-// n           : number of data points (even or odd)
-// x[n]        : input data
+// ARGUMENTS
 void F_CDF97_1D_inplace(float *x, int n){    // InTc
+//****
   if(n < 3) return;
   if(n & 1){
     F_CDF97_1D_inplace_N_odd(x, n);
@@ -247,6 +283,14 @@ void F_CDF97_1D_inplace(float *x, int n){    // InTc
   }
 }
   
+//****f* librkl/F_CDF97_1D_split_inplace
+// Synopsis
+//  
+// Forward DWT transform  (analysis) (in place, x is overwritten)
+// n           : number of data points (even or odd)
+// x[n]        : input data
+//
+// FORTRAN interface
 // interface        !InTf
 //   subroutine F_CDF97_1D_split_inplace(x, e, o, n) bind(C,name='F_CDF97_1D_split_inplace')    !InTf
 //     import :: C_FLOAT, C_INT                             !InTf
@@ -254,11 +298,9 @@ void F_CDF97_1D_inplace(float *x, int n){    // InTc
 //     real(C_FLOAT), dimension(n), intent(INOUT) :: x      !InTf
 //   end subroutine F_CDF97_1D_split_inplace                      !InTf
 // end interface    !InTf
-  
-// Forward DWT transform  (analysis) (in place, x is overwritten)
-// n           : number of data points (even or odd)
-// x[n]        : input data
+// ARGUMENTS
 void F_CDF97_1D_split_inplace(float *x, int n){    // InTc
+//****
   int i;
   int neven = (n+1) >> 1;
   int lasteven = neven - 1;
@@ -285,6 +327,16 @@ void F_CDF97_1D_split_inplace(float *x, int n){    // InTc
   for (i = 0; i < nodd; i ++) x[neven+i] = (-Z) * odd[i] ;             // scale odd terms
 }
 
+//****f* librkl/I_CDF97_1D_split_N_even
+// Synopsis
+//
+// Inverse DWT transform (synthesis)
+// n           : number of data points (even)
+// x[n]        : input data
+// e[(n+1)/2]  : even coefficients of the transform (approximation)
+// o[(n+1)/2]  : odd coefficients of the transform (detail)
+//  
+// FORTRAN interface
 // interface        !InTf
 //   subroutine I_CDF97_1D_split_N_even(x, e, o, n) bind(C,name='I_CDF97_1D_split_N_even')    !InTf
 //     import :: C_FLOAT, C_INT                             !InTf
@@ -293,13 +345,9 @@ void F_CDF97_1D_split_inplace(float *x, int n){    // InTc
 //     real(C_FLOAT), dimension(*), intent(IN) :: e, o      !InTf
 //   end subroutine I_CDF97_1D_split_N_even                 !InTf
 // end interface    !InTf
-
-// Inverse DWT transform (synthesis)
-// n           : number of data points (even)
-// x[n]        : input data
-// e[(n+1)/2]  : even coefficients of the transform (approximation)
-// o[(n+1)/2]  : odd coefficients of the transform (detail)
+// ARGUMENTS
 void I_CDF97_1D_split_N_even(float *x, float *e, float *o, int n){    // InTc
+//****
   int i;
   int neven = (n+1) >> 1;
   int nodd  = neven;
@@ -319,6 +367,14 @@ void I_CDF97_1D_split_N_even(float *x, float *e, float *o, int n){    // InTc
   x[n - 1] -= 2 * A * x[n - 2];
 }
 
+//****f* librkl/I_CDF97_1D_inplace_N_even
+// Synopsis
+//
+// Inverse DWT transform (synthesis) (in place, x is overwritten)
+// n           : number of data points (even)
+// x[n]        : input data
+//  
+// FORTRAN interface
 // interface        !InTf
 //   subroutine I_CDF97_1D_inplace_N_even(x, e, o, n) bind(C,name='I_CDF97_1D_inplace_N_even')    !InTf
 //     import :: C_FLOAT, C_INT                             !InTf
@@ -326,11 +382,9 @@ void I_CDF97_1D_split_N_even(float *x, float *e, float *o, int n){    // InTc
 //     real(C_FLOAT), dimension(n), intent(INOUT) :: x      !InTf
 //   end subroutine I_CDF97_1D_inplace_N_even               !InTf
 // end interface    !InTf
-
-// Inverse DWT transform (synthesis) (in place, x is overwritten)
-// n           : number of data points (even)
-// x[n]        : input data
+// ARGUMENTS
 void I_CDF97_1D_inplace_N_even(float *x, int n){    // InTc
+//****
   int i;
   
   for(i = 0 ; i < n-1 ; i+=2 ) { x[i] *= Z ; x[i+1] *= (-S) ; }     // unscale
@@ -347,6 +401,16 @@ void I_CDF97_1D_inplace_N_even(float *x, int n){    // InTc
   x[n - 1] -= 2 * A * x[n - 2];
 }
 
+//****f* librkl/I_CDF97_1D_split_N_odd
+// Synopsis
+//
+// Inverse DWT transform (synthesis)
+// n           : number of data points (odd)
+// x[n]        : input data
+// e[(n+1)/2]  : even coefficients of the transform (approximation)
+// o[n/2]      : odd coefficients of the transform (detail)
+//  
+// FORTRAN interface
 // interface        !InTf
 //   subroutine I_CDF97_1D_split_N_odd(x, e, o, n) bind(C,name='I_CDF97_1D_split_N_odd')    !InTf
 //     import :: C_FLOAT, C_INT                             !InTf
@@ -355,13 +419,9 @@ void I_CDF97_1D_inplace_N_even(float *x, int n){    // InTc
 //     real(C_FLOAT), dimension(*), intent(IN) :: e, o      !InTf
 //   end subroutine I_CDF97_1D_split_N_odd                  !InTf
 // end interface    !InTf
-
-// Inverse DWT transform (synthesis)
-// n           : number of data points (odd)
-// x[n]        : input data
-// e[(n+1)/2]  : even coefficients of the transform (approximation)
-// o[n/2]      : odd coefficients of the transform (detail)
+// ARGUMENTS
 void I_CDF97_1D_split_N_odd(float *x, float *e, float *o, int n){    // InTc
+//****
   int i;
   int neven = (n+1) >> 1;
   int nodd  = n >> 1;
@@ -382,6 +442,14 @@ void I_CDF97_1D_split_N_odd(float *x, float *e, float *o, int n){    // InTc
   for (i = 1; i < n - 1; i += 2) x[i] -= A * (x[i-1] + x[i+1]);     // unpredict odd terms #1  
 }
 
+//****f* librkl/I_CDF97_1D_inplace_N_odd
+// Synopsis
+//
+// Inverse DWT transform (synthesis) (in place, x is overwritten)
+// n           : number of data points (odd)
+// x[n]        : input data
+//  
+// FORTRAN interface
 // interface        !InTf
 //   subroutine I_CDF97_1D_inplace_N_odd(x, e, o, n) bind(C,name='I_CDF97_1D_inplace_N_odd')    !InTf
 //     import :: C_FLOAT, C_INT                             !InTf
@@ -389,11 +457,9 @@ void I_CDF97_1D_split_N_odd(float *x, float *e, float *o, int n){    // InTc
 //     real(C_FLOAT), dimension(n), intent(INOUT) :: x      !InTf
 //   end subroutine I_CDF97_1D_inplace_N_odd                !InTf
 // end interface    !InTf
-
-// Inverse DWT transform (synthesis) (in place, x is overwritten)
-// n           : number of data points (odd)
-// x[n]        : input data
+// ARGUMENTS
 void I_CDF97_1D_inplace_N_odd(float *x, int n){    // InTc
+//****
   int i;
   
   for(i = 0 ; i < n-2 ; i+=2 ) { x[i] *= Z ; x[i+1] *= (-S) ; }        // unscale odd and even terms
@@ -412,6 +478,16 @@ void I_CDF97_1D_inplace_N_odd(float *x, int n){    // InTc
   for (i = 1; i < n - 1; i += 2) x[i] -= A * (x[i-1] + x[i+1]);     // unpredict odd terms #1
 }
 
+//****f* librkl/I_CDF97_1D_split
+// Synopsis
+//
+// Inverse DWT transform (synthesis)
+// n           : number of data points (even or odd)
+// x[n]        : input data
+// e[(n+1)/2]  : even coefficients of the transform (approximation)
+// o[n/2]      : odd coefficients of the transform (detail)
+//  
+// FORTRAN interface
 // interface        !InTf
 //   subroutine I_CDF97_1D_split(x, e, o, n) bind(C,name='I_CDF97_1D_split')    !InTf
 //     import :: C_FLOAT, C_INT                             !InTf
@@ -420,13 +496,9 @@ void I_CDF97_1D_inplace_N_odd(float *x, int n){    // InTc
 //     real(C_FLOAT), dimension(*), intent(IN) :: e, o      !InTf
 //   end subroutine I_CDF97_1D_split                        !InTf
 // end interface    !InTf
-
-// Inverse DWT transform (synthesis)
-// n           : number of data points (even or odd)
-// x[n]        : input data
-// e[(n+1)/2]  : even coefficients of the transform (approximation)
-// o[n/2]      : odd coefficients of the transform (detail)
+// ARGUMENTS
 void I_CDF97_1D_split(float *x, float *e, float *o, int n){    // InTc
+//****
   if(n < 3) {   // 3 points minimum
     if(n > 0) x[0] = e[0] ;
     if(n > 1) x[1] = o[0] ;
@@ -439,6 +511,14 @@ void I_CDF97_1D_split(float *x, float *e, float *o, int n){    // InTc
   }
 }
 
+//****f* librkl/I_CDF97_1D_split_inplace
+// Synopsis
+//
+// Inverse DWT transform (synthesis) (in place, x is overwritten)
+// n           : number of data points (even or odd)
+// x[n]        : input data
+//  
+// FORTRAN interface
 // interface        !InTf
 //   subroutine I_CDF97_1D_split_inplace(x, e, o, n) bind(C,name='I_CDF97_1D_split_inplace')    !InTf
 //     import :: C_FLOAT, C_INT                             !InTf
@@ -446,11 +526,9 @@ void I_CDF97_1D_split(float *x, float *e, float *o, int n){    // InTc
 //     real(C_FLOAT), dimension(n), intent(INOUT) :: x      !InTf
 //   end subroutine I_CDF97_1D_split_inplace                      !InTf
 // end interface    !InTf
-
-// Inverse DWT transform (synthesis) (in place, x is overwritten)
-// n           : number of data points (even or odd)
-// x[n]        : input data
+// ARGUMENTS
 void I_CDF97_1D_split_inplace(float *x, int n){    // InTc
+//****
   int i;
   int neven = (n+1) >> 1;
   int nodd  = n >> 1;
@@ -468,6 +546,14 @@ void I_CDF97_1D_split_inplace(float *x, int n){    // InTc
   }
 }
 
+//****f* librkl/I_CDF97_1D_inplace
+// Synopsis
+//
+// Inverse DWT transform (synthesis) (in place, x is overwritten)
+// n           : number of data points (even or odd)
+// x[n]        : input data
+//  
+// FORTRAN interface
 // interface        !InTf
 //   subroutine I_CDF97_1D_inplace(x, e, o, n) bind(C,name='I_CDF97_1D_inplace')    !InTf
 //     import :: C_FLOAT, C_INT                             !InTf
@@ -475,11 +561,9 @@ void I_CDF97_1D_split_inplace(float *x, int n){    // InTc
 //     real(C_FLOAT), dimension(n), intent(INOUT) :: x      !InTf
 //   end subroutine I_CDF97_1D_inplace                      !InTf
 // end interface    !InTf
-
-// Inverse DWT transform (synthesis) (in place, x is overwritten)
-// n           : number of data points (even or odd)
-// x[n]        : input data
+// ARGUMENTS
 void I_CDF97_1D_inplace(float *x, int n){    // InTc
+//****
   if(n < 3) return;   // 3 points minimum
   if(n & 1){
     I_CDF97_1D_inplace_N_odd(x, n);
@@ -493,6 +577,17 @@ void I_CDF97_1D_inplace(float *x, int n){    // InTc
 #define VSCALE2(WHERE,WHAT,FAC,N)  { int i; for(i=0 ; i<N ; i++) {WHERE[i] = WHAT[i] *FAC ; } } 
 
 
+//****f* librkl/I_CDF97_2D_split_inplace
+// Synopsis
+//
+// Inverse DWT transform (synthesis) (in place, x is overwritten)
+// ni     : number of point in rows
+// nj     : number of points in columns
+// lni    : storage length of rows
+// x[nj][lni]  [C]        array to transform
+// x(lni,lnj)  [Fortran]  array to transform
+//
+// FORTRAN interface
 // interface        !InTf
 // subroutine I_CDF97_2D_split_inplace(x, ni, lni, nj) BIND(C,name='I_CDF97_2D_split_inplace') !InTf
 //     import :: C_FLOAT, C_INT                             !InTf
@@ -500,8 +595,10 @@ void I_CDF97_1D_inplace(float *x, int n){    // InTc
 //     real(C_FLOAT), dimension(*), intent(INOUT) :: x      !InTf
 // end subroutine I_CDF97_2D_split_inplace                        !InTf
 // end interface    !InTf
-
+//
+// ARGUMENTS
 void I_CDF97_2D_split_inplace(float *x, int ni, int lni, int nj){    // InTc
+//****
   int neven = (nj+1) >> 1;
   int ieven = (ni+1) >> 1;
   int nodd = nj >> 1;
@@ -568,6 +665,17 @@ void I_CDF97_2D_split_inplace(float *x, int ni, int lni, int nj){    // InTc
   I_CDF97_1D_split_inplace(x, ni);           // first even row is in place
 }
 
+//****f* librkl/F_CDF97_2D_split_inplace
+// Synopsis
+//  
+// Forward DWT transform (analysis) (in place, x is overwritten)
+// ni     : number of point in rows
+// nj     : number of points in columns
+// lni    : storage length of rows
+// x[nj][lni]  [C]        array to transform
+// x(lni,lnj)  [Fortran]  array to transform
+//
+// FORTRAN interface
 // interface        !InTf
 // subroutine F_CDF97_2D_split_inplace(x, ni, lni, nj) BIND(C,name='F_CDF97_2D_split_inplace') !InTf
 //     import :: C_FLOAT, C_INT                             !InTf
@@ -575,8 +683,10 @@ void I_CDF97_2D_split_inplace(float *x, int ni, int lni, int nj){    // InTc
 //     real(C_FLOAT), dimension(*), intent(INOUT) :: x      !InTf
 // end subroutine F_CDF97_2D_split_inplace                  !InTf
 // end interface    !InTf
-
+//
+// ARGUMENTS
 void F_CDF97_2D_split_inplace(float *x, int ni, int lni, int nj){    // InTc
+//****
   int neven = (nj+1) >> 1;
   int ieven = (ni+1) >> 1;
   int nodd = nj >> 1;
@@ -648,6 +758,18 @@ void F_CDF97_2D_split_inplace(float *x, int ni, int lni, int nj){    // InTc
   }
 }
 
+//****f* librkl/I_CDF97_2D_split_inplace_n
+// Synopsis
+//  
+// Inverse DWT transform (synthesis) (in place, x is overwritten)
+// ni     : number of point in rows
+// nj     : number of points in columns
+// lni    : storage length of rows
+// levels : number of recursive transforms
+// x[nj][lni]  [C]        array to transform
+// x(lni,lnj)  [Fortran]  array to transform
+//
+// FORTRAN interface
 // interface        !InTf
 // subroutine I_CDF97_2D_split_inplace_n(x, ni, lni, nj, levels) BIND(C,name='I_CDF97_2D_split_inplace_n') !InTf
 //     import :: C_FLOAT, C_INT                             !InTf
@@ -655,14 +777,28 @@ void F_CDF97_2D_split_inplace(float *x, int ni, int lni, int nj){    // InTc
 //     real(C_FLOAT), dimension(*), intent(INOUT) :: x      !InTf
 // end subroutine I_CDF97_2D_split_inplace_n                !InTf
 // end interface    !InTf
-
+//
+// ARGUMENTS
 void I_CDF97_2D_split_inplace_n(float *x, int ni, int lni, int nj, int levels){    // InTc
+//****
   if(levels > 1) {
     I_CDF97_2D_split_inplace_n(x, (ni+1)/2, lni, (nj+1)/2, levels - 1);
   }
   I_CDF97_2D_split_inplace(x, ni, lni, nj);
 }
 
+//****f* librkl/F_CDF97_2D_split_inplace_n
+// Synopsis
+//  
+// Forward DWT transform (analysis) (in place, x is overwritten)
+// ni     : number of point in rows
+// nj     : number of points in columns
+// lni    : storage length of rows
+// levels : number of recursive transforms
+// x[nj][lni]  [C]        array to transform
+// x(lni,lnj)  [Fortran]  array to transform
+//
+// FORTRAN interface
 // interface        !InTf
 // subroutine F_CDF97_2D_split_inplace_n(x, ni, lni, nj, levels) BIND(C,name='F_CDF97_2D_split_inplace_n') !InTf
 //     import :: C_FLOAT, C_INT                             !InTf
@@ -670,8 +806,10 @@ void I_CDF97_2D_split_inplace_n(float *x, int ni, int lni, int nj, int levels){ 
 //     real(C_FLOAT), dimension(*), intent(INOUT) :: x      !InTf
 // end subroutine F_CDF97_2D_split_inplace_n                !InTf
 // end interface    !InTf
-
+//
+// ARGUMENTS
 void F_CDF97_2D_split_inplace_n(float *x, int ni, int lni, int nj, int levels){    // InTc
+//****
   F_CDF97_2D_split_inplace(x, ni, lni, nj);
   if(levels > 1) {
     F_CDF97_2D_split_inplace_n(x, (ni+1)/2, lni, (nj+1)/2, levels - 1);
