@@ -12,6 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Library General Public License for more details.
  */
+#if 0
 //****P* librkl/wavelet-transforms
 // Synopsis
 //
@@ -66,7 +67,50 @@
 //   +------------------------------------+      +-------------------+----------------+
 //   the process can be applied again to the even/even transformed part to achieve a multi level transform
 //
+// EXAMPLES
+program test_cdf
+  use ISO_C_BINDING
+  implicit none
+#define FORTRAN_SOURCE
+#include <cdf97.h>
+#include <cdf53.h>
+#if ! defined(NPTS)
+#define NPTS 15
+#endif
+  real, dimension(NPTS,NPTS) :: x
+  integer, dimension(NPTS,NPTS) :: xi
+  integer :: i, j
+  real :: quantum = .05
+
+  do j = 1, NPTS
+  do i = 1, NPTS
+    x(i,j) = (3+i+0.4*i*i-0.02*i*i*i) * (3+i+0.4*j*j-0.02*j*j*j)
+  enddo
+  enddo
+  print *,'Original'
+  do j = NPTS, 1, -1
+    print 1,x(:,j)
+  enddo
+  call F_CDF97_2D_split_inplace_n(x, NPTS,  NPTS, NPTS, 3)
+  print *,'After transform'
+  do j = NPTS, 1, -1
+    print 1,x(:,j)
+  enddo
+  xi = x / quantum + .5
+  x = xi * quantum
+  call I_CDF97_2D_split_inplace_n(x, NPTS,  NPTS, NPTS, 3)
+  print 2,'Error after quantification by',quantum
+  do j = 1, NPTS
+    do i = 1, NPTS
+      x(i,j) = x(i,j) - (3+i+0.4*i*i-0.02*i*i*i) * (3+i+0.4*j*j-0.02*j*j*j)
+    enddo
+    print 1,x(:,j)
+    enddo
+1 format(20F9.2)
+2 format(A,F9.3)
+end
 //****
+#endif
 
 #include <stdio.h>
 #include <cdf97.h>
