@@ -883,29 +883,29 @@ int main() {
   for (i=0;i<NPTS;i++) { e[i] = 0 ; o[i] = 0 ; }
   for (j=0;j<NPTS;j++) {
   // Makes a fancy cubic signal
-    for (i=0;i<NPTS;i++) xy[j][i] = (3+i+0.4*i*i-0.02*i*i*i) * (3+i+0.4*j*j-0.02*j*j*j);
+    for (i=0;i<NPTS;i++) xy[j][i] = (3+i+0.4f*i*i-0.02f*i*i*i) * (3+j+0.4f*j*j-0.02f*j*j*j);
 //     for (i=0;i<NPTS;i++) xy[j][i] = sqrt((i-7.45)*(i-7.45) + (j-7.55)*(j-7.55));
   }
   
   printf("Original 2D signal:\n");
   for (j=NPTS-1;j>=0;j--) {
-    for (i=0;i<NPTS;i++) printf(" %8.3f",xy[j][i]);
+    for (i=0;i<NPTS;i++) printf(" %8.2f",xy[j][i]);
     printf("\n");
   }
   F_CDF97_2D_split_inplace_n((float *)xy, NPTS,  NPTS, NPTS, 3);
 //   F_CDF97_2D_split_inplace((float *)xy, NPTS,  NPTS, NPTS);
 //   F_CDF97_2D_split_inplace((float *)xy, npts2, NPTS, npts2);
 //   F_CDF97_2D_split_inplace((float *)xy, npts4, NPTS, npts4);
-  
-  printf("Transformed 2D signal (before quantification):\n");
-  for (j=NPTS-1;j>=0;j--) {
-    for (i=0;i<NPTS;i++) printf(" %8.3f",xy[j][i]);
-    printf("\n");
-  }
-  quantum = .025;
-  printf("quantum used = %8.3f\n",quantum);
+  quantum = .05f;
+//   printf("quantum used = %8.2f\n",quantum);
   for (j=0;j<NPTS;j++) {               // quantification pass
     for (i=0;i<NPTS;i++) { k = xy[j][i] / quantum + .5f ; xy[j][i] = k * quantum ; }
+  }
+  
+  printf("Transformed 2D signal (after quantification by %8.2f):\n",quantum);
+  for (j=NPTS-1;j>=0;j--) {
+    for (i=0;i<NPTS;i++) printf(" %8.2f",xy[j][i]);
+    printf("\n");
   }
   I_CDF97_2D_split_inplace_n((float *)xy, NPTS,  NPTS, NPTS, 3);
 //   I_CDF97_2D_split_inplace((float *)xy, npts4, NPTS, npts4);
@@ -918,7 +918,7 @@ int main() {
 //   }
   printf("Restored 2D signal error:\n");
   for (j=NPTS-1;j>=0;j--) {
-    for (i=0;i<NPTS;i++) printf(" %8.3f",xy[j][i] - ((3+i+0.4*i*i-0.02*i*i*i) * (3+i+0.4*j*j-0.02*j*j*j)));
+    for (i=0;i<NPTS;i++) printf(" %8.2f",xy[j][i] - ((3+i+0.4f*i*i-0.02f*i*i*i) * (3+j+0.4f*j*j-0.02f*j*j*j)));
     printf("\n");
   }
 
