@@ -1,18 +1,33 @@
 program test_dl
   use ISO_C_BINDING
   implicit none
+  
+  integer, parameter :: RTLD_LAZY = 1
+  integer, parameter :: RTLD_NOW = 2
+  integer, parameter :: RTLD_GLOBAL = 256
+  integer, parameter :: RTLD_LOCAL = 0
   interface
-    function c_dlopen(name) result(handle) BIND(C,name='cdlopen')
-      import C_INT, C_CHAR, C_PTR
-      character(C_CHAR), dimension(*), intent(IN) :: name
-      type(C_PTR) :: handle
-    end function c_dlopen
-    function c_dlsym(handle,name) result(fptr) BIND(C,name='dlsym')
-      import C_CHAR, C_PTR, c_FUNPTR
-      type(C_PTR), value, intent(IN) :: handle
-      character(C_CHAR), dimension(*), intent(IN) :: name
-      type(C_FUNPTR) :: fptr
-    end function c_dlsym
+  function c_dlopen(path, flags) result(handle) bind(C,name='dlopen')
+    import :: C_INT, C_PTR, C_CHAR
+    integer(C_INT), intent(IN),    value :: flags
+    character(C_CHAR), dimension(*), intent(IN) :: path
+    type(C_PTR) :: handle
+  end function c_dlopen
+  function c_dlsym(handle, name) result(address) bind(C,name='dlsym')
+    import :: C_PTR, C_CHAR, C_FUNPTR
+    type(C_PTR), intent(IN),    value :: handle
+    character(C_CHAR), dimension(*), intent(IN) :: name
+    type(C_FUNPTR) :: address
+  end function c_dlsym
+  function c_dlclose(handle) result(ok) bind(C,name='dlclose')
+    import :: C_INT, C_PTR
+    type(C_PTR), intent(IN),    value :: handle
+    integer(C_INT) :: ok
+  end function c_dlclose
+  function c_dlerror() result(cstring) bind(C,name='dlerror')
+    import :: C_PTR
+    type(C_PTR) :: cstring
+  end function c_dlerror
   end interface
   abstract interface
     function procval(arg) result(val)
@@ -28,9 +43,9 @@ program test_dl
   procedure(procval), pointer :: fptrval => NULL()
   integer(C_INT) :: temp
 
-  handle1 = c_dlopen(C_CHAR_'libdyn_c.so'//C_NULL_CHAR)
+  handle1 = c_dlopen(C_CHAR_'libdyn_c.so'//C_NULL_CHAR, RTLD_LAZY)
   if(.not. c_associated(handle1)) then
-    print *,'ERROR: handle1 is NULL'
+    print *,'ERROR: handle1 is NULL, libdyn_c.so not found'
     stop
   endif
   fptr1 = c_dlsym(handle1,C_CHAR_'by_adr'//C_NULL_CHAR)
@@ -44,9 +59,9 @@ program test_dl
   call C_F_PROCPOINTER(fptr2,fptrval)
   temp = fptrval(123)
 
-  handle2 = c_dlopen(C_CHAR_'libdyn_f90.so'//C_NULL_CHAR)
+  handle2 = c_dlopen(C_CHAR_'libdyn_f90.so'//C_NULL_CHAR, RTLD_LAZY)
   if(.not. c_associated(handle2)) then
-    print *,'ERROR: handle2 is NULL'
+    print *,'ERROR: handle2 is NULL, libdyn_f90.so not found'
     stop
   endif
   fptr1 = c_dlsym(handle2,C_CHAR_'by_adr'//C_NULL_CHAR)

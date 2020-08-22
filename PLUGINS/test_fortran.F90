@@ -1,9 +1,14 @@
 program test_plugin
   use ISO_C_BINDING
   implicit none
-#define __FORTRAN_CODE__
-#include <plugins.h>
-
+  include 'plugins.inc'
+  interface
+    function c_strlen(string) result(length) BIND(C,name='strlen')
+      import C_SIZE_T, C_PTR
+      type(C_PTR), value :: string
+      integer(C_SIZE_T) :: length
+    end function c_strlen
+  end interface
   type(C_FUNPTR) :: fptr1, fptr2                  ! C pointer to function
 
   procedure(procadr) , pointer :: fpl1 => NULL()  ! pointer to generic integer function with one integer argument
