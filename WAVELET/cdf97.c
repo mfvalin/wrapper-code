@@ -20,7 +20,7 @@
 // https://en.wikipedia.org/wiki/Cohen%E2%80%93Daubechies%E2%80%93Feauveau_wavelet
 //
 // this code is using a lifting implementation
-// https://en.wikipedia.org/wiki/Lifting_scheme
+// http://en.wikipedia.org/wiki/Lifting_scheme
 //
 // 1 dimensional transform, "in place", "even/odd split", or "in place with even/odd split"
 //   original data
