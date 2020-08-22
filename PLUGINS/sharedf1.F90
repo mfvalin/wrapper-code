@@ -45,11 +45,12 @@ end
 module interop
   use ISO_C_BINDING
   implicit none
+  save
 ! start of user adjusted code
 #define MAX_NAMES 4
 #define MAX_NAME_LENGTH 10
 ! end of user adjusted code
-  type(C_PTR), dimension(MAX_NAMES+1), save, target, BIND(C,name='entry_list') :: name_table
+  type(C_PTR), dimension(MAX_NAMES+1), BIND(C,name='entry_list') :: name_table
   character(len=1), dimension(MAX_NAME_LENGTH+1,MAX_NAMES), save, target :: names
   integer, save :: nargs
   contains

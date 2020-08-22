@@ -53,7 +53,7 @@ program test_plugin
       ilen = int( c_strlen(entry_ptr) )
       longstr = ""
       longstr(1:ilen) = transfer(name(1:ilen),longstr)
-     print 100,'entry ',ival,' = ',plugin_function(handle1,name),trim(longstr)
+     print 100,'entry ',ival,' = ',transfer(plugin_function(handle1,name),1_8),trim(longstr)
 100   format(A,I3,A,Z16.16,2X,A)
     enddo
     call c_f_procpointer(fptr1,fpl1)      ! make Fortran function pointer from C function pointer

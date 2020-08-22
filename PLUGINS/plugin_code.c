@@ -208,7 +208,7 @@ const char* Plugin_function_name(const void *h, int ordinal)  //InTc
 
   if(ordinal<1 || ordinal>p->nentries) return(NULL);  // out of range for this plugin
 
-  return((const const char*)p->symbol[ordinal-1]);           // address of list of names
+  return((const char*)p->symbol[ordinal-1]);           // address of list of names
 }
 //----------------------------------------------------------------------------------------
 //
