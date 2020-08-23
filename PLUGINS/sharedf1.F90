@@ -4,37 +4,47 @@
 ! BIND(C,name=...) mandatory to make sure names match etry pooint names
 !
 ! beginning of routines in plugin
-integer function  fn1(arg) BIND(C,name='name1f')
-integer, intent(IN) :: arg
-print *,'fortran name1 =',arg
+integer(C_INT) function  fn1(arg) BIND(C,name='name1f')
+use ISO_C_BINDING
+implicit none
+integer(C_INT), intent(IN) :: arg
+print *,'fortran name1f.1 =',arg
 fn1 = arg
 return
 end
 
-integer function  fn2(arg) BIND(C,name='name2f')
-integer, intent(IN) :: arg
-print *,'fortran name2 =',arg
+integer(C_INT) function  fn2(arg) BIND(C,name='name2f')
+use ISO_C_BINDING
+implicit none
+integer(C_INT), intent(IN) :: arg
+print *,'fortran name2f.1 =',arg
 fn2 = arg
 return
 end
 
-integer function  fn3(arg) BIND(C,name='name3f')
-integer, intent(IN) :: arg
-print *,'fortran name3f =',arg
+integer(C_INT) function  fn3(arg) BIND(C,name='name3f')
+use ISO_C_BINDING
+implicit none
+integer(C_INT), intent(IN) :: arg
+print *,'fortran name3f.1 =',arg
 fn3 = arg
 return
 end
 
-integer function  fn4(arg) BIND(C,name='name4f')
-integer, intent(IN) :: arg
-print *,'fortran name4f =',arg
+integer(C_INT) function  fn4(arg) BIND(C,name='name4f')
+use ISO_C_BINDING
+implicit none
+integer(C_INT), intent(IN) :: arg
+print *,'fortran name4f.1 =',arg
 fn4 = arg
 return
 end
 
-integer function  fn5(arg) BIND(C,name='unadvertised')  ! unadvertised entry, call by value
-integer, intent(IN), value :: arg
-print *,'fortran unadvertised =',arg
+integer(C_INT) function  fn5(arg) BIND(C,name='unadvertised')  ! unadvertised entry, call by value
+use ISO_C_BINDING
+implicit none
+integer(C_INT), intent(IN), value :: arg
+print *,'fortran unadvertised.1 =',arg
 fn5 = arg
 return
 end
@@ -51,8 +61,8 @@ module interop
 #define MAX_NAME_LENGTH 10
 ! end of user adjusted code
   type(C_PTR), dimension(MAX_NAMES+1), BIND(C,name='entry_list') :: name_table
-  character(len=1), dimension(MAX_NAME_LENGTH+1,MAX_NAMES), save, target :: names
-  integer, save :: nargs
+  character(len=1), dimension(MAX_NAME_LENGTH+1,MAX_NAMES), target :: names
+  integer :: nargs
   contains
   subroutine insert_in_name_table(name)  ! add name to name table and neme pointers
     use ISO_C_BINDING

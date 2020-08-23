@@ -11,17 +11,16 @@ program test_plugin
   end interface
   type(C_FUNPTR) :: fptr1, fptr2                  ! C pointer to function
 
-  procedure(procadr) , pointer :: fpl1 => NULL()  ! pointer to generic integer function with one integer argument
-
   procedure(procval) , pointer :: fpl2 => NULL()  ! pointer to integer function with one value integer argument
-
-  abstract interface                              ! abstract interface needed fot pointer to function
-    integer function procval(arg)
+  abstract interface                              ! abstract interface needed for pointer to function
+    integer function procval(arg)                 ! with argument passed by value
       integer, intent(IN), value :: arg
     end function procval
   end interface
+
+  procedure(procadr) , pointer :: fpl1 => NULL()  ! pointer to generic integer function with one integer argument
   abstract interface                              ! abstract interface needed for pointer to function
-    integer function procadr(arg)
+    integer function procadr(arg)                 ! with argument passed by address
       integer, intent(IN) :: arg
     end function procadr
   end interface
@@ -32,14 +31,13 @@ program test_plugin
   type(C_PTR) :: entry_ptr
   character(len=128) :: longstr
 
-  call set_plugin_diag(1)
-! handle1 = load_plugin( transfer('libsharedf1.so'//C_NULL_CHAR,name) )  ! with transfer
+  call set_plugin_diag(1)                                               ! set verbose diagnostics
   handle1 = load_plugin(C_CHAR_'libsharedf1.so'//C_NULL_CHAR)           ! load handle1 (with constant retyping)
-  ival = unload_plugin(handle1);                                             ! unload handle1  (slot 0)
+  ival    = unload_plugin(handle1);                                     ! unload handle1  (slot 0)
 
   handle2 = load_plugin( C_CHAR_'libshared2.so'//C_NULL_CHAR)           ! load handle2    (slot 0)
   handle1 = load_plugin(C_CHAR_'libsharedf1.so'//C_NULL_CHAR)           ! load handle1    (slot 1)
-  ival = unload_plugin(handle2);                                             ! unload handle2  (slot 0)
+  ival    = unload_plugin(handle2);                                     ! unload handle2  (slot 0)
 
   print *,'looking up name4f in libsharedf1.so'
   fptr1 = plugin_function(handle1, transfer('name4f'//C_NULL_CHAR,name) )  ! good name
@@ -73,7 +71,7 @@ program test_plugin
   if(.not. c_associated(fptr2)) then
     print *,'Name_2 not found (expected)'
   else
-    print *, 'This should not print'
+    print *, 'ERROR: This should not print'
   endif
 
   handle2 = load_plugin( C_CHAR_'libshared2.so'//C_NULL_CHAR )           ! load handle2    (slot 0)

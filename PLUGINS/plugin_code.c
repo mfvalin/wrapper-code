@@ -51,7 +51,7 @@ int Unload_plugin(void *h)  //InTc
 {
   plugin *p = (plugin *) h;
   if(p == NULL) return(-1) ; // bad handle
-  if( (p - plugin_table) >= last_plugin) return(-1);  // out of table
+  if( (p - plugin_table) >= last_plugin) return(-1);  // beyond table end
 
   if(p->addr) free(p->addr);           // free address table if allocated
   p->addr = NULL;
@@ -95,7 +95,7 @@ void Set_plugin_diag(int diag)  //InTc
 //
 //  the rules for finding "lib" are the rules followed by dlopen (see: man dlopen)
 //
-void *Load_plugin(const char *lib, int diag)  //InTc
+void *Load_plugin(const char *lib)  //InTc
 {
   const char **temp;
   int nsym;
@@ -104,7 +104,6 @@ void *Load_plugin(const char *lib, int diag)  //InTc
   fnptr func_nb;
   int slot ;
 
-  verbose = diag;
   for (slot=0 ; slot < MAX_PLUGINS ; slot++){
     if(plugin_table[slot].name == NULL) break;  // free slot
   }
@@ -113,53 +112,46 @@ void *Load_plugin(const char *lib, int diag)  //InTc
     return(NULL);   // table is full
   }
 
-  p = &plugin_table[slot];
+  p = &plugin_table[slot];                      // use free slot just found
+  if(verbose) fprintf(stderr,"\nINFO: attempting to load shared object %s (slot %d/%d)\n",lib,slot+1,MAX_PLUGINS);
   p->ordinal = slot;
+  p->name    = NULL;
+  p->symbol  = NULL;
+  p->nentries= 0;
+  p->addr    = NULL;
+  p->handle = dlopen(lib,RTLD_LAZY);
 
-  p->name = (char *)malloc(strlen(lib)+1);
-  strncpy(p->name, lib, strlen(lib)+1);
-  if(verbose) fprintf(stderr,"\nINFO: attempting to load plugin %s (slot %d)\n",p->name,slot);
-  p->handle = dlopen(p->name,RTLD_LAZY);
   if( p->handle == NULL ) {
-    fprintf(stderr,"ERROR: load plugin failed for %s\n",p->name);
-    free(p->name);
-    p->name = NULL;
+    fprintf(stderr,"ERROR: load failed for %s\n",lib);
     return(NULL);
   }
+  p->name = (char *)malloc(strlen(lib)+1);      // only allocate p->name if load successful
+  strncpy(p->name, lib, strlen(lib)+1);         // copy name
 
-  func_nb = dlsym(p->handle,"get_symbol_number");         // provide get_symbol_number (may initialize entry_list) (optional)
-  temp = (const char **)dlsym(p->handle,"entry_list");    // provide **entry_list  (mandatory for plugin, absent in regular shared object)
   nsym = 0;
-  if(func_nb) nsym = (*func_nb)();                        // optional function (mainly for Fortran usage)
-
-  if( (temp == NULL) && (func_nb == NULL)) {
-    if(verbose) fprintf(stderr,"WARNING: no function table found in plugin %s\n",p->name);
-    dlclose(p->handle);     // nothing useful, close
-    free(p->name);
-    p->name = NULL;
-    return(NULL);
+  func_nb = dlsym(p->handle,"get_symbol_number");     // get_symbol_number found ?
+  if(func_nb == NULL){                                // optional function (mainly for Fortran plugin usage)
+    if(verbose) fprintf(stderr,"INFO: get_symbol_number not found\n");
+  }else{
+    nsym = (*func_nb)(); 
   }
 
-  if(nsym==0){
+  temp = (const char **)dlsym(p->handle,"entry_list");    // entry_list  (mandatory for plugin, absent in regular shared object)
+  if(temp == NULL){
+    if(verbose) fprintf(stderr,"INFO: entry_list not found\n");
+  }
+  if(nsym==0 && temp != NULL){                            // count names in list if get_symbol_number not found
     nsym = 0 ; while(temp[nsym]) nsym++;
   }
 
-  if (nsym == 0) {
-    if(verbose) fprintf(stderr,"WARNING: no functions advertised in plugin %s\n",p->name);
-    dlclose(p->handle);     // nothing useful, close
-    free(p->name);
-    p->name = NULL;
-    return(NULL);     // no useful entry points found
-  }
-
-  p->symbol = temp;                                       // symbol table is at address of symbol entry_list
-  p->nentries = nsym;
-  if(verbose) fprintf(stderr,"INFO: %d functions advertised in plugin %s\n",p->nentries,p->name);
-  p->addr = (void *)malloc(nsym*sizeof(void *));   // allocate address table
+  p->symbol   = temp;                                     // symbol table is at address of symbol entry_list
+  p->nentries = nsym;                                     // number of entries advertised
+  if(verbose) fprintf(stderr,"INFO: %d functions advertised in %s %s\n",p->nentries,nsym ? "plugin" : "shared object",p->name);
+  if(nsym > 0) p->addr = (void *)malloc(nsym*sizeof(void *));   // allocate address table if necessary
   if(slot >= last_plugin) last_plugin = slot + 1;
 
-  for(i=0 ; i<nsym ; i++){
-    p->addr[i] =  dlsym(p->handle,p->symbol[i]);   // fill address table
+  for(i=0 ; i<nsym ; i++){                                // fill address table if advertised symbol list is present
+    p->addr[i] =  dlsym(p->handle,p->symbol[i]);
     if(verbose) fprintf(stderr,"INFO:   %p %s\n",p->addr[i],p->symbol[i]);
   }
   return(p);
@@ -177,13 +169,15 @@ void *Load_plugin(const char *lib, int diag)  //InTc
 //
 //  function return :  number of symbols advertised in the shared object, 0 if error
 //
-int Plugin_n_functions(const void *h)      //InTc how many functions are defined in this plugin
+int Plugin_n_functions(const void *h)      //InTc how many functions are advertised in this plugin
 {
   plugin *p = (plugin *) h;
-  if(p == NULL) return(0) ; // bad handle
-  if( (p - plugin_table) >= last_plugin) return(0);  // out of table
 
-  return(p->nentries);           // address of list of names
+  if(p == NULL) return(0) ;                // bad handle
+
+  if( (p - plugin_table) >= last_plugin) return(0);  // beyond table end
+
+  return(p->nentries);                     // number of advertised names
 }
 //----------------------------------------------------------------------------------------
 //   function Plugin_function_name(handle,ordinal) result(string) BIND(C,name='Plugin_function_name')  !InTf!
@@ -203,12 +197,14 @@ int Plugin_n_functions(const void *h)      //InTc how many functions are defined
 const char* Plugin_function_name(const void *h, int ordinal)  //InTc
 {
   plugin *p = (plugin *) h;
+
   if(p == NULL) return(NULL) ; // bad handle
-  if( (p - plugin_table) >= last_plugin) return(NULL);  // out of plugin table
 
-  if(ordinal<1 || ordinal>p->nentries) return(NULL);  // out of range for this plugin
+  if( (p - plugin_table) >= last_plugin) return(NULL);    // out of plugin table
 
-  return((const char*)p->symbol[ordinal-1]);           // address of list of names
+  if(ordinal < 1 || ordinal > p->nentries || p->symbol == NULL) return(NULL);  // out of range or no symbols
+
+  return((const char*)p->symbol[ordinal-1]);              // address of list of names
 }
 //----------------------------------------------------------------------------------------
 //
@@ -216,15 +212,17 @@ const char* Plugin_function_name(const void *h, int ordinal)  //InTc
 //
 //  p : handle obtained from Load_plugin
 //
-//  function return : pointer to the list of names (char**)
+//  function return : pointer to the list of names (char**) or NULL if none available
 //
 const char* *Plugin_function_names(const void *h)  //InTc
 {
   plugin *p = (plugin *) h;
-  if(p == NULL) return(NULL) ; // bad handle
-  if( (p - plugin_table) >= last_plugin) return(NULL);  // out of table
 
-  return((const char* *)p->symbol);           // address of list of names
+  if(p == NULL) return(NULL) ;                          // bad handle
+
+  if( (p - plugin_table) >= last_plugin) return(NULL);  // beyond table end
+
+  return((const char* *)p->symbol);                     // address of list of names (can be NULL)
 }
 //----------------------------------------------------------------------------------------
 //   function Plugin_function(handle,fname) result(faddress) BIND(C,name='Plugin_function')  !InTf!
@@ -261,7 +259,7 @@ void *Plugin_function(const void *h, const char *name)  //InTc
     return(NULL);   // nothing found
   }
 
-  if( (p - plugin_table) >= last_plugin) return(NULL);  // out of table
+  if( (p - plugin_table) >= last_plugin) return(NULL);  // beyond table end
   // if no entries because there was no entry_list symbol, dlsym will be called directly
   for(i=0 ; i<p->nentries ; i++){
     if(strcmp(name, p->symbol[i]) == 0) return(p->addr[i]) ;
