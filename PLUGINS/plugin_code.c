@@ -136,15 +136,15 @@ void *Load_plugin(const char *lib)  //InTc
     nsym = (*func_nb)(); 
   }
 
-  temp = (const char **)dlsym(p->handle,"entry_list");    // entry_list  (mandatory for plugin, absent in regular shared object)
+  temp = (const char **)dlsym(p->handle,"EntryList_");    // EntryList_  (mandatory for plugin, absent in regular shared object)
   if(temp == NULL){
-    if(verbose) fprintf(stderr,"INFO: entry_list not found\n");
+    if(verbose) fprintf(stderr,"INFO: EntryList_ not found\n");
   }
   if(nsym==0 && temp != NULL){                            // count names in list if get_symbol_number not found
     nsym = 0 ; while(temp[nsym]) nsym++;
   }
 
-  p->symbol   = temp;                                     // symbol table is at address of symbol entry_list
+  p->symbol   = temp;                                     // symbol table is at address of symbol EntryList_
   p->nentries = nsym;                                     // number of entries advertised
   if(verbose) fprintf(stderr,"INFO: %d functions advertised in %s %s\n",p->nentries,nsym ? "plugin" : "shared object",p->name);
   if(nsym > 0) p->addr = (void *)malloc(nsym*sizeof(void *));   // allocate address table if necessary
@@ -252,7 +252,7 @@ void *Plugin_function(const void *h, const char *name)  //InTc
       for(i=0 ; i<p->nentries ; i++){
         if(strcmp(name, p->symbol[i]) == 0) return(p->addr[i]) ;
       }
-      // no entries because there was no entry_list symbol or unadvertized symbol, try dlsym
+      // no entries because there was no EntryList_ symbol or unadvertized symbol, try dlsym
       faddr = dlsym(p->handle,name) ;
       if(faddr != NULL) return (faddr) ;
     }
@@ -260,7 +260,7 @@ void *Plugin_function(const void *h, const char *name)  //InTc
   }
 
   if( (p - plugin_table) >= last_plugin) return(NULL);  // beyond table end
-  // if no entries because there was no entry_list symbol, dlsym will be called directly
+  // if no entries because there was no EntryList_ symbol, dlsym will be called directly
   for(i=0 ; i<p->nentries ; i++){
     if(strcmp(name, p->symbol[i]) == 0) return(p->addr[i]) ;
   }

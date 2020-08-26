@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
-char *entry_list[4] = { "name1","name2","name3",NULL} ;
+char *EntryList_[4] = { "name1","name2","name3",NULL} ;
 
 int name1(int arg){
 printf("C name1.1: %d\n",arg);

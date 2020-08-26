@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-char *entry_list[4] = { "Name_1","Name_2","Name_3",NULL} ;   // fully static method
+char *EntryList_[4] = { "Name_1","Name_2","Name_3",NULL} ;   // fully static method
 
 int Name_1(int arg){
 printf("C Name_1.2: %d\n",arg);

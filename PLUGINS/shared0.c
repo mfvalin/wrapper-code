@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-char *entry_list[1] = {NULL} ;  // empty entry list
+char *EntryList_[1] = {NULL} ;  // empty entry list
 
 int name1(int arg){
 printf("C name1.0: %d\n",arg);

@@ -46,7 +46,7 @@ test_c:	test_c.c plugin_code.o libs
 	$(CC) $(CFLAGS) -I. -o $@ $< plugin_code.o -ldl -Wl,-rpath,.
 
 test_dl_f: test_dl.F90 libs
-	$(FC) $(FFLAGS) -ldl '-Wl,-rpath,.' -o $@ $<
+	$(FC) $(FFLAGS) '-Wl,-rpath,.' -o $@ $< -ldl
 
 test_fortran:	test_fortran.F90 plugin_code.o libs
 	$(FC) $(FFLAGS) -I. -o $@ $< plugin_code.o -ldl -Wl,-rpath,.
