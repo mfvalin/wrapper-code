@@ -1,4 +1,4 @@
-//  RMNLIB - useful routines for C and FORTRAN programming
+//  RMNLIB - useful routines for C and Fortran programming
 //  Copyright (C) 2020  Environnement Canada
 // 
 //  This is free software; you can redistribute it and/or
@@ -10,6 +10,167 @@
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of
 //  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 //  Lesser General Public License for more details.
+#if 0
+//****p* libplugin/plugins
+// Synopsis
+// Fortran anc C callable package to use dynamic libraries (shared objects) at runtime
+//
+// a "plugin" is a dynamic library (shared object) that contains some special elements
+// 
+// step 0: declaration
+//         Fortran :
+//           USE ISO_C_BINDING
+//           include 'plugins.inc'
+//         C:
+//           #include <plugins.h>
+// 
+// step 1: Load a dynamic library (shared object)
+//         Fortran :
+//           type(C_PTR) :: handle
+//           handle = load_plugin("my_library_name.so")
+//         C :
+//           void *handle;
+//           handle = load_plugin("my_library_name.so");
+// 
+// step 2: Get number of advertised entry points in dynamic library
+//         Fortran:
+//           integer(C_INT) :: nsym
+//           nsym = plugin_n_functions(handle)
+//         C:
+//           int nsym = plugin_n_functions(handle);
+// 
+// step 3: Get the name of advertised entry point n
+//         Fortran:
+//           type(C_PTR) :: string
+//           integer(C_INT) :: n
+//           string = plugin_function_name(handle,n)
+//         C:
+//           int n;
+//           char *string = plugin_function_name(handle,n);
+// 
+// step 4: Get address of entry point by name and call it
+//         Fortran:
+//           type(C_FUNPTR) :: faddress
+//           character(C_CHAR), dimension(*) :: name
+//           procedure(xxx), pointer :: fptr
+//           faddress = plugin_function(handle,name)
+//           call c_f_procpointer(faddress,fptr)
+//           call fptr(...arguments...)
+//         C:
+//           void *faddress;
+//           char *name;
+//           faddress = plugin_function(handle,name);
+//           .. = (*faddress)(...arguments...);
+// 
+// step n: unload plugin
+//         Fortran:
+//           integer(C_INT) :: status
+//           status = unload_plugin(handle)
+//         C:
+//           int status = unload_plugin(handle);
+// 
+// other : set diagnostics verbosity
+//         Fortran:
+//           integer(C_INT) :: verbose
+//           call set_plugin_diag(verbose)
+//         C:
+//           int verbose;
+//           set_plugin_diag(verbose);
+// 
+// NOTES:
+//   the presence of entry point "EntryList_" is mandatory in a "plugin", it is
+//   a NULL pointer terminated list of pointers to NULL terminated strings
+//   providing the names of the advertised entry points in the plugin
+//   (see examples below)
+// 
+//   function "get_symbol_number" is optional and may be used to get the
+//   number of values in "EntryList_" (see Fortran)
+//
+//   if neither "EntryList_" nor "get_symbol_number" is present, plugin_n_functions
+//   will return 0, and the user must then known in advance the names available 
+//   before calling "plugin_function"
+// 
+// EXAMPLES
+// ----------------------- Example of C plugin -----------------------
+// c_compiler -shared -fpic -o libxxx.so xxx.c
+// 
+// #include <stdio.h>
+// #include <string.h>
+// 
+// char *EntryList_[4] = { "name1","name2",NULL} ;
+// 
+// int name1(int arg){
+// printf("name1: %d\n",arg);
+// return(arg);
+// }
+// 
+// int name2(int arg){
+// printf("name2: %d\n",arg);
+// return(arg);
+// }
+// 
+// int get_symbol_number(){  // function to get number of symbols, optional
+//   return(2);
+// }
+// 
+// ----------------------- Example of Fortran plugin -----------------------
+//               ( needs a little more extra code than C )
+// fortran_compiler -shared -fpic -o libxxx.so xxx.F90
+// 
+// integer function  fn1(arg) BIND(C,name='name1f')
+// integer, intent(IN) :: arg
+// print *,'Fortran name1 =',arg
+// fn1 = arg
+// return
+// end
+// 
+// integer function  fn2(arg) BIND(C,name='name2f')
+// integer, intent(IN) :: arg
+// print *,'Fortran name2 =',arg
+// fn2 = arg
+// return
+// end
+// !
+// ! what follows is boiler plate code
+// ! to be adjusted by user : MAX_NAMES, MAX_NAME_LENGTH, calls to insert_in_name_table in subroutine symbols
+// module interop
+//   use ISO_C_BINDING
+//   implicit none
+// ! start of user adjusted code
+// #define MAX_NAMES 2
+// #define MAX_NAME_LENGTH 8
+// ! end of user adjusted code
+//   type(C_PTR), dimension(MAX_NAMES+1), save, target, BIND(C,name='EntryList_') :: name_table
+//   character(len=1), dimension(MAX_NAME_LENGTH+1,MAX_NAMES), save, target :: names
+//   integer, save :: nargs
+//   contains
+//   subroutine insert_in_name_table(name)  ! add name to name table and name pointers
+//     use ISO_C_BINDING
+//     implicit none
+//     character(len=*) :: name
+//     integer :: l
+//     l = len(trim(name)) + 1
+//     nargs = nargs + 1
+//     names(1:l,nargs) = transfer(trim(name)//achar(0) , names, l)
+//     name_table(nargs) = C_LOC(names(1,nargs))
+//     return
+//   end subroutine insert_in_name_table
+//   function symbols() bind(C,name='get_symbol_number') result(number)
+//     use ISO_C_BINDING
+//     implicit none
+//     integer(C_INT) :: number
+//     nargs = 0
+// ! start of user adjusted code
+//     call insert_in_name_table('name1f')
+//     call insert_in_name_table('name2f')
+// ! end of user adjusted code
+//     number = nargs   ! return number of arguments
+//     return
+//   end function symbols
+// end module interop
+// 
+//****
+#endif
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -21,12 +182,12 @@
 typedef int (*fnptr)();             // pointer to function
 
 typedef struct {
-  void *handle;       // blind pointer to plugin(library) handle (from dlopen)
-  char *name;         // pointer to plugin(library) name
-  const char* *symbol;    // pointer to list of symbol names (from plugin) (NULL if no such list)
-  fnptr *addr;        // list of functions addresses (function names in symbol) (from dlsym) (NULL if no such list)
-  int nentries;       // number of functions advertised in plugin (size of symbol table/address list)
-  int ordinal;        // index in plugin table
+  void *handle;        // blind pointer to plugin(library) handle (from dlopen)
+  char *name;          // pointer to plugin(library) name
+  const char* *symbol; // pointer to list of symbol names (from plugin) (NULL if no such list)
+  fnptr *addr;         // list of functions addresses (function names in symbol) (from dlsym) (NULL if no such list)
+  int nentries;        // number of functions advertised in plugin (size of symbol table/address list)
+  int ordinal;         // index in plugin table
 } plugin;
 
 #define MAX_PLUGINS 256
@@ -36,20 +197,25 @@ static int verbose = 0;
 
 // interface   !InTf!
 //----------------------------------------------------------------------------------------
+//****f* libplugin/Unload_plugin
+// Synopsis
+// unload a plugin library
+//
+// Fortran interface
 //   function Unload_plugin(handle) result(status) BIND(C,name='Unload_plugin') !InTf!
 //     import :: C_INT, C_PTR                                                   !InTf!
 //     integer(C_INT) :: status                                                 !InTf!
-//     type(C_PTR), value :: handle                                             !InTf!
+//     type(C_PTR), intent(IN), value :: handle                                 !InTf!
 //   end function Unload_plugin                                                 !InTf!
 //
-// unload a plugin library
-//
-//  h  : handle obtained from Load_plugin
+//  handle          : handle obtained from Load_plugin
 //  function return : 0 if no error, -1 if there was an error
 //
-int Unload_plugin(void *h)  //InTc
+// ARGUMENTS
+int Unload_plugin(void *handle)  //InTc
+//****
 {
-  plugin *p = (plugin *) h;
+  plugin *p = (plugin *) handle;
   if(p == NULL) return(-1) ; // bad handle
   if( (p - plugin_table) >= last_plugin) return(-1);  // beyond table end
 
@@ -67,35 +233,48 @@ int Unload_plugin(void *h)  //InTc
 }
 
 //----------------------------------------------------------------------------------------
+//****f* libplugin/Set_plugin_diag
+// Synopsis
+// set diagnostic verbosity level
+//
+// Fortran interface
 //   subroutine Set_plugin_diag(level) BIND(C,name='Set_plugin_diag')  !InTf!
 //     import C_INT                                                    !InTf!
 //     integer(C_INT), value :: level                                  !InTf!
 //   end subroutine Set_plugin_diag                                    !InTf!
-// set diagnostic verbosity level
+//
+// diag  : diagnotic verbosity level
 // 0 = silent
 // 1 = verbose
-// there is no return
+// there is no return value
+//
+// ARGUMENTS
 void Set_plugin_diag(int diag)  //InTc
+//****
 {
   verbose = diag;
 }
 //----------------------------------------------------------------------------------------
-//   function Load_plugin(plugin_name) result(handle) BIND(C,name='Load_plugin')  !InTf!
-//     import :: C_CHAR, C_INT, C_PTR                                             !InTf!
-//     character(C_CHAR), dimension(*), intent(IN) :: plugin_name                 !InTf!
-//     type(C_PTR) :: handle                                                      !InTf!
-//   end function Load_plugin                                                     !InTf!
-//
+//****f* libplugin/Load_plugin
+// Synopsis
 //  load a plugin (shared object)
 //
-//  lib     : character string, name of shared object
-//  verbose : int, if non zero some diagnostics are printed
+// Fortran interface
+//   function Load_plugin(lib) result(handle) BIND(C,name='Load_plugin')  !InTf!
+//     import :: C_CHAR, C_INT, C_PTR                                     !InTf!
+//     character(C_CHAR), dimension(*), intent(IN) :: lib                 !InTf!
+//     type(C_PTR) :: handle                                              !InTf!
+//   end function Load_plugin                                             !InTf!
 //
-//  function return :  handle (pointer to a plugin structure)
+//  lib     : character string, name of shared object
+//
+//  function return :  handle (blind pointer to a plugin structure)
 //
 //  the rules for finding "lib" are the rules followed by dlopen (see: man dlopen)
 //
+// ARGUMENTS
 void *Load_plugin(const char *lib)  //InTc
+//****
 {
   const char **temp;
   int nsym;
@@ -157,21 +336,26 @@ void *Load_plugin(const char *lib)  //InTc
   return(p);
 }
 //----------------------------------------------------------------------------------------
+//****f* libplugin/Plugin_n_functions
+// Synopsis
+//  find number of functions in a given plugin
+//
+// Fortran interface
 //   function Plugin_n_functions(handle) result(number) BIND(C,name='Plugin_n_functions')  !InTf!
 //     import :: C_PTR, C_INT                                                              !InTf!
-//     type(C_PTR), value :: handle                                                        !InTf!
+//     type(C_PTR), intent(IN), value :: handle                                            !InTf!
 //     integer(C_INT) :: number                                                            !InTf!
 //   end function Plugin_n_functions                                                       !InTf!
 //
-//  find number of functions in a given plugin
-//
-//  h  : handle obtained from Load_plugin
+//  handle          : handle obtained from Load_plugin
 //
 //  function return :  number of symbols advertised in the shared object, 0 if error
 //
-int Plugin_n_functions(const void *h)      //InTc how many functions are advertised in this plugin
+// ARGUMENTS
+int Plugin_n_functions(const void *handle)      //InTc how many functions are advertised in this plugin
+//****
 {
-  plugin *p = (plugin *) h;
+  plugin *p = (plugin *) handle;
 
   if(p == NULL) return(0) ;                // bad handle
 
@@ -180,23 +364,28 @@ int Plugin_n_functions(const void *h)      //InTc how many functions are adverti
   return(p->nentries);                     // number of advertised names
 }
 //----------------------------------------------------------------------------------------
+//****f* libplugin/Plugin_function_name
+// Synopsis
+// get name of entry number ordinal from plugin entry name table
+//
+// Fortran interface
 //   function Plugin_function_name(handle,ordinal) result(string) BIND(C,name='Plugin_function_name')  !InTf!
 //     import :: C_PTR, C_INT                                                                          !InTf!
-//     type(C_PTR), value :: handle                                                                    !InTf!
+//     type(C_PTR), intent(IN), value :: handle                                                        !InTf!
 //     integer(C_INT), value :: ordinal                                                                !InTf!
 //     type(C_PTR) :: string                                                                           !InTf!
 //   end function Plugin_function_name                                                                 !InTf!
 //
-// get name of entry number ordinal from plugin entry name table
-//
-//  h       : handle obtained from Load_plugin
+//  handle  : handle obtained from Load_plugin
 //  ordinal : int, ordinal in entry list of desired name (first entry has ordinal 1)
 //
-//  function return : pointer to the name of requested entry (char*)
+//  function return : pointer to the name of requested entry ( char * / type(C_PTR)  )
 //
-const char* Plugin_function_name(const void *h, int ordinal)  //InTc
+// ARGUMENTS
+const char* Plugin_function_name(const void *handle, int ordinal)  //InTc
+//****
 {
-  plugin *p = (plugin *) h;
+  plugin *p = (plugin *) handle;
 
   if(p == NULL) return(NULL) ; // bad handle
 
@@ -207,16 +396,21 @@ const char* Plugin_function_name(const void *h, int ordinal)  //InTc
   return((const char*)p->symbol[ordinal-1]);              // address of list of names
 }
 //----------------------------------------------------------------------------------------
-//
+//****f* libplugin/Plugin_function_names
+// Synopsis
 //  get list of advertised entry names in a given plugin
 //
-//  p : handle obtained from Load_plugin
+// there is no Fortran interface
+//
+//  handle : handle obtained from Load_plugin
 //
 //  function return : pointer to the list of names (char**) or NULL if none available
 //
-const char* *Plugin_function_names(const void *h)  //InTc
+// ARGUMENTS
+const char* *Plugin_function_names(const void *handle)  //InTc
+//****
 {
-  plugin *p = (plugin *) h;
+  plugin *p = (plugin *) handle;
 
   if(p == NULL) return(NULL) ;                          // bad handle
 
@@ -225,24 +419,29 @@ const char* *Plugin_function_names(const void *h)  //InTc
   return((const char* *)p->symbol);                     // address of list of names (can be NULL)
 }
 //----------------------------------------------------------------------------------------
+//****f* libplugin/Plugin_function
+// Synopsis
+//  get address of plugin entry name
+//  if pointer to plugin is NULL, scan all known plugins
+//
+// Fortran interface
 //   function Plugin_function(handle,fname) result(faddress) BIND(C,name='Plugin_function')  !InTf!
 //     import :: C_PTR, C_FUNPTR, C_CHAR                                                     !InTf!
-//     type(C_PTR), value :: handle                                                          !InTf!
+//     type(C_PTR), intent(IN), value :: handle                                              !InTf!
 //     character(C_CHAR), dimension(*), intent(IN) :: fname                                  !InTf!
 //     type(C_FUNPTR) :: faddress                                                            !InTf!
 //   end function Plugin_function                                                            !InTf!
 //
-//  get address of plugin entry name
-//  if pointer to plugin is NULL, scan all known plugins
+//  handle : handle obtained from Load_plugin
+//  name   : null terminated string, name of entry 
 //
-//  h    : handle obtained from Load_plugin
-//  name : char *, null terminated string, name of entry 
+//  function return : address of requested entry ( void * / type(C_PTR)  )
 //
-//  function return : address of requested entry
-//
-void *Plugin_function(const void *h, const char *name)  //InTc
+// ARGUMENTS
+void *Plugin_function(const void *handle, const char *name)  //InTc
+//****
 {
-  plugin *p = (plugin *) h;
+  plugin *p = (plugin *) handle;
   int i, j;
   void *faddr;
 
@@ -252,7 +451,7 @@ void *Plugin_function(const void *h, const char *name)  //InTc
       for(i=0 ; i<p->nentries ; i++){
         if(strcmp(name, p->symbol[i]) == 0) return(p->addr[i]) ;
       }
-      // no entries because there was no EntryList_ symbol or unadvertized symbol, try dlsym
+      // no entries because there was no EntryList_ symbol or unadvertised symbol, try dlsym
       faddr = dlsym(p->handle,name) ;
       if(faddr != NULL) return (faddr) ;
     }
