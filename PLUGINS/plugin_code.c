@@ -16,6 +16,8 @@
 // Fortran anc C callable package to use dynamic libraries (shared objects) at runtime
 //
 // a "plugin" is a dynamic library (shared object) that contains some special elements
+//
+// http://github.com/mfvalin/wrapper-code/tree/master/PLUGINS
 // 
 // step 0: declaration
 //         Fortran :
