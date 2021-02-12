@@ -202,7 +202,7 @@ int MPI_Bcast(void* buffer, int count, MPI_Datatype datatype,int root, MPI_Comm 
   return status;
 }
 
-int MPI_Reduce(const void *sendbuf, void *recvbuf, int count,
+int MPI_Reduce(void *sendbuf, void *recvbuf, int count,
             MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm){
   int dsize, size;
   int status;
@@ -219,7 +219,7 @@ int MPI_Reduce(const void *sendbuf, void *recvbuf, int count,
   return status;
 }
 
-int MPI_Allreduce(const void *sendbuf, void *recvbuf, int count,
+int MPI_Allreduce(void *sendbuf, void *recvbuf, int count,
             MPI_Datatype datatype, MPI_Op op, MPI_Comm comm){
   int dsize, size;
   int status;
@@ -316,7 +316,7 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
   return status;
 }
 
-int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
+int MPI_Isend(void *buf, int count, MPI_Datatype datatype, int dest, int tag,
               MPI_Comm comm, MPI_Request *request)
 {
   int dsize;
@@ -332,7 +332,7 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
   return status;
 }
 
-int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
+int MPI_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag,
              MPI_Comm comm)
 {
   int dsize;
@@ -348,7 +348,7 @@ int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int ta
   return status;
 }
 
-int MPI_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+int MPI_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype,
             int dest, int sendtag, void *recvbuf, int recvcount,
             MPI_Datatype recvtype, int source, int recvtag,
             MPI_Comm comm, MPI_Status *Status)
@@ -368,7 +368,7 @@ int MPI_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
   return status;
 }
 
-int MPI_Scatter(const void *sendbuf, int sendcnt, MPI_Datatype sendtype, 
+int MPI_Scatter(void *sendbuf, int sendcnt, MPI_Datatype sendtype, 
                void *recvbuf, int recvcnt, MPI_Datatype recvtype, 
                int root, MPI_Comm comm)
 {
@@ -396,7 +396,7 @@ int MPI_Scatter(const void *sendbuf, int sendcnt, MPI_Datatype sendtype,
   return status;
 }
 
-int MPI_Scatterv(const void *sendbuf, const int *sendcnts, const int *displs, 
+int MPI_Scatterv( void *sendbuf, int *sendcnts, int *displs, 
                  MPI_Datatype sendtype, void *recvbuf, int recvcnt,
                  MPI_Datatype recvtype,
                  int root, MPI_Comm comm)
@@ -428,7 +428,7 @@ int MPI_Scatterv(const void *sendbuf, const int *sendcnts, const int *displs,
   return status;
 }
 
-int MPI_Gather(const void *sendbuf, int sendcnt, MPI_Datatype sendtype, 
+int MPI_Gather(void *sendbuf, int sendcnt, MPI_Datatype sendtype, 
                void *recvbuf, int recvcnt, MPI_Datatype recvtype, 
                int root, MPI_Comm comm)
 {
@@ -456,8 +456,8 @@ int MPI_Gather(const void *sendbuf, int sendcnt, MPI_Datatype sendtype,
   return status;
 }
 
-int MPI_Gatherv(const void *sendbuf, int sendcnt, MPI_Datatype sendtype, 
-               void *recvbuf, const int *recvcnts, const int *displs, MPI_Datatype recvtype, 
+int MPI_Gatherv(void *sendbuf, int sendcnt, MPI_Datatype sendtype, 
+               void *recvbuf, int *recvcnts, int *displs, MPI_Datatype recvtype, 
                int root, MPI_Comm comm)
 {
   int rsize,ssize;
@@ -487,7 +487,7 @@ int MPI_Gatherv(const void *sendbuf, int sendcnt, MPI_Datatype sendtype,
   return status;
 }
 
-int MPI_Alltoall(const void *sendbuf, int sendcount,
+int MPI_Alltoall(void *sendbuf, int sendcount,
             MPI_Datatype sendtype, void *recvbuf, int recvcount,
             MPI_Datatype recvtype, MPI_Comm comm)
 {
@@ -508,9 +508,9 @@ int MPI_Alltoall(const void *sendbuf, int sendcount,
   return status;
 }
 
-int MPI_Alltoallv(const void *sendbuf, const int *sendcnts, const int *sdispls, 
-                  MPI_Datatype sendtype, void *recvbuf, const int *recvcnts, 
-                  const int *rdispls, MPI_Datatype recvtype, MPI_Comm comm)
+int MPI_Alltoallv(void *sendbuf, int *sendcnts, int *sdispls, 
+                  MPI_Datatype sendtype, void *recvbuf, int *recvcnts, 
+                  int *rdispls, MPI_Datatype recvtype, MPI_Comm comm)
 {
   int rsize,ssize;
   int status;
