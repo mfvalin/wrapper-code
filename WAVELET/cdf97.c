@@ -147,16 +147,16 @@ void F_CDF97_1D_split_N_even(float *x, float *e, float *o, int n){    // InTc
   int neven = (n+1) >> 1;
   int nodd  = neven;
 
-  for(i = 0 ; i < nodd-1 ; i++) o[i] = x[i+i+1] + A * (x[i+i] + x[i+i+2]);
+  for(i = 0 ; i < nodd-1 ; i++) o[i] = x[i+i+1] + A * (x[i+i] + x[i+i+2]);  // predict odd terms #1
   o[nodd-1] = x[n-1] + 2 * A * x[n-2];  
 
   e[0 ] = x[0] + 2 * B * o[0];
-  for(i = 1; i < neven ; i++) e[i] = x[i+i] + B * (o[i] + o[i-1]);
+  for(i = 1; i < neven ; i++) e[i] = x[i+i] + B * (o[i] + o[i-1]);          // update even terms #1
 
-  for(i = 0 ; i < nodd-1 ; i++) o[i] +=  C * (e[i] + e[i+1]);
+  for(i = 0 ; i < nodd-1 ; i++) o[i] +=  C * (e[i] + e[i+1]);               // predict odd terms #2
   o[nodd-1] +=  2 * C * e[neven-1];
 
-  e[0] = S * (e[0] + 2 * D * o[0]);
+  e[0] = S * (e[0] + 2 * D * o[0]);                                         // update even terms #2 and scale
   for(i = 1; i < neven ; i++) { e[i] = S * (e[i] +  D * (o[i] + o[i-1])) ; o[i-1] *= (-Z); }
   o[nodd-1] *= (-Z);
 }
@@ -220,15 +220,15 @@ void F_CDF97_1D_split_N_odd(float *x, float *e, float *o, int n){    // InTc
   int neven = (n+1) >> 1;
   int nodd  = n >> 1;
 
-  for(i = 0 ; i < nodd ; i++) o[i] = x[i+i+1] + A * (x[i+i] + x[i+i+2]);
+  for(i = 0 ; i < nodd ; i++) o[i] = x[i+i+1] + A * (x[i+i] + x[i+i+2]);  // predict odd terms #1
 
-  e[0 ] = x[0] + 2 * B * o[0];
+  e[0 ] = x[0] + 2 * B * o[0];                                            // update even terms #1
   for(i = 1; i < neven-1 ; i++) e[i] = x[i+i] + B * (o[i] + o[i-1]);
   e[neven-1] = x[n-1] + 2 * B * o[nodd-1];
 
-  for(i = 0 ; i < nodd ; i++) o[i] +=  C * (e[i] + e[i+1]);
+  for(i = 0 ; i < nodd ; i++) o[i] +=  C * (e[i] + e[i+1]);               // predict odd terms #2
 
-  e[0] = S * (e[0] + 2 * D * o[0]);
+  e[0] = S * (e[0] + 2 * D * o[0]);                                       // update even terms #2 and scale
   for(i = 1; i < neven-1 ; i++) { e[i] = S * (e[i] +  D * (o[i] + o[i-1])) ; o[i-1] *= (-Z); }
   e[neven-1] = S * (e[neven-1] + 2 * D * o[nodd-1]);
   o[nodd-1] *= (-Z);
@@ -506,7 +506,7 @@ void I_CDF97_1D_inplace_N_odd(float *x, int n){    // InTc
 //****
   int i;
   
-  for(i = 0 ; i < n-2 ; i+=2 ) { x[i] *= Z ; x[i+1] *= (-S) ; }        // unscale odd and even terms
+  for(i = 0 ; i < n-2 ; i+=2 ) { x[i] *= Z ; x[i+1] *= (-S) ; }     // unscale odd and even terms
   x[n-1] *= Z;
 
   x[0] -= 2 * D * x[1];
