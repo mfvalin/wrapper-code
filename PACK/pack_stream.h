@@ -27,8 +27,16 @@ typedef struct{   // packing stream (the packed stream is a sequence of 32 bit u
   uint64_t a ;    // 64bit accumulator
   uint32_t *s ;   // start of stream buffer
   uint32_t *p ;   // current insertion/extraction pointer into stream buffer
+  union{
+    uint64_t u64 ;
+    int64_t  i64 ;
+    uint32_t u32 ;
+    int32_t  i32 ;
+  } m ;           // minimum valu
   int32_t nf ;    // number of bits free for insertion
   int32_t na ;    // number of bits available for extraction
+  int32_t ni ;    // number of items available for extraction
+  int32_t nb ;    // signedness + nb of bits of minimum
 } pstream ;
 
 void inline pstream_init(pstream *ps, void *buffer){  // initialize a stream for read or write

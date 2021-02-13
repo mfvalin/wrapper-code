@@ -15,9 +15,16 @@
  *     M. Valin,   Recherche en Prevision Numerique, 2021
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
 
 #include <pack_stream.h>
+
+// hexadecimal ABBA signature streams (straight packing after bias (lowes value) removal
+
+uint32_t *pstream_address(pstream ps){
+  return ps.s ;
+}
 
 // extract n unsigned tokens from bit stream src, store into 64 bit unsigned integers
 int pstream_unpack_u64(pstream *ps, uint32_t *src, uint64_t *dest, uint32_t n) {
@@ -25,14 +32,17 @@ int pstream_unpack_u64(pstream *ps, uint32_t *src, uint64_t *dest, uint32_t n) {
   int nbt, nbm, i, npt, sgn ;
   uint64_t t64 ;
 
+  if(src == NULL) src = ps->s ;
   pstream_init(ps, src) ;
   sgn = pstream_get_32(ps, 16) ;
   if(sgn != 0xABBA)  return 0  ;       // invalid header
-  nbt = pstream_get_32(ps,  8) ;
-  nbm = pstream_get_32(ps,  8) ;
-  npt = pstream_get_32(ps, 32) ;
-  if(npt < n) return 0 ;               // wrong data count
-  min64 = pstream_get_64(ps, nbm) ;
+  nbt = pstream_get_32(ps,  8) ;       // number of bits per item
+  if(nbt > 64) return 0 ;              // this is not a 64 bit stream
+  nbm = pstream_get_32(ps,  8) ;       // number of bits for minimum value
+  if(nbm > 64) return 0 ;              // this is not a 64 bit stream
+  npt = pstream_get_32(ps, 32) ;       // number of points
+  if(npt < n) return 0 ;               // not enough data
+  min64 = pstream_get_64(ps, nbm) ;    // minimum value
 
   for(i=0 ; i<n ; i++){
     t64 = pstream_get_64(ps, nbt) ;
@@ -47,14 +57,17 @@ int pstream_unpack_i64(pstream *ps, uint32_t *src, int64_t *dest, uint32_t n) {
   int nbt, nbm, i, npt, sgn ;
   uint64_t t64 ;
 
+  if(src == NULL) src = ps->s ;
   pstream_init(ps, src) ;
   sgn = pstream_get_32(ps, 16) ;
   if(sgn != 0xABBA)  return 0  ;       // invalid header
-  nbt = pstream_get_32(ps,  8) ;
-  nbm = pstream_get_32(ps,  8) ;
-  npt = pstream_get_32(ps, 32) ;
-  if(npt < n) return 0 ;               // wrong data count
-  t64 = pstream_get_64(ps, nbm) ;
+  nbt = pstream_get_32(ps,  8) ;       // number of bits per item
+  if(nbt > 64) return 0 ;              // this is not a 64 bit stream
+  nbm = pstream_get_32(ps,  8) ;       // number of bits for minimum value
+  if(nbm > 64) return 0 ;              // this is not a 64 bit stream
+  npt = pstream_get_32(ps, 32) ;       // number of points
+  if(npt < n) return 0 ;               // not enough data
+  t64 = pstream_get_64(ps, nbm) ;      // minimum value
   min64 = t64 ;
   if(nbm == 32){                       // propagate sign
     min64 <<= 32 ;
@@ -74,16 +87,17 @@ int pstream_unpack_u32(pstream *ps, uint32_t *src, uint32_t *dest, uint32_t n) {
   int nbt, nbm, i, npt, sgn ;
   uint32_t t32 ;
 
+  if(src == NULL) src = ps->s ;
   pstream_init(ps, src) ;
   sgn = pstream_get_32(ps, 16) ;
   if(sgn != 0xABBA)  return 0  ;       // invalid header
-  nbt = pstream_get_32(ps,  8) ;
+  nbt = pstream_get_32(ps,  8) ;       // number of bits per item
   if(nbt > 32) return 0 ;              // this is not a 32 bit stream
-  nbm = pstream_get_32(ps,  8) ;
+  nbm = pstream_get_32(ps,  8) ;       // number of bits for minimum value
   if(nbm > 32) return 0 ;              // this is not a 32 bit stream
-  npt = pstream_get_32(ps, 32) ;
-  if(npt < n) return 0 ;              // wrong data count
-  min32 = pstream_get_32(ps, nbm) ;
+  npt = pstream_get_32(ps, 32) ;       // number of points
+  if(npt < n) return 0 ;               // not enough data
+  min32 = pstream_get_32(ps, nbm) ;    // minimum value
 
   for(i=0 ; i<n ; i++){
     t32 = pstream_get_32(ps, nbt) ;
@@ -98,16 +112,17 @@ int pstream_unpack_i32(pstream *ps, uint32_t *src, int32_t *dest, uint32_t n) {
   int nbt, nbm, i, npt, sgn ;
   uint32_t t32 ;
 
+  if(src == NULL) src = ps->s ;
   pstream_init(ps, src) ;
   sgn = pstream_get_32(ps, 16) ;
   if(sgn != 0xABBA)  return 0  ;       // invalid header
-  nbt = pstream_get_32(ps,  8) ;
+  nbt = pstream_get_32(ps,  8) ;       // number of bits per item
   if(nbt > 32) return 0 ;              // this is not a 32 bit stream
-  nbm = pstream_get_32(ps,  8) ;
+  nbm = pstream_get_32(ps,  8) ;       // number of bits for minimum value
   if(nbm > 32) return 0 ;              // this is not a 32 bit stream
-  npt = pstream_get_32(ps, 32) ;
-  if(npt < n) return 0 ;              // wrong data count
-  t32 = pstream_get_32(ps, nbm) ;
+  npt = pstream_get_32(ps, 32) ;       // number of points
+  if(npt < n) return 0 ;               // not enough data
+  t32 = pstream_get_32(ps, nbm) ;      // minimum value
   min32 = (int32_t) t32 ;
 
   for(i=0 ; i<n ; i++){
@@ -117,7 +132,7 @@ int pstream_unpack_i32(pstream *ps, uint32_t *src, int32_t *dest, uint32_t n) {
   return n ;
 }
 
-int pstream_pack_u64(pstream *ps, uint64_t *src, uint32_t *dest, uint32_t n, int bavail) {
+int pstream_pack_u64(pstream *ps, uint64_t *src, uint32_t *dest, uint32_t n, int nbits, int bavail) {
   uint64_t min64 = *src ;
   uint64_t max64 = *src ;
   uint64_t range = 0 ;
@@ -131,6 +146,9 @@ int pstream_pack_u64(pstream *ps, uint64_t *src, uint32_t *dest, uint32_t n, int
     max64 = (src[i] > max64) ? src[i] : max64 ;
   }     // find extrema
   range = max64 - min64 ;
+  ps->m.u64 = min64 ;
+  ps->ni    = n ;
+  ps->nb    = 64 ;
   nbt = 0 ;
   while(range > 0) {           // compute number of bits necessary to encode the data range
     range >>= 1 ;
@@ -143,6 +161,10 @@ int pstream_pack_u64(pstream *ps, uint64_t *src, uint32_t *dest, uint32_t n, int
   bneeded = bneeded * n ;               // bits needed = nbt * number of points
   bneeded += (16 + 8 + 8 + 32 + 64) ;   // add header size
   bneeded = (bneeded + 31) / 32 ;       // in uint32_t units
+  if(dest == NULL) {
+    bavail = bneeded ;
+    dest = (uint32_t *) malloc(bneeded * sizeof(bneeded)) ;
+  }
   if(bneeded > bavail) return -1 ;      // ERROR: not enough space for bit stream
 
   pstream_init(ps, dest) ;              // initialize stream packing structure
@@ -169,7 +191,7 @@ int pstream_pack_u64(pstream *ps, uint64_t *src, uint32_t *dest, uint32_t n, int
   return (ps->p - ps->s) ;
 }
 
-int pstream_pack_i64(pstream *ps, int64_t *src, uint32_t *dest, uint32_t n, int bavail) {
+int pstream_pack_i64(pstream *ps, int64_t *src, uint32_t *dest, uint32_t n, int nbits, int bavail) {
   int64_t min64 = *src ;
   int64_t max64 = *src ;
   uint64_t range = 0 ;
@@ -183,6 +205,9 @@ int pstream_pack_i64(pstream *ps, int64_t *src, uint32_t *dest, uint32_t n, int 
     max64 = (src[i] > max64) ? src[i] : max64 ;
   }     // find extrema
   range = max64 - min64 ;
+  ps->m.i64 = min64 ;
+  ps->ni    = n ;
+  ps->nb    = -64 ;
   nbt = 0 ;
   while(range > 0) {           // compute number of bits necessary to encode the data range
     range >>= 1 ;
@@ -195,6 +220,10 @@ int pstream_pack_i64(pstream *ps, int64_t *src, uint32_t *dest, uint32_t n, int 
   bneeded = bneeded * n ;               // bits needed = nbt * number of points
   bneeded += (16 + 8 + 8 + 32 + 64) ;   // add header size
   bneeded = (bneeded + 31) / 32 ;       // in uint32_t units
+  if(dest == NULL) {
+    bavail = bneeded ;
+    dest = (uint32_t *) malloc(bneeded * sizeof(bneeded)) ;
+  }
   if(bneeded > bavail) return -1 ;      // ERROR: not enough space for bit stream
 
   pstream_init(ps, dest) ;              // initialize stream packing structure
@@ -221,7 +250,7 @@ int pstream_pack_i64(pstream *ps, int64_t *src, uint32_t *dest, uint32_t n, int 
   return (ps->p - ps->s) ;
 }
 
-int pstream_pack_u32(pstream *ps, uint32_t *src, uint32_t *dest, uint32_t n, int bavail) {
+int pstream_pack_u32(pstream *ps, uint32_t *src, uint32_t *dest, uint32_t n, int nbits, int bavail) {
   uint32_t min32 = *src ;
   uint32_t max32 = *src ;
   uint32_t range = 0 ;
@@ -240,12 +269,19 @@ int pstream_pack_u32(pstream *ps, uint32_t *src, uint32_t *dest, uint32_t n, int
     nbt ++ ;
   }
   range = max32 - min32 ;
+  ps->m.u32 = min32 ;
+  ps->ni    = n ;
+  ps->nb    = 32 ;
   mask = 0 ; mask = ~mask ; mask = mask >> (32 - nbt) ;  // nbt bits set to 1 on the right
 
   bneeded = nbt ;
   bneeded = bneeded * n ;               // bits needed = nbt * number of points
-  bneeded += (16 + 8 + 8 + 32 + 64) ;   // add header size
+  bneeded += (16 + 8 + 8 + 32 + 32) ;   // add header size
   bneeded = (bneeded + 31) / 32 ;       // in uint32_t units
+  if(dest == NULL) {
+    bavail = bneeded ;
+    dest = (uint32_t *) malloc(bneeded * sizeof(bneeded)) ;
+  }
   if(bneeded > bavail) return -1 ;      // ERROR: not enough space for bit stream
 
   pstream_init(ps, dest) ;              // initialize stream packing structure
@@ -264,7 +300,7 @@ int pstream_pack_u32(pstream *ps, uint32_t *src, uint32_t *dest, uint32_t n, int
   return (ps->p - ps->s) ;
 }
 
-int pstream_pack_i32(pstream *ps, int32_t *src, uint32_t *dest, uint32_t n, int bavail) {
+int pstream_pack_i32(pstream *ps, int32_t *src, uint32_t *dest, uint32_t n, int nbits, int bavail) {
   int32_t min32 = *src ;
   int32_t max32 = *src ;
   uint32_t range = 0 ;
@@ -277,6 +313,9 @@ int pstream_pack_i32(pstream *ps, int32_t *src, uint32_t *dest, uint32_t n, int 
     max32 = (src[i] > max32) ? src[i] : max32 ;
   }     // find extrema
   range = max32 - min32 ;
+  ps->m.i32 = min32 ;
+  ps->ni    = n ;
+  ps->nb    = -32 ;
   nbt = 0 ;
   while(range > 0) {           // compute number of bits necessary to encode the data range
     range >>= 1 ;
@@ -287,8 +326,12 @@ int pstream_pack_i32(pstream *ps, int32_t *src, uint32_t *dest, uint32_t n, int 
 
   bneeded = nbt ;
   bneeded = bneeded * n ;               // bits needed = nbt * number of points
-  bneeded += (16 + 8 + 8 + 32 + 64) ;   // add header size
+  bneeded += (16 + 8 + 8 + 32 + 32) ;   // add header size
   bneeded = (bneeded + 31) / 32 ;       // in uint32_t units
+  if(dest == NULL) {
+    bavail = bneeded ;
+    dest = (uint32_t *) malloc(bneeded * sizeof(bneeded)) ;
+  }
   if(bneeded > bavail) return -1 ;      // ERROR: not enough space for bit stream
 
   pstream_init(ps, dest) ;
@@ -319,12 +362,12 @@ int main(){
   uint32_t pak32a[NPTS] ;
   int32_t pak32b[NPTS] ;
 //   uint32_t packed[NPTS * 4] ;
-  uint32_t packed1[NPTS * 4] ;
-  uint32_t packed2[NPTS * 4] ;
-  uint32_t packed3[NPTS * 4] ;
-  uint32_t packed4[NPTS * 4] ;
+  uint32_t *packed1 ;
+  uint32_t *packed2 ;
+  uint32_t *packed3 ;
+  uint32_t *packed4 ;
   int i, n2 ;
-  pstream ps ;
+  pstream ps1, ps2, ps3, ps4 ;
 
   for(i=0 ; i< NPTS ; i++) pak64[i] = i + 0xFFFF00000000L ;
   for(i=0 ; i< NPTS ; i++) pak64m[i] = i - 0x0FFF00000000L ;
@@ -339,44 +382,48 @@ int main(){
 //   printf("n = %d\n",n2) ;
 //   for(i=0 ; i<n2 ; i++) printf("%8.8x",packed[i]) ;
 //   printf("\n") ;
-  n2 = pstream_pack_u64(&ps, pak64, packed1, NPTS, NPTS * 4) ;
+  n2 = pstream_pack_u64(&ps1, pak64, NULL, NPTS, 64, NPTS * 4) ;
+  packed1 = pstream_address(ps1) ;
   printf("n = %d\n",n2) ;
   for(i=0 ; i<n2 ; i++) printf("%8.8x",packed1[i]) ;
   printf("\n") ;
 
-  n2 = pstream_pack_i64(&ps, pak64m, packed2, NPTS, NPTS * 4) ;
+  n2 = pstream_pack_i64(&ps2, pak64m, NULL, NPTS, 64, NPTS * 4) ;
+  packed2 = pstream_address(ps2) ;
   printf("n = %d\n",n2) ;
   for(i=0 ; i<n2 ; i++) printf("%8.8x",packed2[i]) ;
   printf("\n") ;
 
-  n2 = pstream_unpack_u64(&ps, packed1, pak64a, NPTS) ;  // extract 64 bit stream into 64 bit unsigned tokens
-  n2 = pstream_unpack_i64(&ps, packed2, pak64b, NPTS) ;  // extract 64 bit stream into 32 bit signed tokens
+  n2 = pstream_unpack_u64(&ps1, NULL, pak64a, NPTS) ;  // extract 64 bit stream into 64 bit unsigned tokens
+  n2 = pstream_unpack_i64(&ps2, NULL, pak64b, NPTS) ;  // extract 64 bit stream into 32 bit signed tokens
   for(i=0 ; i<NPTS ; i++){
     printf("%16.16lx %16.16lx %16.16lx %16.16lx \n",pak64[i],pak64a[i],pak64m[i],pak64b[i]);
   }
 
-  n2 = pstream_pack_u32(&ps, pak32, packed3, NPTS, NPTS * 4) ;
+  n2 = pstream_pack_u32(&ps3, pak32, NULL, NPTS, 32, NPTS * 4) ;
+  packed3 = pstream_address(ps3) ;
   printf("n = %d\n",n2) ;
   for(i=0 ; i<n2 ; i++) printf("%8.8x",packed3[i]) ;
   printf("\n") ;
 
-  n2 = pstream_pack_i32(&ps, pak32m, packed4, NPTS, NPTS * 4) ;
+  n2 = pstream_pack_i32(&ps4, pak32m, NULL, NPTS, 32, NPTS * 4) ;
+  packed4 = pstream_address(ps4) ;
   printf("n = %d\n",n2) ;
   for(i=0 ; i<n2 ; i++) printf("%8.8x",packed4[i]) ;
   printf("\n") ;
 
 //   pstream_rewind(&ps) ;
-  n2 = pstream_unpack_u32(&ps, packed3, pak32a, NPTS) ;  // extract from 32 bit stream into 32 bit unsigned tokens
-  n2 = pstream_unpack_u64(&ps, packed3, pak64a, NPTS) ;  // extract from 32 bit stream into 64 bit unsigned tokens
-  n2 = pstream_unpack_i32(&ps, packed4, pak32b, NPTS) ;  // extract from 32 bit stream into 32 bit signed tokens
-  n2 = pstream_unpack_i64(&ps, packed4, pak64b, NPTS) ;  // extract from 32 bit stream into 64 bit signed tokens
+  n2 = pstream_unpack_u32(&ps3, NULL, pak32a, NPTS) ;  // extract from 32 bit stream into 32 bit unsigned tokens
+  n2 = pstream_unpack_u64(&ps1, NULL, pak64a, NPTS) ;  // extract from 32 bit stream into 64 bit unsigned tokens
+  n2 = pstream_unpack_i32(&ps4, NULL, pak32b, NPTS) ;  // extract from 32 bit stream into 32 bit signed tokens
+  n2 = pstream_unpack_i64(&ps2, NULL, pak64b, NPTS) ;  // extract from 32 bit stream into 64 bit signed tokens
   for(i=0 ; i<NPTS ; i++){
     printf("%8.8x %8.8x %16.16lx %8.8x %8.8x %16.16lx\n",pak32[i],pak32a[i],pak64a[i],pak32m[i],pak32b[i],pak64b[i]);
   }
-  n2 = pstream_unpack_u32(&ps, packed1, pak32a, NPTS) ;  // extract from 64 bit stream into 32 bit unsigned tokens
+  n2 = pstream_unpack_u32(&ps1, NULL, pak32a, NPTS) ;  // extract from 64 bit stream into 32 bit unsigned tokens
   if(n2 <= 0) printf("expected failure from 64 bit stream into 32 bit unsigned tokens\n") ;
   else printf("unexpectred n2 = %d from 64 bit stream into 32 bit unsigned tokens\n",n2);
-  n2 = pstream_unpack_i32(&ps, packed2, pak32b, NPTS) ;  // extract from 64 bit stream into 32 bit signed tokens
+  n2 = pstream_unpack_i32(&ps2, NULL, pak32b, NPTS) ;  // extract from 64 bit stream into 32 bit signed tokens
   if(n2 <= 0) printf("expected failure from 64 bit stream into 32 bit signed tokens\n") ;
   else printf("unexpectred n2 = %d from 64 bit stream into 32 bit signed tokens\n",n2);
 
