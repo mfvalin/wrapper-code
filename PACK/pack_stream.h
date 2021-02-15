@@ -17,6 +17,20 @@
 #if ! defined(PACK_STREAM_FUNCTIONS)
 #define PACK_STREAM_FUNCTIONS
 
+#if defined(IN_FORTRAN_CODE)
+  type, BIND(C) :: c_pstream
+    integer(C_INT64_T) :: a
+    type(C_PTR)        :: s
+    type(C_PTR)        :: p
+    integer(C_INT64_T) :: m
+    integer(C_INT32_T) :: ni
+    integer(C_INT32_T) :: nb
+    integer(C_INT32_T) :: nw
+    integer(C_INT16_T) :: nf
+    integer(C_INT16_T) :: na
+  end type
+#else
+
 #include <stdint.h>
 
 // inline functions to initialize, insert into, extract from a bit stream
@@ -24,7 +38,7 @@
 // the pstream structure MUST be initialized with pstream_init before any other call
 
 typedef struct{   // packing stream (the packed stream is a sequence of 32 bit unsigned integers)
-  uint64_t a ;    // 64bit accumulator
+  uint64_t  a ;   // 64bit accumulator
   uint32_t *s ;   // start of stream buffer
   uint32_t *p ;   // current insertion/extraction pointer into stream buffer
   union{
@@ -32,11 +46,12 @@ typedef struct{   // packing stream (the packed stream is a sequence of 32 bit u
     int64_t  i64 ;
     uint32_t u32 ;
     int32_t  i32 ;
-  } m ;           // minimum valu
-  int32_t nf ;    // number of bits free for insertion
-  int32_t na ;    // number of bits available for extraction
+  } m ;           // minimum value
   int32_t ni ;    // number of items available for extraction
   int32_t nb ;    // signedness + nb of bits of minimum
+  int32_t nw ;    // size of stream buffer in uint32_t units
+  int16_t nf ;    // number of bits free for insertion
+  int16_t na ;    // number of bits available for extraction
 } pstream ;
 
 void inline pstream_init(pstream *ps, void *buffer){  // initialize a stream for read or write
@@ -119,5 +134,7 @@ uint64_t  inline pstream_get_64(pstream *ps, int nbits){   // extract nbits (> 3
   }
   return t64 ;
 }
+
+#endif
 
 #endif
