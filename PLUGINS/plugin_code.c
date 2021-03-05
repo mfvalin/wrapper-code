@@ -292,7 +292,9 @@ void *Load_plugin(const char *lib)  //InTc
     fprintf(stderr,"ERROR: plugin table is full\n");
     return(NULL);   // table is full
   }
-
+// ===============================================================================================
+//                                             open shared library
+// ===============================================================================================
   p = &plugin_table[slot];                      // use free slot just found
   if(verbose) fprintf(stderr,"\nINFO: attempting to load shared object %s (slot %d/%d)\n",lib,slot+1,MAX_PLUGINS);
   p->ordinal = slot;
@@ -309,6 +311,11 @@ void *Load_plugin(const char *lib)  //InTc
   p->name = (char *)malloc(strlen(lib)+1);      // only allocate p->name if load successful
   strncpy(p->name, lib, strlen(lib)+1);         // copy name
 
+// ===============================================================================================
+//     get number of available symbols with get_symbol_number if available
+//     (may be used as init call by shared library)
+//     then look for EntryList_ and use it (if present) to count advertized entries
+// ===============================================================================================
   nsym = 0;
   func_nb = dlsym(p->handle,"get_symbol_number");     // get_symbol_number found ?
   if(func_nb == NULL){                                // optional function (mainly for Fortran plugin usage)
@@ -335,7 +342,7 @@ void *Load_plugin(const char *lib)  //InTc
     p->addr[i] =  dlsym(p->handle,p->symbol[i]);
     if(verbose) fprintf(stderr,"INFO:   %p %s\n",p->addr[i],p->symbol[i]);
   }
-  return(p);
+  return(p);  // pointer to "plugin" structure
 }
 //----------------------------------------------------------------------------------------
 //****f* libplugin/Plugin_n_functions
@@ -434,7 +441,7 @@ const char* *Plugin_function_names(const void *handle)  //InTc
 //     type(C_FUNPTR) :: faddress                                                            !InTf!
 //   end function Plugin_function                                                            !InTf!
 //
-//  handle : handle obtained from Load_plugin
+//  handle : handle obtained from Load_plugin (if NULL, scan all known plugins and return first match)
 //  name   : null terminated string, name of entry 
 //
 //  function return : address of requested entry ( void * / type(C_PTR)  )
