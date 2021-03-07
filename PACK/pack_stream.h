@@ -17,21 +17,49 @@
 #if ! defined(PACK_STREAM_FUNCTIONS)
 #define PACK_STREAM_FUNCTIONS
 
+#define FULL_MODE   15
+#define SCAN_MODE    1
+#define INIT_MODE    2
+#define APPEND_MODE  4
+#define PACK_MODE    6
+#define CLOSE_MODE   8
+#define ALLOC_MODE  16
+
 #if defined(IN_FORTRAN_CODE)
-  type, BIND(C) :: c_pstream
-    integer(C_INT64_T) :: a
-    type(C_PTR)        :: s
-    type(C_PTR)        :: p
-    integer(C_INT64_T) :: m
-    integer(C_INT32_T) :: ni
-    integer(C_INT32_T) :: nb
-    integer(C_INT32_T) :: nw
-    integer(C_INT16_T) :: nf
-    integer(C_INT16_T) :: na
+  type, BIND(C) :: c_pstream   ! packing stream (the packed stream is a sequence of 32 bit unsigned integers)
+    private
+    integer(C_INT64_T) :: a    ! 64bit accumulator
+    type(C_PTR)        :: s    ! start of stream buffer
+    type(C_PTR)        :: p    ! current insertion/extraction pointer into stream buffer
+    integer(C_INT64_T) :: m    ! internal use
+    integer(C_INT32_T) :: ni   ! number of items available for extraction
+    integer(C_INT32_T) :: nb   ! signedness + nb of bits of minimum
+    integer(C_INT32_T) :: nw   ! size of stream buffer in uint32_t units
+    integer(C_INT16_T) :: nf   ! number of bits free for insertion
+    integer(C_INT16_T) :: na   ! number of bits available for extraction
   end type
 #else
 
 #include <stdint.h>
+
+#if ! defined(ABS)
+#define ABS(val)  ((val) < 0) ? (-(val)) : (val)
+#endif
+#if ! defined(MAX)
+#define MAX(a,b)  ((a) > (b)) ? (a) : (b)
+#endif
+#if ! defined(MIN)
+#define MIN(a,b)  ((a) < (b)) ? (a) : (b)
+#endif
+#if ! defined(NEEDBITS)
+#define NEEDBITS(range,needed) { uint64_t rng = (range) ; needed = 1; while (rng >>= 1) needed++ ; }
+#endif
+#if ! defined(MINMAX)
+#define MINMAX(min,max,src,n)  { int i=1 ; min = max = src[0] ; while(i++ < n) { min = MIN(min,src[i]) ; max = MAX(max,src[i]); } }
+#endif
+#if ! defined(RMASK)
+#define RMASK(mask, nbits) {mask = 0 ; mask = ~mask ; mask = mask >> (8*sizeof(mask) - nbits) ;}
+#endif
 
 // inline functions to initialize, insert into, extract from a bit stream
 // said packed stream is a sequence of 32 bit unsigned integers
@@ -46,16 +74,35 @@ typedef struct{   // packing stream (the packed stream is a sequence of 32 bit u
     int64_t  i64 ;
     uint32_t u32 ;
     int32_t  i32 ;
-  } m ;           // minimum value
+  } m ;           // minimum value (32/64 bits, signed/unsigned)
+  void *src ;     // last source array
   int32_t ni ;    // number of items available for extraction
-  int32_t nb ;    // signedness + nb of bits of minimum
+  int16_t nb ;    // signedness + nb of bits of minimum
+  int16_t nbt ;   // nb of bits needed for encoding
   int32_t nw ;    // size of stream buffer in uint32_t units
   int16_t nf ;    // number of bits free for insertion
   int16_t na ;    // number of bits available for extraction
+  int32_t mode ;  // if 1, stream buffer was allocated locally and can be freed
 } pstream ;
 
+uint64_t inline pstream_total_size(pstream *ps){
+  uint64_t needed ;
+  needed = ps->nbt ;
+  needed *= ps->ni ;
+  needed += 16 + 8 + 8 + 32 + ps->nb ;
+  needed += 31 ;
+  needed /= 32 ;
+  return needed ;
+}
+
+int inline pstream_bits(uint64_t range){
+  int needed = 1;
+  while (range >>= 1) needed++ ;
+  return needed ;
+}
+
 void inline pstream_init(pstream *ps, void *buffer){  // initialize a stream for read or write
-  ps->a = 0 ;                     // not really necessary
+  ps->a = 0 ;                     // initialize accumulator
   ps->s = (uint32_t *) buffer ;   // saved address of user buffer
   ps->p = (uint32_t *) buffer ;   // current address into user buffer
   ps->nf = 64 ;                   // 64 bits available for insertion (put)

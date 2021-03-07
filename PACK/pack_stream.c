@@ -26,8 +26,15 @@ uint32_t *pstream_address(pstream ps){
   return ps.s ;
 }
 
+// free stream, deallocating buffer memory if it was auto allocated
 int32_t pstream_free(pstream ps){
-  return ps.nw - (ps.p - ps.s) ;
+  int left = ps.nw - (ps.p - ps.s) ;
+  ps.mode = 0 ;
+//   if(ps.mode & ALLOC_MODE) free(ps.s) ;
+//   ps.mode = 0 ;
+//   ps.s = ps.p = ps.src = NULL ;
+//   ps.nw = 0 ;
+  return left ;
 }
 
 // extract n unsigned tokens from bit stream src, store into 64 bit unsigned integers
@@ -156,7 +163,7 @@ int pstream_allocate(pstream *ps, uint32_t n, int nbits){
   return avail ;
 }
 
-int pstream_pack_u64(pstream *ps, uint64_t *src, uint32_t *dest, uint32_t n, int nbits, int bavail) {
+int pstream_pack_u64(pstream *ps, uint64_t *src, uint32_t *dest, uint32_t n, int nbits, int bavail, int mode) {
   uint64_t min64 = *src ;
   uint64_t max64 = *src ;
   uint64_t range = 0 ;
@@ -164,7 +171,9 @@ int pstream_pack_u64(pstream *ps, uint64_t *src, uint32_t *dest, uint32_t n, int
   uint32_t token, mask ;
   uint64_t tok64, mask64 ;
   uint64_t bneeded ;
+  int      nbitsi = nbits ;
 
+  nbits = ABS(nbits) ;
   for(i = 1 ; i < n ; i++) {   // find minimum and maximum values
     min64 = (src[i] < min64) ? src[i] : min64 ;
     max64 = (src[i] > max64) ? src[i] : max64 ;
@@ -218,7 +227,7 @@ printf("exiting\n");
   return (ps->p - ps->s) ;
 }
 
-int pstream_pack_i64(pstream *ps, int64_t *src, uint32_t *dest, uint32_t n, int nbits, int bavail) {
+int pstream_pack_i64(pstream *ps, int64_t *src, uint32_t *dest, uint32_t n, int nbits, int bavail, int mode) {
   int64_t min64 = *src ;
   int64_t max64 = *src ;
   uint64_t range = 0 ;
@@ -226,7 +235,9 @@ int pstream_pack_i64(pstream *ps, int64_t *src, uint32_t *dest, uint32_t n, int 
   uint32_t token, mask ;
   uint64_t tok64, mask64 ;
   uint64_t bneeded ;
+  int      nbitsi = nbits ;
 
+  nbits = ABS(nbits) ;
   for(i = 1 ; i < n ; i++) {   // find minimum and maximum values
     min64 = (src[i] < min64) ? src[i] : min64 ;
     max64 = (src[i] > max64) ? src[i] : max64 ;
@@ -278,65 +289,96 @@ int pstream_pack_i64(pstream *ps, int64_t *src, uint32_t *dest, uint32_t n, int 
   return (ps->p - ps->s) ;
 }
 
-int pstream_pack_u32(pstream *ps, uint32_t *src, uint32_t *dest, uint32_t n, int nbits, int bavail) {
+// mode == 0 : scan, init, pack and flush (gets translated as mode = 15
+// mode &  1 : scan
+// mode &  2 : init
+// mode &  4 : append to existing stream (optional scan) init is not performed
+// mode &  6 : pack (init + append)
+// mode &  8 : flush
+//
+int pstream_pack_u32(pstream *ps, uint32_t *src, uint32_t *dest, uint32_t n, int nbits, int bavail, int mode) {
   uint32_t min32 = *src ;
   uint32_t max32 = *src ;
-  uint32_t range = 0 ;
   int32_t  i, nbt ;
   uint32_t token, mask ;
   uint64_t bneeded ;
+//   int      nbitsi = nbits ;
+//   int      scale = 0 ;
+//   int      round = 0;
 
-  for(i = 1 ; i < n ; i++) {   // find minimum and maximum values
-    min32 = (src[i] < min32) ? src[i] : min32 ;
-    max32 = (src[i] > max32) ? src[i] : max32 ;
-  }     // find extrema
-  range = max32 - min32 ;
-  nbt = 0 ;
-  while(range > 0) {           // compute number of bits necessary to encode the data range
-    range >>= 1 ;
-    nbt ++ ;
+  if(mode == 0 ) mode = FULL_MODE ;
+
+  if(src != NULL) ps->src = src ;
+  if(mode & SCAN_MODE) {        // can be done only ONCE
+    MINMAX(min32,max32,src,n) ; // get extrema
+    ps->m.u32 = min32 ;         // minimum value
+    ps->nb    = 32 ;            // bits needed for minimum value
+    ps->ni    = n ;             // number of values
+    nbt       = pstream_bits(max32 - min32) ;
+    ps->nbt   = nbt ;           // number of bits needed for encoding debiased data
+    ps->mode  = SCAN_MODE ;
+  }else{                                // scan is assumed to have been performed previously
+    nbt = ps->nbt ;                     // needed for append and init
+    min32 = ps->m.u32 ;                 // needed for append and init
   }
-  range = max32 - min32 ;
-  ps->m.u32 = min32 ;
-  ps->ni    = n ;
-  ps->nb    = 32 ;
-  mask = 0 ; mask = ~mask ; mask = mask >> (32 - nbt) ;  // nbt bits set to 1 on the right
+  if(mode == SCAN_MODE) return 0 ;    // scan only
 
-  bneeded = nbt ;
-  bneeded = bneeded * n ;               // bits needed = nbt * number of points
-  bneeded += (16 + 8 + 8 + 32 + 32) ;   // add header size
-  bneeded = (bneeded + 31) / 32 ;       // in uint32_t units
-  if(dest == NULL) {
-    bavail = pstream_allocate(ps, n, nbits) ;
-  }else{
-    pstream_init(ps, dest) ;            // initialize stream packing structure
+  if(mode & INIT_MODE){         // SCAN MUST have been done previously
+//     nbits = ABS(nbits) ;
+//   if(nbitsi >= 0) {         //  set nbits to largest of nbt and |nbits| if nbitsi not negative
+//     nbits = MAX(nbits,nbt);
+//   }else{                    //  if nbits < nbt, data will have to be scaled back
+//     if(nbt > nbits) {
+//       scale = nbt - nbits ;       // scaling factor
+//       round = 1 << (scale - 1) ;  // rounding term
+//     }
+//   }
+
+    bneeded = pstream_total_size(ps) ;
+    if (dest == NULL) {                   // auto allocation
+      ps->mode |= ALLOC_MODE ;
+      dest = (uint32_t *) malloc(bneeded * sizeof(int)) ;
+      bavail = bneeded ;
+    }
+    if(dest == NULL) return -1 ;          // ERROR: allocate failed
+    pstream_init(ps, dest) ;              // initialize stream packing structure
+
+    ps->nw = bavail ;
+    if(bneeded > bavail) return -1 ;      // ERROR: not enough space for bit stream
+
+    pstream_put_32(ps, 0xABBA, 16) ;      // signature                                  (16 bits)
+    pstream_put_32(ps, nbt, 8) ;          // number of bits per token                   (8 bits)
+    pstream_put_32(ps, ps->nb, 8) ;       // number of bits for minimum value is ps->nb (8 bits)
+    pstream_put_32(ps, n, 32) ;           // number of elements                         (32 bits)
+    pstream_put_32(ps, min32, ps->nb) ;   // minimum value                              (ps->nb bits)
+
+    ps->mode |= INIT_MODE ;
   }
-  ps->nw = bavail ;
-  if(bneeded > bavail) return -1 ;      // ERROR: not enough space for bit stream
 
-  pstream_put_32(ps, 0xABBA, 16) ;      // signature
-  pstream_put_32(ps, nbt, 8) ;          // number of bits per token
-  pstream_put_32(ps, 32, 8) ;           // number of bits for minimum value is 32
-  pstream_put_32(ps, n, 32) ;           // number of elements
-  pstream_put_32(ps, min32, 32) ;       // minimum value
-
-  for(i = 0 ; i < n ; i++){
-    token = src[i] - min32 ; token &= mask ;
-    pstream_put_32(ps, token, nbt) ;
+  if(mode & APPEND_MODE){            // SCAN and INIT MUST have been performed previously
+    RMASK(mask, nbt) ;               // nbt bits set to 1 on the right
+    for(i = 0 ; i < n ; i++){
+      token = src[i] - min32 ; token &= mask ;
+      pstream_put_32(ps, token, nbt) ;
+    }
   }
 
-  pstream_flush(ps) ;
+  if(mode & CLOSE_MODE){
+    pstream_flush(ps) ;
+  }
   return (ps->p - ps->s) ;
 }
 
-int pstream_pack_i32(pstream *ps, int32_t *src, uint32_t *dest, uint32_t n, int nbits, int bavail) {
+int pstream_pack_i32(pstream *ps, int32_t *src, uint32_t *dest, uint32_t n, int nbits, int bavail, int mode) {
   int32_t min32 = *src ;
   int32_t max32 = *src ;
   uint32_t range = 0 ;
   int32_t  i, nbt ;
   uint32_t token, mask ;
   uint64_t bneeded ;
+  int      nbitsi = nbits ;
 
+  nbits = ABS(nbits) ;
   for(i = 1 ; i < n ; i++) {   // find minimum and maximum values
     min32 = (src[i] < min32) ? src[i] : min32 ;
     max32 = (src[i] > max32) ? src[i] : max32 ;
@@ -412,13 +454,13 @@ int main(){
 //   printf("n = %d\n",n2) ;
 //   for(i=0 ; i<n2 ; i++) printf("%8.8x",packed[i]) ;
 //   printf("\n") ;
-  n2 = pstream_pack_u64(&ps1, pak64, NULL, NPTS, 64, NPTS * 4) ;
+  n2 = pstream_pack_u64(&ps1, pak64, NULL, NPTS, 64, NPTS * 4, 0) ;
   packed1 = pstream_address(ps1) ;
   printf("n = %d, free = %d\n",n2,pstream_free(ps1)) ;
   for(i=0 ; i<n2 ; i++) printf("%8.8x",packed1[i]) ;
   printf("\n") ;
 
-  n2 = pstream_pack_i64(&ps2, pak64m, NULL, NPTS, 64, NPTS * 4) ;
+  n2 = pstream_pack_i64(&ps2, pak64m, NULL, NPTS, 64, NPTS * 4, 0) ;
   packed2 = pstream_address(ps2) ;
   printf("n = %d, free = %d\n",n2,pstream_free(ps2)) ;
   for(i=0 ; i<n2 ; i++) printf("%8.8x",packed2[i]) ;
@@ -430,13 +472,13 @@ int main(){
     printf("%16.16lx %16.16lx %16.16lx %16.16lx \n",pak64[i],pak64a[i],pak64m[i],pak64b[i]);
   }
 
-  n2 = pstream_pack_u32(&ps3, pak32, NULL, NPTS, 32, NPTS * 4) ;
+  n2 = pstream_pack_u32(&ps3, pak32, NULL, NPTS, 32, NPTS * 4, 0) ;
   packed3 = pstream_address(ps3) ;
   printf("n = %d, free = %d\n",n2,pstream_free(ps3)) ;
   for(i=0 ; i<n2 ; i++) printf("%8.8x",packed3[i]) ;
   printf("\n") ;
 
-  n2 = pstream_pack_i32(&ps4, pak32m, NULL, NPTS, 32, NPTS * 4) ;
+  n2 = pstream_pack_i32(&ps4, pak32m, NULL, NPTS, 32, NPTS * 4, 0) ;
   packed4 = pstream_address(ps4) ;
   printf("n = %d, free = %d\n",n2,pstream_free(ps4)) ;
   for(i=0 ; i<n2 ; i++) printf("%8.8x",packed4[i]) ;
