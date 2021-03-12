@@ -1,7 +1,7 @@
 ! Example og plugin written in Fortran
 ! this plugin supplies (and advertises) the following callable entry points 
 ! name1f, name2f, name3f, name4f
-! BIND(C,name=...) mandatory to make sure names match etry pooint names
+! BIND(C,name=...) mandatory to make sure names match entry point names
 !
 ! beginning of routines in plugin
 integer(C_INT) function  fn1(arg) BIND(C,name='name1f')
@@ -60,7 +60,7 @@ module interop
 #define MAX_NAMES 4
 #define MAX_NAME_LENGTH 10
 ! end of user adjusted code
-  type(C_PTR), dimension(MAX_NAMES+1), BIND(C,name='EntryList_') :: name_table
+  type(C_PTR), dimension(MAX_NAMES+1), BIND(C,name='EntryList_') :: name_table ! mandatory external name
   character(len=1), dimension(MAX_NAME_LENGTH+1,MAX_NAMES), target :: names
   integer :: nargs
   contains
@@ -70,17 +70,18 @@ module interop
     character(len=*) :: name
     integer :: l
     l = len(trim(name)) + 1
-    nargs = nargs + 1
+    nargs = min(nargs+1, MAX_NAMES)   ! make sure that list can be null terminated
     names(1:l,nargs) = transfer(trim(name)//achar(0) , names, l)
     name_table(nargs) = C_LOC(names(1,nargs))
+    name_table(nargs+1) = C_NULL_PTR   ! make sure list is null terminated
     return
   end subroutine insert_in_name_table
-  function symbols() bind(C,name='get_symbol_number') result(number)
+  function symbols() bind(C,name='get_symbol_number') result(number)  ! this function is mandatory in a valid Fortran plugin
     use ISO_C_BINDING
     implicit none
     integer(C_INT) :: number
     nargs = 0
-! start of user adjusted code
+! start of user adjusted code, make sure number of calls to insert_in_name_table is <= MAX_NAMES
     call insert_in_name_table('name1f')
     call insert_in_name_table('name2f')
     call insert_in_name_table('name3f')

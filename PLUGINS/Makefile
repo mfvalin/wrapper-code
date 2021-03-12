@@ -16,7 +16,7 @@ inc:
 	grep InTf *.c | sed -e 's:^.*//::' -e 's/[ ]*!InTf!.*//' >plugins.inc
 	grep InTc plugin_code.c | sed 's:[ ]*//InTc.*:;:'        >plugins.h
 
-abs: test_c test_fortran test_dl_f
+abs: test_c test_dl_f
 
 plugin_code.o:	plugin_code.c plugins.h
 	$(CC) $(CFLAGS) -c -I. $<
@@ -48,8 +48,9 @@ test_c:	test_c.c plugin_code.o libs
 test_dl_f: test_dl.F90 libs
 	$(FC) $(FFLAGS) '-Wl,-rpath,.' -o $@ $< -ldl
 
-test_fortran:	test_fortran.F90 plugin_code.o libs
-	$(FC) $(FFLAGS) -I. -o $@ $< plugin_code.o -ldl -Wl,-rpath,.
+test_fortran: fortran_plugins.F90 test_fortran.F90 plugin_code.o libs
+	$(FC) $(FFLAGS) -I. -o $@ fortran_plugins.F90 test_fortran.F90 plugin_code.o -ldl -Wl,-rpath,.
+	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:. ./test_fortran
 
 clean:
-	rm -f *.so *.o *.mod test_fortran test_c test_dl_c test_dl_f
+	rm -f *.so *.o *.mod test_fortran test_c test_dl_c test_dl_f a.out
