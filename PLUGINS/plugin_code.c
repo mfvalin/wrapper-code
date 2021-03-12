@@ -1,5 +1,5 @@
 //  RMNLIB - useful routines for C and Fortran programming
-//  Copyright (C) 2020  Environnement Canada
+//  Copyright (C) 2020/2021  Environnement Canada
 // 
 //  This is free software; you can redistribute it and/or
 //  modify it under the terms of the GNU Lesser General Public
@@ -322,14 +322,16 @@ void *Load_plugin(const char *lib)  //InTc
     if(verbose) fprintf(stderr,"INFO: get_symbol_number not found\n");
   }else{
     nsym = (*func_nb)(); 
+    if(verbose) fprintf(stderr,"INFO: %d symbols found by get_symbol_number \n", nsym);
   }
 
   temp = (const char **)dlsym(p->handle,"EntryList_");    // EntryList_  (mandatory for plugin, absent in regular shared object)
   if(temp == NULL){
     if(verbose) fprintf(stderr,"INFO: EntryList_ not found\n");
   }
-  if(nsym==0 && temp != NULL){                            // count names in list if get_symbol_number not found
+  if(nsym == 0 && temp != NULL){                            // count names in list if get_symbol_number not found
     nsym = 0 ; while(temp[nsym]) nsym++;
+    if(verbose) fprintf(stderr,"INFO: %d symbols found in EntryList_ \n", nsym);
   }
 
   p->symbol   = temp;                                     // symbol table is at address of symbol EntryList_
