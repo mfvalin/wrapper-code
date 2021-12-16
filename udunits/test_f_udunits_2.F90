@@ -1,3 +1,4 @@
+#include <f_udunits_2.f90>
 	program test_f_udunits_2
 !	use ISO_C_BINDING
 	use f_udunits_2
