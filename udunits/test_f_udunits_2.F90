@@ -4,7 +4,6 @@
 	use f_udunits_2
 	implicit none
 
-	integer, target :: scrap
 	type(UT_SYSTEM_PTR) :: sys
 	type(CV_CONVERTER_PTR) :: conv1, conv2, conv3, time_cvt, time_cvt0
 	type(UT_UNIT_PTR) :: unit1, unit2, unit3, unit4, unit5
@@ -23,7 +22,6 @@
 	real *8, parameter :: TEN = 10.0
 	real *8, parameter :: ZERO = 0.0
 	real :: A,B
-	real *8 :: AA, BB
 	integer :: junk
 	integer :: charset
 	integer hour,minute,year,month,day
