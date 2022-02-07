@@ -35,6 +35,7 @@ int32_t ieee_quantize(float *f,        // array to quantize (INPUT)
 {
   int i, ex, e0, nm, sign ;
   intflt z0, z, x1, t0, y ;
+  int32_t round ;
 
   if(nexp < 1 || nexp > 8) return 0 ;        // nexp too small or too large
   nm = nbits - nexp ;                        // number of effective mantissa bits
@@ -43,9 +44,11 @@ int32_t ieee_quantize(float *f,        // array to quantize (INPUT)
   z0.f = *fmaxa ;
   e0 = (z0.i >> 23) - 127 ;
   t0.i = e[nexp] << 23 ;
+  round = (1 << (23 + nexp - nbits -1)) ;
   for(i = 0 ; i < n ; i++) {
     z.f = f[i] ;
     sign = z.i >> 31 ;
+    z.i += round ;
     z.i &= 0x7FFFFFFF ;                                   // get rid of sign
     ex = (z.i >> 23) - 127 ;                              // exponent
     x1.i = ((127 + ex - e0) << 23) | (z.i & 0x7FFFFF) ;   // keep mantissa, alter exponent
@@ -91,7 +94,7 @@ int main(){
   int i ;
   float r ;
   int denorm , first_denorm = 1;
-  float zmax = 6.74321 ;
+  float zmax = 35432.198 ;
   float fi[NPTS], fo[NPTS] ;
   int32_t q[NPTS] ;
 
@@ -112,8 +115,8 @@ int main(){
       fprintf(stdout,"\n") ;
       first_denorm = 0 ;
     }
-    fprintf(stdout,"z0 = %8.8x %12g, coded = %8.8x, z1 = %8.8x %12g, r = %f\n",
-                   fi0.i, fi[i],     q[i],          fo0.i, fo[i],    r);
+    fprintf(stdout,"z0 = %8.8x %12g, coded = %8.8x, z1 = %8.8x %12g, r = %12f %12.2f, d = %9f\n",
+                   fi0.i, fi[i],     q[i],          fo0.i, fo[i],    r, fi[i] / (fi[i] - fo[i]), fo[i] - fi[i]);
     if(q[i] == 0) break ;
   }
 fprintf(stdout,"====================================\n");
