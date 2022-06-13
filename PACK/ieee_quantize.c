@@ -19,21 +19,163 @@
 
 #include <stdio.h>
 #include <stdint.h>
+
+#define MAX(a,b) ( ((a) > (b)) ? (a) : (b) )
+#define MIN(a,b) ( ((a) < (b)) ? (a) : (b) )
+
 typedef union{
   uint32_t i ;
   float    f ;
 } intflt ;
 
 typedef struct{
-  int32_t e0 ;
-  int32_t nbits ;
-  int32_t nexp ;
-  int32_t min ;
-  int32_t max ;
-} qhead ;
+  int32_t e0 ;       // reference exponent (used at unquantize time) (ieee quantization)
+                     // true exponent of largest absolute value
+  int32_t nbits ;    // maximum number of bits retained in quantized token
+  int32_t nexp ;     // number of bits for the exponenent (ieee quantization)
+  int32_t min ;      // used for minimum quantized value (all quantizations)
+  int32_t max ;      // used for maximum quantized value (all quantizations)
+  float amin ;       // smallest non zero absolute value (setup)
+  float fmin ;       // largest signed value (setup)
+  float fmax ;       // minimum signed value (setup)
+  float rng ;        // range (power of 2) (setup)
+  float rnga ;       // range of absolute values (power of 2) (setup)
+  float epsi ;       // lowest absolute value considered as non zero
+  float quant ;      // quantization unit (power of 2) (linear quantization)
+} qhead ;            // quantization information header
 
 static int32_t e[] = {0, 1, 3, 7, 15, 31, 63, 127, 255} ;
 
+#define VL 8
+
+// vectorised by VL (POWER of 2) version
+void quantize_setup_v(float *z,          // array to quantize (IEEE 754 32 bit float) (INPUT)
+                        int n,           // number of data elements
+                        qhead *h)        // quantization control information (OUTPUT)
+{
+  int i, j, j0 ;
+  float mi[VL], ma[VL], mia[VL], za[VL], z0[VL] ;
+  intflt rng ;
+  float maxabs, minabs ;
+
+  for(i=0 ; i<VL && i<n ; i++) z0[i] = z[i] ;
+  for(    ; i<VL ; i++) z0[i] = z[0] ;              // if less than VL values, pad with z0[0]
+
+  for(i=0 ; i < VL ; i++){
+    mi[i]  = z0[i] ;                                // min value
+    ma[i]  = z0[i] ;                                // max value
+    mia[i] = (z0[i] > 0) ? z0[i] : -z0[i] ;         // absolute min value
+  }
+
+  j0 = n & (VL-1) ;                               // skip first mod(n,VL) values
+  if(j0 == 0) j0 = VL ;                           // n was a multiple of VL
+  for(j=j0 ; j<(n-VL+1) ; j+=VL){
+    for(i=0; i<VL ; i++){
+      ma[i] = MAX(ma[i] , z[j+i]);                // maximum signed value
+      mi[i] = MIN(mi[i] , z[j+i]);                // minimum signed value
+    }
+    for(i=0; i<VL ; i++){
+      za[i]  = z[j+i]  > 0 ? z[j+i] : -z[j+i] ;   // absolute value of z[j+i]
+      za[i]  = z[j+i] != 0 ? za[i]  : mia[i] ;    // if 0, replace with current absolute value minimum
+      mia[i] = MIN(mia[i], za[i]) ;               // minimum non zero absolute value 
+    }
+  }
+  for(i=1; i<VL ; i++) {               // final consolidation pass
+    ma[0]  = MAX(ma[0] , ma[i]);
+    mi[0]  = MIN(mi[0] , mi[i]);
+    mia[0] = MIN(mia[0] , mia[i]);
+  }
+  h->fmax = ma[0];
+  h->fmin = mi[0];
+  h->amin = mia[0] ;
+  rng.f = h->fmax - h->fmin ;
+  rng.i = ((rng.i >> 23) + 1) << 23 ;
+  h->rng = rng.f ;
+  maxabs = h->fmax >= 0 ? h->fmax : -h->fmax ;    // |maxval|
+  minabs = h->fmin >= 0 ? h->fmin : -h->fmin ;    // |minval|
+  maxabs = maxabs > minabs ? maxabs : minabs ;    // max( |maxval| , |minval| )
+  rng.f = maxabs - h->amin ;
+  rng.i = ((rng.i >> 23) + 1) << 23 ;
+  h->rnga = rng.f ;
+}
+
+void quantize_setup(float *f,        // array to quantize (IEEE 754 32 bit float) (INPUT)
+                    int n,           // number of data elements
+                    qhead *h)        // quantization control information (OUTPUT)
+{
+  int i, j ;
+//   intflt x ;
+  float fmin, fmax, amin, t ;
+
+//   x.i = 0x7F7FFFFF ;  // 3.40282E+38
+  fmin = f[i] ;
+  amin = fmin ;
+  fmax = -fmin ;
+  for(i = 0 ; i < n ; i++){
+    fmin = (f[i] < fmin) ? f[i] : fmin ;
+    fmax = (f[i] > fmax) ? f[i] : fmax ;
+    t = (f[i] < 0) ? -f[i] : f[i] ;
+    t = (t > 0) ? t : amin ;
+    amin = (t < amin) ? t : amin ;
+  }
+  h->amin = amin ;
+  h->fmin = fmin ;
+  h->fmax = fmax ;
+}
+
+// only keep nbits in the mantissa of IEEE 754 floating point numbers
+void ieee_clip(void *f, int n, int nbits){
+  int i, j ;
+  uint32_t *fi = (uint32_t *) f ;
+  uint32_t mask = 0xFFFFFFFF ;
+
+  mask >>= (32 -(23-nbits))  ; // lower 23 -nbits bits
+  mask = ~mask ;
+// fprintf(stdout,"mask = %8.8x\n",mask) ;
+  for(i=0 ; i<4 ; i++) fi[i] = fi[i] & mask ;
+  for(j=(n&3) ; j<n ; j+=4){
+    for(i=0; i<4 ; i++) fi[i+j] = fi[i+j] & mask ;
+  }
+}
+
+// f     : float to be quantized
+// e0    : true IEEE exponent of largest absolute value (no 127 bias)
+// round : mantissa rounding (integer, single bit in appropriate potition)
+// t0    : float scaling factor
+// nm    : number of effective mantissa bits ( 1 - 23 )
+// return signed quantized integer value of f
+int32_t ieee_f_to_q(float f, int32_t e0, int32_t round, float t0, int nm){
+  intflt z, x1, y ;
+  int sign, ex, q ;
+  z.f = f ;                     // float will be manipulated as integer
+  sign = z.i >> 31 ;            // sign (high bit)
+  z.i &= 0x7FFFFFFF ;           // suppress sign
+  z.i += round ;                // apply mantissa rounding
+  ex = (z.i >> 23) ;            // get exponent (including IEEE bias of 127)
+  x1.i = ((ex - e0) << 23) | (z.i & 0x7FFFFF) ;   // keep mantissa, alter exponent (largest value becomes 127)
+  y.f = x1.f * t0 ;             // apply final scaling (may produce denormalized float)
+  q = y.i >> (23 - nm) ;        // get rid of unused rightmost mantissa bits
+  q = sign ? -q : q ;           // restore sign
+  return q ;
+}
+
+// q    : quantized value representing a float
+// t1   : first scaling factor
+// t2   : second scaling factor
+// nm   : number of effective mantissa bits ( 1 - 23 )
+// return restored float value
+// t1 * t2 might generate an overflow, which is why they have to be applied separately using 2 multiplies
+float ieee_q_to_f(int32_t q, float t1, float t2, int nm){
+  int sign ;
+  intflt q1 ;
+  float f ;
+  sign = (q < 0) ? 1 : 0 ;      // extract sign
+  q1.i = sign ? -q : q ;        // absolute value
+  q1.i = q1.i << (23 - nm) ;    // shift left into proper place
+  f = q1.f * t1 * t2 ;          // apply the 2 scaling factors
+  f = sign ? -f : f ;           // restore sign
+  return f ;
+}
 // transform IEEE 754 floating point numbers into signed integers
 // a positive float value will be transformed into a nbits integer number
 // the upper nexp bits contain a reduced binary exponent
@@ -44,7 +186,7 @@ static int32_t e[] = {0, 1, 3, 7, 15, 31, 63, 127, 255} ;
 //                                    1111 mmmmmmmmmmmm
 //           denormalized value 0 00000000 ddddddddddddxxxxxxxxxxx becomes
 //                                    0000 dddddddddddd
-// numbers 0.0 -> *fmaxa get converted tot range
+// numbers 0.0 -> *fmaxa get converted to range
 //         0.0 -> 2 ** (e[nexp] + 1 -127)
 //         taking advantage of denormalized numbers to extend the dynamic range
 int32_t ieee_quantize(float *f,        // array to quantize (IEEE 754 32 bit float) (INPUT)
@@ -70,18 +212,74 @@ int32_t ieee_quantize(float *f,        // array to quantize (IEEE 754 32 bit flo
   round = (1 << (23 + nexp - nbits -1)) ;
   min = 0x7FFFFFFF ; max = -min ;
   for(i = 0 ; i < n ; i++) {
-    z.f = f[i] ;                                          // floats manipulated as integers
-    sign = z.i >> 31 ;                                    // get sign bit
-    z.i &= 0x7FFFFFFF ;                                   // get rid of sign
-    z.i += round ;                                        // apply rounding
-    ex = (z.i >> 23) - 127 ;                              // exponent
-    x1.i = ((127 + ex - e0) << 23) | (z.i & 0x7FFFFF) ;   // keep mantissa, alter exponent (largest value gets 127)
-    y.f = x1.f * t0.f ;                                   // apply final scale factor, result may be denormalized
-    q[i] = y.i >> (23 - nm) ;                             // shift to reduce to nbits
-    q[i] = sign ? -q[i] : q[i] ;                          // restore sign
+    q[i] = ieee_f_to_q(f[i], e0, round, t0.f, nm) ;
+//     z.f = f[i] ;                                          // floats manipulated as integers
+//     sign = z.i >> 31 ;                                    // get sign bit
+//     z.i &= 0x7FFFFFFF ;                                   // get rid of sign
+//     z.i += round ;                                        // apply rounding
+//     ex = (z.i >> 23) ;                                    // exponent
+//     x1.i = ((ex - e0) << 23) | (z.i & 0x7FFFFF) ;         // keep mantissa, alter exponent (largest value gets 127)
+//     y.f = x1.f * t0.f ;                                   // apply final scale factor, result may end up denormalized
+//     q[i] = y.i >> (23 - nm) ;                             // shift to reduce to nbits
+//     q[i] = sign ? -q[i] : q[i] ;                          // restore sign
     min = (q[i] < min) ? q[i] : min ;
     max = (q[i] > max) ? q[i] : max ;
   }
+  if(h != NULL){
+    h->e0 = e0 ;             // true exponent of largest absolute value float
+    h->nbits = nbits ;       // number of bits per token
+    h->nexp = nexp ;         // number of exponent bits
+    h->min = min ;           // lowest quantized signed value
+    h->max = max ;           // largest quantized signed value
+  }
+  return e0 ;
+}
+
+int32_t ieee_quantize_v4(float *f,        // array to quantize (IEEE 754 32 bit float) (INPUT)
+                      float *fmaxa,    // largest absolute value inarray (INPUT)
+                      int32_t *q,      // quantized data (OUTPUT)
+                      int n,           // number of data elements
+                      int nexp,        // number of bits for the exponent part of quantized data (INPUT)
+                      int nbits,       // number of bits in quantized data (INPUT)
+                      qhead *h)        // quantization control information (OUTPUT)
+{
+  int i, j, ex, e0, nm, sign ;
+  intflt z0, z, x1, t0, y ;
+  int32_t round, min, max ;
+
+  e0 = -128 ;                                // invalid true exponent
+  if(h == NULL) return e0 ;
+  if(nexp < 1 || nexp > 8) return e0 ;       // nexp too small or too large
+  nm = nbits - nexp ;                        // number of effective mantissa bits
+  if(nm < 1 || nm >23) return e0 ;           // too few or too many mantissa bits
+  z0.f = *fmaxa ;
+  e0 = (z0.i >> 23) - 127 ;                  // true exponent of largest absolute value
+  t0.i = e[nexp] << 23 ;                     // final scaling factor
+  round = (1 << (23 + nexp - nbits -1)) ;
+  min = 0x7FFFFFFF ; max = -min ;
+  for(i = 0 ; i < 4 ; i++){
+    q[i] = ieee_f_to_q(f[i], e0, round, t0.f, nm) ;
+  }
+  for(j=(n&3) ; j<n ; j+=4){
+    for(i = 0 ; i < 4 ; i++){
+      q[j+i] = ieee_f_to_q(f[j+i], e0, round, t0.f, nm) ;
+    }
+// // //   for(i = 0 ; i < n ; i++) {
+// // //     q[i] = ieee_f_to_q(f[i], e0, round, t0.f, nm) ;
+// // //     min = (q[i] < min) ? q[i] : min ;
+// // //     max = (q[i] > max) ? q[i] : max ;
+// // //   }
+  }
+//     z.f = f[i] ;                                          // floats manipulated as integers
+//     sign = z.i >> 31 ;                                    // get sign bit
+//     z.i &= 0x7FFFFFFF ;                                   // get rid of sign
+//     z.i += round ;                                        // apply rounding
+//     ex = (z.i >> 23) ;                                    // exponent
+//     x1.i = ((ex - e0) << 23) | (z.i & 0x7FFFFF) ;         // keep mantissa, alter exponent (largest value gets 127)
+//     y.f = x1.f * t0.f ;                                   // apply final scale factor, result may end up denormalized
+//     q[i] = y.i >> (23 - nm) ;                             // shift to reduce to nbits
+//     q[i] = sign ? -q[i] : q[i] ;                          // restore sign
+// // //   }
   if(h != NULL){
     h->e0 = e0 ;
     h->nbits = nbits ;
@@ -113,25 +311,28 @@ int32_t ieee_unquantize(float *f,      // restored array (IEEE 754 32 bit float)
   if(nm < 1 || nm >23) return 0 ;
 
   if(e0 > e[nexp]) {                         // must use 2 factors if e0 > e[nexp]
+fprintf(stdout,"BEEP\n");
     t1.i = ((254 - e[nexp]) << 23) ;
     t2.i = ((127 + e0)      << 23) ;         // t1.f * t2.f would be too large ( > 2**128 )
     for(i = 0 ; i < n ; i++) {
-      sign = (q[i] < 0) ? 1 : 0 ;            // extract sign
-      q1.i = sign ? -q[i] : q[i] ;           // positive value
-      q1.i = q1.i << (23 - nm) ;
-      f[i] = q1.f * t1.f * t2.f ;
-//       f[i] = (q1.i == 0) ? 0 : q1.f * t1.f * t2.f ;
-      f[i] = sign ? -f[i] : f[i] ;           // restore sign
+      f[i] = ieee_q_to_f(q[i], t1.f, t2.f, nm) ;
+//       sign = (q[i] < 0) ? 1 : 0 ;            // extract sign
+//       q1.i = sign ? -q[i] : q[i] ;           // positive value
+//       q1.i = q1.i << (23 - nm) ;
+//       f[i] = q1.f * t1.f * t2.f ;
+//       f[i] = sign ? -f[i] : f[i] ;           // restore sign
     }
   }else{                                     // can use 1 factor if e0 <= e[nexp]
+fprintf(stdout,"BOP\n");
     t1.i = ((254 - e[nexp] + e0) << 23) ;
+    t2.f = 1.0f ;
     for(i = 0 ; i < n ; i++) {
-      sign = (q[i] < 0) ? 1 : 0 ;            // extract sign
-      q1.i = sign ? -q[i] : q[i] ;           // positive value
-      q1.i = q1.i << (23 - nm) ;
-      f[i] = q1.f * t1.f ;
-//       f[i] = (q1.i == 0) ? 0 : q1.f * t1.f ;
-      f[i] = sign ? -f[i] : f[i] ;           // restore sign
+      f[i] = ieee_q_to_f(q[i], t1.f, t2.f, nm) ;
+//       sign = (q[i] < 0) ? 1 : 0 ;            // extract sign
+//       q1.i = sign ? -q[i] : q[i] ;           // positive value
+//       q1.i = q1.i << (23 - nm) ;
+//       f[i] = q1.f * t1.f ;
+//       f[i] = sign ? -f[i] : f[i] ;           // restore sign
     }
   }
   return 1 ;
@@ -139,6 +340,7 @@ int32_t ieee_unquantize(float *f,      // restored array (IEEE 754 32 bit float)
 
 #if defined(SELF_TEST)
 
+#define NPT  34
 #define NPTS 35
 #define N    35
 #define NEXP 4
@@ -153,12 +355,18 @@ int main(){
   float fi[NPTS], fo[NPTS] ;
   int32_t q[NPTS] ;
   qhead h ;
+  float fz0[NPT] ;
+  qhead he ;
 
+  for(i=0 ; i<NPT ; i++) fz0[i] = i - (NPT-1)/2.0f ;
+  quantize_setup_v(fz0, NPT, &he);
+  fprintf(stdout,"max = %f, min = %f, mina = %f, rng = %f, rnga = %f\n", he.fmax, he.fmin, he.amin, he.rng, he.rnga);
+// return 0 ;
 //   z0.f = zmax ;
 //   z.i &= 0xFFFFFF80 ;
 //   e0 = (z0.i >> 23) - 127 ; 
 //   fprintf(stdout,"z = %8.8x %f\n", z0.i, z0.f) ;
-
+  ieee_clip(fi, 0, 16) ;
   fi[0] = zmax ;
   for(i=1 ; i<NPTS ; i++) fi[i] = fi[i-1] * .499 ;
   fi[3] = -fi[3] ;
