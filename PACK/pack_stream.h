@@ -40,7 +40,7 @@
   end type
 #else
 
-#include <stdint.h>
+#include <pack_macros.h>
 
 #if ! defined(ABS)
 #define ABS(val)  ((val) < 0) ? (-(val)) : (val)
@@ -51,14 +51,13 @@
 #if ! defined(MIN)
 #define MIN(a,b)  ((a) < (b)) ? (a) : (b)
 #endif
+
 #if ! defined(NEEDBITS)
 #define NEEDBITS(range,needed) { uint64_t rng = (range) ; needed = 1; while (rng >>= 1) needed++ ; }
 #endif
+
 #if ! defined(MINMAX)
 #define MINMAX(min,max,src,n)  { int i=1 ; min = max = src[0] ; while(i++ < n) { min = MIN(min,src[i]) ; max = MAX(max,src[i]); } }
-#endif
-#if ! defined(RMASK)
-#define RMASK(mask, nbits) {mask = 0 ; mask = ~mask ; mask = mask >> (8*sizeof(mask) - nbits) ;}
 #endif
 
 // inline functions to initialize, insert into, extract from a bit stream
@@ -156,7 +155,7 @@ uint32_t  inline pstream_get_32(pstream *ps, int nbits){   // extract nbits (<= 
   uint32_t t32 ;
   uint64_t t64 ;
   if(ps->na < 32){                     // always keep at least 32 bits available in read buffer
-    ps->a = ps->a >> (32 - ps->na) ;   // align usefule bits at halfway position
+    ps->a = ps->a >> (32 - ps->na) ;   // align useful bits at halfway position
     t64 = *(ps->p) ;                   // get 32 bits from stream
     ps->p = ps->p + 1 ;                // bump read pointer
     ps->na = ps->na + 32 ;             // bump bits available counter
