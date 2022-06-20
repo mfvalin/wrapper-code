@@ -29,15 +29,15 @@
 #define RMASK64(nbits)  (~((~0l) << nbits))
 #endif
 
-// macros to insert into, extract from a 32 bit token stream
+// macros to insert into, extract from a stream of 32 bit elements
+
+// acc   : 64 bit integer accumulator (uint64_t)
+// sp    : pointer into uint32_t array (the packed stream)
+// count : numbre of available/free bits in accumulator
+// token : 32/64 bit unsigned integer (uint32_t/uint64_t) inserted into / extracted from stream
+// nbits : token length (the token is ASSUMED to only have 1s in the rightmost nbits bits) in insert mode
 
 // =============================== token insertion ===============================
-
-// acc   : 64 bit accumulator (uint64_t)
-// sp    : pointer into uint32_t array
-// count : numbre of available/free bits in accumulator
-// token : 32/64 bit unsigned integer (uint32_t/uint64_t)
-// nbits : token length (the token is ASSUMED to only have 1s in the rightmost nbits bits)
 
 // initialize bit count and accumulator to store into a fresh stream of 32 bit UNSIGNED elements
 // an empty accumulator with 64 bits available for insertion
