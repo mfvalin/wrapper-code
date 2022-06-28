@@ -13,18 +13,20 @@
 //  Library General Public License for more details.
 //
 
+#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <float.h>
 
 #if defined(__GNUC__)
-#if defined(__INTEL_COMPILER) || defined(__clang__) || defined(__PGIC__)
-#undef __GCC_IS_COMPILER__
-#else
+// #if defined(__INTEL_COMPILER) || defined(__clang__) || defined(__PGIC__)
+// #undef __GCC_IS_COMPILER__
+// #else
 #define __GCC_IS_COMPILER__
-#endif
+// #endif
 #endif
 
+// use Intel compatible intrinsics for SIMD instructions
 #if defined(__AVX2__) && defined(__x86_64__) && defined(__GCC_IS_COMPILER__) && defined(WITH_SIMD)
 #include <immintrin.h>
 #endif
@@ -57,6 +59,15 @@ int float_info_simple(float *zz, int ni, int lni, int nj, float *maxval, float *
   return 0 ;
 }
 
+// Fortran layout(lni,nj) is assumed, i index varying first
+// zz     [IN]  : 32 bit floating point array
+// ni     [IN]  : number of useful points along i
+// lni    [IN]  : actual row length ( >= ni )
+// nj     [IN]  : number of rows (along j)
+// maxval [OUT] : highest value in zz
+// minval [OUT] : lowest value in zz
+// minabs [OUT] : smallest NON ZERO absolute value in zz
+// return value : 0 (to be consistent with float_info_missing
 int float_info_no_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs){
   int i0, i, j ;
   float z[VL] ;
@@ -127,15 +138,29 @@ int float_info_no_missing(float *zz, int ni, int lni, int nj, float *maxval, flo
   return 0 ;         // number of values equal to special value
 }
 
+// as some compilers generate code with poor performance, an alternative version
+// using Intel instrinsics for SIMD instructions is provided
+// it is activated by adding -DWITH_SIMD to the compiler options
+// Fortran layout(lni,nj) is assumed, i index varying first
+// zz     [IN]  : 32 bit floating point array
+// ni     [IN]  : number of useful points along i
+// lni    [IN]  : actual row length ( >= ni )
+// nj     [IN]  : number of rows (along j)
+// maxval [OUT] : highest value in zz
+// minval [OUT] : lowest value in zz
+// minabs [OUT] : smallest NON ZERO absolute value in zz
+// spval  [IN]  : any value in zz that is equal to spval will be IGNORED
+//                should spval be a NULL pointer, there is no such value
+// return value : number of elements in zz that are equal to the special value
 int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval){
   int i0, i, j ;
   uint32_t *iz ;
   float sz ;
   float zmax[VL], zma ;
   float zmin[VL], zmi ;
-  float abs[VL], zabs ;
+  float zabs ;
   float amin[VL], ami ;
-  int count[VL] ;
+  int count[VL], fixcount ;
   int nfold, incr, cnt ;
   uint32_t *ispval = (uint32_t *) spval ;
   uint32_t missing ;
@@ -144,10 +169,12 @@ int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float 
   __m256  v, vt, vmax, vmin, vamin, vmissing, vma, vmi, vsign, vs2, vzero ;
 #endif
 
+  // if no special value, call simpler, faster function
   if(spval == NULL) return float_info_no_missing(zz, ni, lni, nj, maxval, minval, minabs) ;
 
   if(lni == ni) { ni = ni * nj ; nj = 1 ; }
   missing = *ispval ;
+  fixcount = 0 ;
 
   if(ni < VL) {        // less than VL elements along i
     zma = -FLT_MAX ;
@@ -196,10 +223,14 @@ int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float 
       incr = (nfold > 0) ? nfold : VL ;                         // first increment is shorter if ni not a multiple of VL
       iz = (uint32_t *) zz ;
       // there may be some overlap between pass 0 and pass 1
-      // elements nfold -> VL -1 will be processed twice
+      // elements incr -> VL -1 will be processed twice
       // but it does not matter  for min/max/abs/absmin
       // one SIMD pass is cheaper than a scalar loop
-      for(i0 = 0 ; i0 < ni-VL+1 ; i0 += incr){                  // loop for a row
+      for(i = incr ; i < VL ; i++)                              // some missing values could be counted twice
+        if(iz[i] == missing) {                                  // scan iz[incr:VL-1] to find and count them
+          fixcount++ ;
+        }
+      for(i0 = 0 ; i0 < ni-VL+1 ; i0 += incr){                       // loop over a row
 #if defined(__AVX2__) && defined(__x86_64__) && defined(__GCC_IS_COMPILER__) && defined(WITH_SIMD)
         v = _mm256_loadu_ps(zz + i0) ;                               // get values
         vs1 = _mm256_cmpeq_epi32((__m256i) vmissing, (__m256i) v) ;  // compare with missing value
@@ -218,7 +249,7 @@ int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float 
         vt = _mm256_blendv_ps(vt, vamin, (__m256) vs2) ;             // vamin if 0
         vamin = _mm256_min_ps(vamin, vt) ;                           // min of absolute value
 #else
-        float z[VL], z1[VL], z2[VL] ;
+        float z[VL], z1[VL], z2[VL], abs[VL] ;
         uint32_t zi[VL] ;
         for(i=0 ; i<VL ; i++){                                  // blocks of VL values
           z[i]      = zz[i0+i] ;                                // next set of values
@@ -244,7 +275,7 @@ int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float 
     }
 
 #if defined(__AVX2__) && defined(__x86_64__) && defined(__GCC_IS_COMPILER__) && defined(WITH_SIMD)
-    _mm256_storeu_ps(zmin, vmin) ;
+    _mm256_storeu_ps(zmin, vmin) ;                         // store SIMD registers
     _mm256_storeu_ps(zmax, vmax) ;
     _mm256_storeu_ps(amin, vamin) ;
     _mm256_storeu_si256((__m256i *) count, vcnt) ;
@@ -259,10 +290,20 @@ int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float 
     *maxval = zmax[0] ;    // highest value (-FLT_MAX if all values are missing)
     *minval = zmin[0] ;    // lowest value (FLT_MAX if all values are missing)
   }
-
-  return count[0] ;         // number of values not equal to special value
+  return count[0] - fixcount ;         // number of values not equal to special value
 }
 
+// Fortran layout(lni,nj) is assumed, i index varying first
+// zz     [IN]  : 32 bit floating point array
+// ni     [IN]  : number of useful points along i
+// lni    [IN]  : actual row length ( >= ni )
+// nj     [IN]  : number of rows (along j)
+// maxval [OUT] : highest value in zz
+// minval [OUT] : lowest value in zz
+// minabs [OUT] : smallest NON ZERO absolute value in zz
+// spval  [IN]  : any value in zz that is equal to spval will be IGNORED
+//                should spval be a NULL pointer, there is no such value
+// return value : number of elements in zz that are equal to the special value
 int float_info(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval){
   if(spval == NULL){
     return float_info_no_missing(zz, ni, lni, nj, maxval, minval, minabs) ;
