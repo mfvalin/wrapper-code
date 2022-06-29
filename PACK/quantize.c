@@ -19,7 +19,8 @@
 
 typedef struct {
   int o;    // offset
-  int e;    // exponent
+  int e;    // largest exponent (min, max, range)
+  float fac ;
 } PackHeader;
 
 typedef union{
@@ -81,44 +82,102 @@ void quantize(unsigned short int *iz, float *z, int n, float fac, int round, int
 // if 0 < nbits <= 8, unsigned bytes will be stored
 #endif
 
+void fast_quantize_prep(float *z, int n, int nbits, PackHeader *p, float maxval, float minval) {
+  FltInt m1, m2, m3;
+  int exp1, exp2, exp3, i, j ;
+  float fac, range;
+  int mask_trunc ;
+  int offset ;
+
+  if(nbits <= 0 ) return;
+
+  range = maxval - minval;
+  mask_trunc = ( -1 << (24 - nbits) ) ;      // truncation mask
+  m1.f = maxval ;
+  m2.f = minval ;
+  m3.f = range ;
+  exp1 = 0xFF & (m1.i >> 23) ;               // exponents for max, min, range
+  exp2 = 0xFF & (m2.i >> 23) ;
+  exp3 = 0xFF & (m3.i >> 23) ;
+  exp1 = (exp2 > exp1) ? exp2 : exp1 ;       // largest exponent ( max, min )
+  exp1 = (exp3 > exp1) ? exp3 : exp1 ;       // largest exponent ( max, min, range )
+  m1.i = (127 + (23 - (exp1 - 127))) << 23;  // factor to bring largest exponent to 23
+  fac = m1.f;                                // normalizing multiplier
+
+  offset = minval * fac ;         // quantized minimum value
+  offset = offset & mask_trunc ;  // drop lower (24 - nbits) bits
+
+  p->o = offset ;                 // truncated minimum value
+  p->e = exp1 ;                   // largest exponent (gives normalizing multiplier)
+}
+
+// quantizer for 32 bit floats producing a stream of unsigned 32 bit integers
+// nbits is assumed to be <= 24
+void fast_quantize_32(void *iz, float *z, int n, int nbits, PackHeader *p ) {
+  int i, it;
+  FltInt m1;
+  float fac ;
+  int offset = p->o ;   // offset reflecting minimum value
+  int exp1   = p->e ;   // largest exponent in original float values
+  int round = 0 ;
+  int *izw = (unsigned int   *) iz;
+
+  if(nbits <= 0 ) return ;
+  if(nbits > 24 ) nbits = 24 ;         // no more than 24 bits are kept
+
+  m1.i = (127 + (23 - (exp1 - 127))) << 23;  // factor to bring largest exponent to 23
+  fac = m1.f;
+  if(nbits < 24)                       // no rounding if nbits = 24
+    round = 1 << (23 - nbits);         // rounding for quantized value
+  round = round - offset;              // combine round and offset
+
+  for ( i=0 ; i<n ; i++){
+    it = z[i] * fac;                   // "normalize" to largest exponent
+    it = (it + round) >> (24-nbits);   // remove offset, add rounding term
+    izw[i] = (it < 0) ? 0 : it ;       // quantized result MUST be >= 0
+  }
+}
+
 void fast_quantize(void *iz, float *z, int n, int nbits, PackHeader *p ) {
   FltInt m1, m2, m3;
   int exp1, exp2, exp3, i, j, it;
   float fac, range;
   int mask_trunc ;
-  int mask_nbits ;
+//   int mask_nbits ;
   int offset, irange;
   int round = 0 ;
-  unsigned char *izb = (unsigned char *) iz;
+  unsigned char  *izb = (unsigned char  *) iz;
   unsigned short *izs = (unsigned short *) iz;
-  float mi[8], ma[8], su[8];
+  unsigned int   *izw = (unsigned int   *) iz;
+  float mi[8], ma[8];
+//   float su[8];
   float maxval, minval;
 
   if(nbits <= 0 ) return;
 
   for(i=0; i<8 ; i++) mi[i] = z[i];
   for(i=0; i<8 ; i++) ma[i] = z[i];
-  for(i=0; i<8 ; i++) su[i] = z[i];
+//   for(i=0; i<8 ; i++) su[i] = z[i];
 
   for(j=(n&7) ; j<n ; j+=8){
     for(i=0; i<8 ; i++){
       ma[i] = MAX(ma[i] , z[j+i]);
       mi[i] = MIN(mi[i] , z[j+i]);
-      su[i] = su[i] + z[i];
+//       su[i] = su[i] + z[i];
     }
   }
   for(i=1; i<8 ; i++) {
     ma[0] = MAX(ma[0] , ma[i]);
     mi[0] = MIN(mi[0] , mi[i]);
-    su[0] += su[i];
+//     su[0] += su[i];
   }
   maxval = ma[0];
   minval = mi[0];
 
   range = maxval - minval;
   round = 1 << (23 - nbits);
-  mask_nbits = ~( -1 << nbits );
-  mask_trunc = ( -1 << (24 - nbits) );
+//   mask_nbits = ~( -1 << nbits );          // right mask of nbits bits
+  mask_trunc = ( -1 << (24 - nbits) );    // truncation mask
   m1.f = maxval;
   m2.f = minval;
   m3.f = range;
@@ -135,34 +194,50 @@ void fast_quantize(void *iz, float *z, int n, int nbits, PackHeader *p ) {
   round = round - offset;         // integer offset, (reflects rounded minimum value)
   irange = range * fac ;          // compute right shift count needed to make irange <= mask_nbits
 
-  if(nbits > 8) {               // produce a stream of unsigned shorts
+  if(nbits > 16) {                // produce a stream of unsigned ints
     for ( i=0 ; i<n ; i++){
-      it = z[i] * fac;          // "normalize" to largest exponent
+      it = z[i] * fac;            // "normalize" to largest exponent
       it = (it + round) >> (24-nbits);   // remove offset, add rounding term
-      izs[i] = (it > mask_nbits) ? mask_nbits : it; // clamp values at FFFF
+//       izw[i] = (it > mask_nbits) ? mask_nbits : it; // clamp values
+      izw[i] = it ;
     }
-  }else{                        // produce a stream of unsigned bytes
+  }else if(nbits > 8) {           // produce a stream of unsigned shorts
     for ( i=0 ; i<n ; i++){
-      it = z[i] * fac;          // "normalize" to largest exponent
+      it = z[i] * fac;            // "normalize" to largest exponent
       it = (it + round) >> (24-nbits);   // remove offset, add rounding term
-      izb[i] = (it > mask_nbits) ? mask_nbits : it; // clamp values at FFFF
+//       izs[i] = (it > mask_nbits) ? mask_nbits : it; // clamp values at FFFF
+      izs[i] = (it > 0xFFFF) ? 0xFFFF : it; // clamp values at FFFF
+    }
+  }else{                          // produce a stream of unsigned bytes
+    for ( i=0 ; i<n ; i++){
+      it = z[i] * fac;            // "normalize" to largest exponent
+      it = (it + round) >> (24-nbits);   // remove offset, add rounding term
+//       izb[i] = (it > mask_nbits) ? mask_nbits : it; // clamp values at FF
+      izb[i] = (it > 0xFF) ? 0xFF : it; // clamp values at FF
     }
   }
   p->o = offset;
   p->e = exp1;
 }
+
 void fast_unquantize(void *iz, float *z, int n, int nbits, PackHeader *p) {
   FltInt m1;
   float fac;
   int i, t;
-  unsigned char *izb = (unsigned char *) iz;
+  unsigned char  *izb = (unsigned char  *) iz;
   unsigned short *izs = (unsigned short *) iz;
+  unsigned int   *izw = (unsigned int   *) iz;
   int offset = p->o;
   int exp = p->e;
 
   m1.i = (exp - 23) << 23;  // inverse of factor to bring largest exponent to 23
   fac = m1.f;
-  if(nbits > 8) {
+  if(nbits > 16) {
+    for ( i=0 ; i<n ; i++){
+      t = izw[i] << (24-nbits) ;
+      z[i] = (t + offset) * fac;
+    }
+  }else if(nbits > 8) {
     for ( i=0 ; i<n ; i++){
       t = izs[i] << (24-nbits) ;
       z[i] = (t + offset) * fac;
@@ -175,35 +250,85 @@ void fast_unquantize(void *iz, float *z, int n, int nbits, PackHeader *p) {
   }
 
 }
+
+void fast_unquantize_32(void *iz, float *z, int n, int nbits, PackHeader *p) {
+  FltInt m1;
+  float fac;
+  int i, t;
+  unsigned int   *izw = (unsigned int   *) iz;
+  int offset = p->o;
+  int exp = p->e;
+
+  m1.i = (exp - 23) << 23;  // inverse of factor to bring largest exponent to 23
+  fac = m1.f;
+  for ( i=0 ; i<n ; i++){
+    t = izw[i] << (24-nbits) ;
+    z[i] = (t + offset) * fac;
+  }
+}
 #if defined(SELF_TEST)
-#define NTEST 32800
-#define NBITS 14
+#define NPTS 32800
 #define ABS(a) ((a) > 0 ? a : -(a))
 #include <stdio.h>
-main(){
-  float zi[NTEST] ;
-  float zo[NTEST] ;
-  short iz[NTEST] ;
+int main(){
+  float zi[NPTS] ;
+  float zo[NPTS] ;
+  short iz[NPTS] ;
+  int iw[NPTS] ;
   PackHeader p;
-  int i;
+  int i, j;
   float toler;
   double avg = 0.0;
   int error=0;
+  float minval, maxval ;
+  float delta, maxdelta ;
+  double avgdelta = 0.0 ;
+  int NBITS = 22 ;
 
-  for(i=0 ; i<NTEST ; i++) { zi[i] = .00001 + .012345 * (i - NTEST/2 ) ;  zo[i] = -99999.0 ; }
-  toler = (zi[NTEST-1] - zi[0]);
-  i = 1 << (NBITS);
-  toler /= i; //  toler *= 2;
-  fast_quantize(iz, zi, NTEST, NBITS, &p );
-  printf("offset = %10d \n",p.o);
-  fast_unquantize(iz, zo, NTEST, NBITS, &p);
-  for(i=0 ; i<NTEST ; i++) {
+  for(i=0 ; i<NPTS ; i++) { zi[i] = .00001 + .012345 * (i - NPTS/2 ) ;  zo[i] = -99999.0 ; }
+  minval = maxval = zi[0] ;
+  for(i=1 ; i<NPTS ; i++) { maxval = (zi[i] > maxval) ? zi[i] : maxval ; minval = (zi[i] < minval) ? zi[i] : minval ;}
+
+  for(j = 1 ; j < 25 ; j++) {
+    NBITS = j ;
+    i = 1 << (NBITS);
+    toler = (zi[NPTS-1] - zi[0]);
+    toler /= i; //  toler *= 2;
+
+    fast_quantize_prep(zi, NPTS, NBITS, &p, maxval, minval );
+//     printf("offset = %10d, exp = %d, nbits = %d, ", p.o, p.e, NBITS);
+    printf("nbits = %2d, ", NBITS);
+    fast_quantize_32(iw, zi, NPTS, NBITS, &p ) ;
+    fast_unquantize_32(iw, zo, NPTS, NBITS, &p);
+    error = 0 ; maxdelta = 0.0 ; avgdelta = 0.0 ;
+    for(i=0 ; i<NPTS ; i++) {
+      delta = ABS(zo[i]-zi[i]) ;
+      avgdelta += delta ;
+      maxdelta = (delta > maxdelta) ? delta : maxdelta ;
+      if(delta > toler) error++;
+      avg += (zo[i]-zi[i]);
+    }
+    avg /= NPTS;
+//     printf("%d points from %15.5f to %15.5f, maxdelta = %15.8f, avgdelta = %15.8f\n",
+//            NPTS, zi[0], zi[NPTS-1], maxdelta, avgdelta/NPTS);
+    printf("maxdelta = %15.8f, avgdelta = %15.8f, ",
+           maxdelta, avgdelta/NPTS);
+    printf("bias = %15.8f, toler = %9.5f, bias/toler = %8.4f, maxdelta/toler = %6.4f, toler exceeded=%d\n\n",
+          avg, toler, avg/toler, maxdelta/toler, error);
+  }
+return 0 ;
+
+  fast_quantize(iz, zi, NPTS, NBITS, &p );
+  printf("offset = %10d, exp = %d \n",p.o,p.e);
+  fast_unquantize(iz, zo, NPTS, NBITS, &p);
+  error = 0 ;
+  for(i=0 ; i<NPTS ; i++) {
     if(ABS(zo[i]-zi[i])>toler) error++;
 //     printf("%3d %10.5f %10.5f %10.5f %10.5f (%8.5f) %s\n",i,zi[i],zo[i],(zo[i]-zi[i]) / zi[i],(zo[i]-zi[i]) , toler, (ABS(zo[i]-zi[i])>toler)?"*":" ");
     avg += (zo[i]-zi[i]);
   }
-  avg /= NTEST;
-   printf("from %15.8f to %15.8f\n",zi[0],zi[NTEST-1]);
+  avg /= NPTS;
+   printf("from %15.8f to %15.8f\n",zi[0],zi[NPTS-1]);
   printf("bias = %15.8f, toler = %7.5f, bias/toler = %6.4f, toler exceeded=%d\n",avg,toler,avg/toler,error);
 }
 #endif
