@@ -149,10 +149,11 @@ int float_info_no_missing(float *zz, int ni, int lni, int nj, float *maxval, flo
 // maxval [OUT] : highest value in zz
 // minval [OUT] : lowest value in zz
 // minabs [OUT] : smallest NON ZERO absolute value in zz
-// spval  [IN]  : any value in zz that is equal to spval will be IGNORED
+// spval  [IN]  : any (value & spmask) in zz that is equal to (spval & spmask) will be IGNORED
 //                should spval be a NULL pointer, there is no such value
+// spmask  [IN] : mask for spval
 // return value : number of elements in zz that are equal to the special value
-int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval){
+int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval, uint32_t spmask){
   int i0, i, j ;
   uint32_t *iz ;
   float sz ;
@@ -165,15 +166,16 @@ int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float 
   uint32_t *ispval = (uint32_t *) spval ;
   uint32_t missing ;
 #if defined(__AVX2__) && defined(__x86_64__) && defined(__GCC_IS_COMPILER__) && defined(WITH_SIMD)
-  __m256i vcnt, vs1 ;
-  __m256  v, vt, vmax, vmin, vamin, vmissing, vma, vmi, vsign, vs2, vzero ;
+  __m256i vcnt, vs1, vmissing, vmask, vti ;
+  __m256  v, vt, vmax, vmin, vamin, vma, vmi, vsign, vs2, vzero ;
 #endif
 
   // if no special value, call simpler, faster function
   if(spval == NULL) return float_info_no_missing(zz, ni, lni, nj, maxval, minval, minabs) ;
+  spmask = (~spmask) ;            // complement spmask
 
   if(lni == ni) { ni = ni * nj ; nj = 1 ; }
-  missing = *ispval ;
+  missing = (*ispval) & spmask ;  // special value & mask
   fixcount = 0 ;
 
   if(ni < VL) {        // less than VL elements along i
@@ -184,15 +186,15 @@ int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float 
     for(j = 0 ; j < nj ; j++){
       iz = (uint32_t *) zz ;
       for(i = 0 ; i < ni ; i++){
-        sz    = (iz[i] == missing) ? zma : zz[i] ;
+        sz    = ((iz[i]  & spmask) == missing) ? zma : zz[i] ;
         zma   = (sz > zma)  ? sz  : zma ;
-        sz    = (iz[i] == missing) ? zmi : zz[i] ;
+        sz    = ((iz[i]  & spmask) == missing) ? zmi : zz[i] ;
         zmi   = (sz < zmi)  ? sz  : zmi ;
-        sz    = (iz[i] == missing) ? ami : zz[i] ;
+        sz    = ((iz[i]  & spmask) == missing) ? ami : zz[i] ;
         zabs  = (sz < 0.0f)    ? -sz  : sz ;
         zabs  = (zabs == 0.0f) ? ami  : zabs ;
         ami   = (zabs < ami)   ? zabs : ami ;
-        cnt  += (iz[i] == missing) ? 0 : 1 ;
+        cnt  += ((iz[i]  & spmask) == missing) ? 0 : 1 ;
       }
       zz += lni ;
     }
@@ -215,7 +217,8 @@ int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float 
     vmax  = _mm256_loadu_ps(zmax) ;
     vamin = _mm256_loadu_ps(amin) ;
     vcnt  = _mm256_loadu_si256 ((__m256i *) count) ;
-    vmissing = _mm256_set1_ps(*spval) ;
+    vmissing = _mm256_set1_epi32(missing) ;                     // special value & mask
+    vmask = _mm256_set1_epi32(spmask) ;                         // mask for special value
     vsign = _mm256_set1_ps(-0.0f) ;
     vzero = _mm256_xor_ps(vzero, vzero) ;
 #endif
@@ -227,13 +230,14 @@ int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float 
       // but it does not matter  for min/max/abs/absmin
       // one SIMD pass is cheaper than a scalar loop
       for(i = incr ; i < VL ; i++)                              // some missing values could be counted twice
-        if(iz[i] == missing) {                                  // scan iz[incr:VL-1] to find and count them
+        if((iz[i]  & spmask) == missing) {                                  // scan iz[incr:VL-1] to find and count them
           fixcount++ ;
         }
       for(i0 = 0 ; i0 < ni-VL+1 ; i0 += incr){                       // loop over a row
 #if defined(__AVX2__) && defined(__x86_64__) && defined(__GCC_IS_COMPILER__) && defined(WITH_SIMD)
         v = _mm256_loadu_ps(zz + i0) ;                               // get values
-        vs1 = _mm256_cmpeq_epi32((__m256i) vmissing, (__m256i) v) ;  // compare with missing value
+        vti = _mm256_and_si256((__m256i) v, vmask) ;                  // apply special value mask
+        vs1 = _mm256_cmpeq_epi32(vmissing, vti) ;                     // compare with masked missing value
 
         vma = _mm256_blendv_ps(v, vmax, (__m256) vs1) ;              // vmax if equal to missing value
         vmi = _mm256_blendv_ps(v, vmin, (__m256) vs1) ;              // vmin if equal to missing value
@@ -243,8 +247,7 @@ int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float 
         vmin = _mm256_min_ps(vmin, vmi) ;                            // min(vmi, vmin)
 
         vt = _mm256_andnot_ps(vsign, vt) ;                           // flush sign (absolute value)
-        vs2 = _mm256_cmp_ps(vt, vzero,
-                            0) ;
+        vs2 = _mm256_cmp_ps(vt, vzero, 0) ;                          // compare for equality
         vcnt  = _mm256_sub_epi32(vcnt, vs1) ;                        // count++ where equal to missing value
         vt = _mm256_blendv_ps(vt, vamin, (__m256) vs2) ;             // vamin if 0
         vamin = _mm256_min_ps(vamin, vt) ;                           // min of absolute value
@@ -253,8 +256,9 @@ int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float 
         uint32_t zi[VL] ;
         for(i=0 ; i<VL ; i++){                                  // blocks of VL values
           z[i]      = zz[i0+i] ;                                // next set of values
-          zi[i]     = iz[i0+i] ;
+          zi[i]     = iz[i0+i] & spmask;
 
+          // replace zi[i] == missing with (z[i] & missing_mask) == missing
           z1[i]     = (zi[i] == missing) ? zmax[i] : z[i] ;     // if missing, set to current highest value
           zmax[i]   = (z1[i] > zmax[i])  ? z1[i]   : zmax[i] ;  // highest value of z
 
@@ -304,11 +308,11 @@ int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float 
 // spval  [IN]  : any value in zz that is equal to spval will be IGNORED
 //                should spval be a NULL pointer, there is no such value
 // return value : number of elements in zz that are equal to the special value
-int float_info(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval){
+int float_info(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval, uint32_t spmask){
   if(spval == NULL){
     return float_info_no_missing(zz, ni, lni, nj, maxval, minval, minabs) ;
   }else{
-    return float_info_missing(zz, ni, lni, nj, maxval, minval, minabs, spval) ;
+    return float_info_missing(zz, ni, lni, nj, maxval, minval, minabs, spval, spmask) ;
   }
 }
 
