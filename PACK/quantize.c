@@ -174,7 +174,7 @@ void float_quantize(void *iz, float *z, int n, PackHeader *p ) {
     round = 1 << (23 - nbits);         // rounding for quantized value
   round = round - offset;              // combine round and offset
 
-  if(exp1 > 1 && exp1 < 255){
+  if(exp1 > 1 && exp1 < 127){
     FloatInt m1;
     float fac32 ;
     m1.i = (127 + (23 - exp1)) << 23 ;   // factor to bring largest exponent to 23
