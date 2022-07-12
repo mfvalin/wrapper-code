@@ -372,6 +372,25 @@ void fp32_to_fp16_scaled(float *f, uint16_t *q, int n, float scale){
   for(i = 0 ; i < n ; i++) q[i] = ieee_fp32_to_fp16(f[i]*scale) ;
 }
 
+// IEEE 32 bit floating point to brain float (16 bit)
+// current code will not behave correctly if upper 16 bits after sign bit in float are 1 (NaN)
+// removing comments makes code safe
+void fp32_to_bf16(float *f, uint16_t *q, int n){
+  FloatUint z ;
+  uint32_t round = 1 << 15 ;
+  uint32_t sign ;
+  int i ;
+  for(i = 0 ; i < n ; i++) {
+    z.f = f[i] ;
+//     sign = z.i & (~0x7FFFFFFF) ;
+//     z.i &= 0x7FFFFFFF ;
+    z.i += round ;
+//     z.i &= 0x7FFFFFFF ;
+//     z.i |= sign ;
+    q[i] = z.i >> 16 ;
+  }
+}
+
 // half precision (16 bit) IEEE floating point to IEEE 32 bit floating point
 float ieee_fp16_to_fp32(uint16_t q){
   FloatUint z, y ;
@@ -394,11 +413,23 @@ void fp16_to_fp32(float *f, uint16_t *q, int n){
   int i ;
   for(i = 0 ; i < n ; i++) f[i] = ieee_fp16_to_fp32(q[i]) ;
 }
+
 // scaled half precision (16 bit) IEEE floating point to IEEE 32 bit floating point
 void fp16_to_fp32_scaled(float *f, uint16_t *q, int n, float scale){
   int i ;
   float rscale = 1.0f / scale ;
   for(i = 0 ; i < n ; i++) f[i] = rscale * ieee_fp16_to_fp32(q[i]) ;
+}
+
+// brain float (16 bit) to IEEE 32 bit floating point
+void bf16_to_fp32(float *f, uint16_t *q, int n){
+  FloatUint z ;
+  int i ;
+  for(i = 0 ; i < n ; i++){
+    z.i = q[i] ;
+    z.i <<= 16 ;   // shift to upper 16 bits
+    q[i] = z.f ;
+  }
 }
 
 #if defined(SELF_TEST)
