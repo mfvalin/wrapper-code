@@ -12,12 +12,12 @@
 // Library General Public License for more details.
 //
 
-#if ! defined(MISC_HELPERS_1)
-#define MISC_HELPERS_1
+#if ! defined(MISC_OPERATORS)
+#define MISC_OPERATORS
 
-#include <misc_operators.h>
-#include <misc_timers.h>
-#include <misc_types.h>
-#include <misc_pack.h>
+#define MAX(a,b) ( ((a) > (b)) ? (a) : (b) )
+#define MIN(a,b) ( ((a) < (b)) ? (a) : (b) )
+#define ABS(val)  ((val) < 0) ? (-(val)) : (val)
+#define MINMAX(min,max,src,n)  { int i=1 ; min = max = src[0] ; while(i++ < n) { min = MIN(min,src[i]) ; max = MAX(max,src[i]); } }
 
 #endif
