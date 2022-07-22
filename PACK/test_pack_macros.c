@@ -13,11 +13,11 @@ uint32_t my_packer(uint32_t *packed, uint32_t *data, uint32_t nbits, int ndata){
   uint32_t nfree ;
   uint32_t *stream = packed ;
   int i ;
-  PACK32_IN_INIT(acc, nfree) ;
+  PACK32_PUT_INIT(acc, nfree) ;
   for(i = 0 ; i < ndata ; i++){
-    PACK32_IN(stream, acc, nfree, data[i], nbits) ;
+    PACK32_PUT(stream, acc, nfree, data[i], nbits) ;
   }
-  PACK32_FLUSH(stream, acc, nfree) ;
+  PACK32_PUT_FLUSH(stream, acc, nfree) ;
   return stream - packed ;
 }
 
@@ -26,9 +26,9 @@ uint32_t my_unpacker(uint32_t *packed, uint32_t *data, uint32_t nbits, int ndata
   uint32_t nfree ;
   uint32_t *stream = packed ;
   int i ;
-  PACK32_OUT_INIT(stream, acc, nfree) ;
+  PACK32_GET_INIT(stream, acc, nfree) ;
   for(i = 0 ; i < ndata ; i++){
-    PACK32_OUT(stream, acc, nfree, data[i], nbits) ;
+    PACK32_GET(stream, acc, nfree, data[i], nbits) ;
   }
   return stream - packed ;
 }
@@ -59,13 +59,13 @@ int main(int argc, char **argv){
 
   // pack
   stream = &buffer[0] ;
-  PACK32_IN_INIT(acc, nfree) ;
+  PACK32_PUT_INIT(acc, nfree) ;
   for(i = 0 ; i < MAX_ELEMENTS ; i++){
     token = i & mask ;
-    PACK32_IN(stream, acc, nfree, token, nbits) ;
+    PACK32_PUT(stream, acc, nfree, token, nbits) ;
   }
   fprintf(stderr,"last in stream = %8.8x, acc = %16.16lx, free = %u\n", stream[-1], acc, nfree) ;
-  PACK32_FLUSH(stream, acc, nfree) ;
+  PACK32_PUT_FLUSH(stream, acc, nfree) ;
   nstream = stream - buffer ;
   fprintf(stderr,"acc = %lu, free = %u, stream elements = %d\n", acc, nfree, nstream) ;
 //   for(i = 0 ; i < nstream ; i++) fprintf(stderr," %8.8x", buffer[i]) ;
@@ -73,13 +73,13 @@ int main(int argc, char **argv){
 
   for(i = 0 ; i < MAX_PACK ; i++) buffer[i] = 0 ;
   stream = &buffer[0] ;
-  PACK32_IN_INIT(acc, nfree) ;
+  PACK32_PUT_INIT(acc, nfree) ;
   for(i = 0 ; i < MAX_ELEMENTS ; i++){
     t64 = i & mask ;
-    PACK32_IN_L(stream, acc, nfree, t64, nbits) ;
+    PACK32_PUT_L(stream, acc, nfree, t64, nbits) ;
   }
   fprintf(stderr,"last in stream = %8.8x, acc = %16.16lx, free = %u\n", stream[-1], acc, nfree) ;
-  PACK32_FLUSH(stream, acc, nfree) ;
+  PACK32_PUT_FLUSH(stream, acc, nfree) ;
   nstream = stream - buffer ;
   fprintf(stderr,"acc = %lu, free = %u, stream elements = %d\n", acc, nfree, nstream) ;
 //   for(i = 0 ; i < nstream ; i++) fprintf(stderr," %8.8x", buffer[i]) ;
@@ -87,18 +87,18 @@ int main(int argc, char **argv){
 
   // unpack
   stream = &buffer[0] ;
-  PACK32_OUT_INIT(stream, acc, navail) ;
+  PACK32_GET_INIT(stream, acc, navail) ;
   for(i = 0 ; i < MAX_ELEMENTS ; i++){
-    PACK32_OUT(stream, acc, navail, token, nbits) ;
+    PACK32_GET(stream, acc, navail, token, nbits) ;
 //     fprintf(stderr," %8.8x", token) ;
   }
 //   fprintf(stderr,"\n") ;
 
   // unpack
   stream = &buffer[0] ;
-  PACK32_OUT_INIT(stream, acc, navail) ;
+  PACK32_GET_INIT(stream, acc, navail) ;
   for(i = 0 ; i < MAX_ELEMENTS ; i++){
-    PACK32_OUT_L(stream, acc, navail, t64, nbits) ;
+    PACK32_GET_L(stream, acc, navail, t64, nbits) ;
 //     fprintf(stderr," %8.8lx", t64) ;
   }
 //   fprintf(stderr,"\n") ;
