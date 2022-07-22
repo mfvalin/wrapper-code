@@ -18,6 +18,8 @@
  */
 #include <stdio.h>
 #include <stdint.h>
+#include <misc_types.h>
+#include <misc_operators.h>
 
 typedef struct {
   int o;      // quantization offset
@@ -26,43 +28,37 @@ typedef struct {
 //   float fac ;
 } PackHeader;
 
-typedef union{
-  uint32_t i ;
-  float    f ;
-} FloatUint ;
-
-typedef union{
-  int32_t i ;
-  float f ;
-} FloatInt;
-
-typedef union{
-  int64_t l ;
-  double d ;
-} DoubleLong;
-
-#define MAX(a,b) ( ((a) > (b)) ? (a) : (b) )
-#define MIN(a,b) ( ((a) < (b)) ? (a) : (b) )
-
 // pre-quantizer, prepare the packing header that will be used by the next stages
-// p      : packing header to be initialized
-// nbits  : quantize using at most nbits bits (assumed to be <= 24)
-// maxval : highest value in array  to be quantized
-// minval : lowest value in array  to be quantized
-void float_quantize_prep(int nbits, PackHeader *p, float maxval, float minval) {
-  FloatInt m1, m2, m3;
-  DoubleLong m0 ;
+// p       : packing header to be initialized
+// nbits   : quantize using at most nbits bits (assumed to be <= 24)
+// maxval  : highest value in array  to be quantized
+// minval  : lowest value in array  to be quantized
+// quantum : if nonzero and positive, use inverse of quantum as the quantization factor
+//           nbits will be recomputed from maxval and minval
+void float_quantize_prep(int nbits, PackHeader *p, float maxval, float minval, float quantum) {
+  FloatInt   m1, m2, m3;  // access as float or 32 bit int
+  DoubleLong m0 ;         // access as double or 64 bit long
   int exp1, exp2, exp3 ;
   float fac32, range;
   double fac64 ;
   int mask_trunc ;
   int offset ;
+  int64_t irange ;
+
+  range = maxval - minval;
+  if(quantum > 0.0) {
+    int neededbits ;
+    m1.f = m2.f = quantum ;
+    m1.i &= (~0x7FFFFF) ;                    // first power of 2 <= quantum
+    irange = (range / m1.f) ;
+    NEEDBITS( irange, neededbits) ;
+printf("new nbits = %d, quantum = %g (%8.8x) -> %g (%8.8x)\n", neededbits, quantum, m2.i, m1.f, m1.i) ;
+  }
 
   if(nbits <= 0 ) return;
   if(nbits > 24 ) nbits = 24 ;               // no more than 24 bits will be kept
   p->nbits = nbits ;
 
-  range = maxval - minval;
   mask_trunc = ( -1 << (24 - nbits) ) ;      // truncation mask
   m1.f = maxval ;
   m2.f = minval ;
@@ -97,7 +93,7 @@ void float_quantize_prep(int nbits, PackHeader *p, float maxval, float minval) {
 void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, PackHeader *p ) {
   int i, j, it;
   int offset = p->o ;   // offset reflecting minimum value
-  int exp1   = p->e ;   // largest exponent in original float values (bias removed)
+  int expmax = p->e ;   // largest exponent in original float values (bias removed)
   int round = 0 ;
   int *izw = (int   *) iz;
   int nbits = p->nbits ;
@@ -112,10 +108,10 @@ void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, PackH
     nj = 1 ;
   }
 
-  if(exp1 > -127 && exp1 < 127){         // "civilized" exponent for largest value
-    FloatInt m1;                         // a float can be used to perform the quantification
+  if(expmax > -127 && expmax < 127){       // "civilized" exponent for largest value
+    FloatInt m1;                           // a float can be used to perform the quantification
     float fac32 ;
-    m1.i = (127 + (23 - exp1)) << 23 ;   // factor to bring largest exponent to 23
+    m1.i = (127 + (23 - expmax)) << 23 ;   // factor to bring largest exponent to 23
     fac32 = m1.f ;
     for(j=0 ; j<nj ; j++){
       for (i=0 ; i<ni ; i++){
@@ -126,10 +122,10 @@ void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, PackH
       z += lni ;
       izw += lniz ;
     }
-  }else{                                 // need to use a double to perform the quantification correctly
+  }else{                                   // need to use a double to perform the quantification correctly
     DoubleLong m1;
     double fac64 ;
-    m1.l = (1023 + (23 - exp1)) ;        // factor to bring largest exponent to 23
+    m1.l = (1023 + (23 - expmax)) ;        // factor to bring largest exponent to 23
     m1.l = m1.l << 52 ;
     fac64 = m1.d ;
     for(j=0 ; j<nj ; j++){
@@ -194,7 +190,7 @@ void float_unquantize(void *iz, float *z, int ni, int lni, int lniz, int nj, Pac
 
 #if defined(SELF_TEST)
 #define NPTS 32800
-#define ABS(a) ((a) > 0 ? a : -(a))
+// #define ABS(a) ((a) > 0 ? a : -(a))
 #include <stdio.h>
 int main(){
   float zi[NPTS] ;
@@ -209,6 +205,7 @@ int main(){
   double delta, maxdelta ;
   double avgdelta = 0.0 ;
   int NBITS = 22 ;
+  float quantum ;
 
   for(i=0 ; i<NPTS ; i++) { zi[i] = .00001 + .012345 * (i - NPTS/2 ) ;  zo[i] = -99999.0 ; }
   avgi = 0.0 ;
@@ -226,7 +223,8 @@ int main(){
     toler = zi[NPTS-1]; toler -= zi[0] ;
     toler /= i; //  toler *= 2;
 
-    float_quantize_prep(NBITS, &p, maxval, minval );
+    quantum = toler * 2.0 ;
+    float_quantize_prep(NBITS, &p, maxval, minval, quantum);
 //     printf("offset = %10d, exp = %d, nbits = %d, \n", p.o, p.e, NBITS);
     if(p.e > -127 && p.e < 127){
       printf(" [32] ");
