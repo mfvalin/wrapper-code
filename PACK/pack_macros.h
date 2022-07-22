@@ -20,8 +20,6 @@
 
 #include <stdint.h>
 
-#include <misc_operators.h>
-
 // macros to insert into, extract from a stream of 32 bit elements
 
 // acc   : 64 bit integer accumulator (uint64_t)

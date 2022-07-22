@@ -3,6 +3,8 @@
 #include <sys/time.h>
 
 #include <pack_macros.h>
+// need RMASK operators
+#include <misc_operators.h>
 
 #define TIMING_PACK 67108864
 #define MAX_PACK 4096
