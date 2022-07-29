@@ -1,24 +1,141 @@
-// Hopefully useful code for C
-// Copyright (C) 2022  Recherche en Prevision Numerique
-//
-// This code is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Lesser General Public
-// License as published by the Free Software Foundation,
-// version 2.1 of the License.
-//
-// This code is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// set of functions to handle insertion/extraction of 1-32 bit tokens into/from a stream of 32 bit unsigned integers
-// should a token be langer thatn 32 bits, it must be split into smaller tokens before insertion/extraction
-//
+/*
+ * Hopefully useful code for C
+ * Copyright (C) 2022  Recherche en Prevision Numerique
+ *
+ * This code is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation,
+ * version 2.1 of the License.
+ *
+ * This code is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * set of functions to handle insertion/extraction of 1-32 bit tokens into/from a stream of 32 bit unsigned integers
+ * should a token be langer thatn 32 bits, it must be split into smaller tokens before insertion/extraction
+ */
+#if defined(IN_FORTRAN_CODE)
+
+type, bind(C) :: PackHeader
+  integer(C_INT) :: offset = 0
+  integer(C_INT) :: exp = 0
+  integer(C_INT) :: nbits = 0
+  real(C_FLOAT)  :: quantum
+end type
+
+interface
+! void float_quantize_prep(int nbits, QuantizeHeader *p, float maxval, float minval, float quantum);
+  subroutine float_quantize_prep(nbits, p, maxval, minval, quantum) bind(C,name='float_quantize_prep')
+    import :: C_INT, C_FLOAT, PackHeader
+    implicit none
+    integer(C_INT), intent(IN), value :: nbits
+    real(C_FLOAT), intent(IN), value :: maxval, minval, quantum
+    type(PackHeader), intent(INOUT) :: p
+  end subroutine
+! void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, QuantizeHeader *p );
+  subroutine float_quantize(iz, z, ni, lni, lniz, nj, p ) bind(C,name='float_quantize')
+    import :: C_INT, C_FLOAT, PackHeader
+    implicit none
+    integer(C_INT), intent(IN), value :: ni, lni, nj, lniz
+    integer(C_INT), dimension(*), intent(INOUT) :: iz
+    real(C_FLOAT), dimension(lni,nj), intent(IN) :: z
+    type(PackHeader), intent(IN) :: p
+  end subroutine
+! void float_unquantize(void *iz, float *z, int ni, int lni, int lniz, int nj, QuantizeHeader *p);
+  subroutine float_unquantize(iz, z, ni, lni, lniz, nj, p) bind(C,name='float_unquantize')
+    import :: C_INT, C_FLOAT, PackHeader
+    implicit none
+    integer(C_INT), intent(IN), value :: ni, lni, nj, lniz
+    integer(C_INT), dimension(*), intent(IN) :: iz
+    real(C_FLOAT), dimension(lni,nj), intent(INOUT) :: z
+    type(PackHeader), intent(IN) :: p
+  end subroutine
+end interface
+
+! int float_info(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval, uint32_t spmask);
+interface float_info  ! generic interface for both missing and no missing cases
+! int float_info_no_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs);
+  function float_info_no_missing(zz, ni, lni, nj, maxval, minval, minabs) result(n) bind(C,name='float_info_no_missing')
+    import :: C_INT, C_FLOAT
+    implicit none
+#define IgnoreTypeKindRank zz
+#define ExtraAttributes 
+#include <IgnoreTypeKindRank.hf>
+    integer(C_INT), intent(IN), value :: ni, lni, nj
+!   real(C_FLOAT), dimension(lni,nj)), intent(IN) :: zz
+    real(C_FLOAT), intent(OUT) :: maxval, minval, minabs
+    integer(C_INT) :: n
+  end function
+! int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval, uint32_t spmask);
+  function float_info_missing(zz, ni, lni, nj, maxval, minval, minabs, spval, spmask) result(n) bind(C,name='float_info_missing')
+    import :: C_INT, C_FLOAT
+    implicit none
+#define IgnoreTypeKindRank zz
+#define ExtraAttributes 
+#include <IgnoreTypeKindRank.hf>
+    integer(C_INT), intent(IN), value :: ni, lni, nj, spmask
+!   real(C_FLOAT), dimension(lni,nj), intent(IN) :: zz
+    real(C_FLOAT), intent(OUT) :: maxval, minval, minabs, spval
+    integer(C_INT) :: n
+  end function
+end interface
+
+#else
+
 #if ! defined(MISC_PACK)
 #define MISC_PACK
 
 #include <stdint.h>
 #include <stddef.h>
+
+// determine how many bits are needed to represent value x
+static inline uint32_t NeedBits(uint32_t x){
+  uint32_t n ;
+#if defined(__x86_64__xx)
+  __asm__ __volatile__ ("lzcnt{l %1, %0| %0, %1}" : "=r"(n) : "r"(x) : "cc");
+  return 32 - n ;
+#elif defined(__aarch64__)
+  __asm__ __volatile__ ("clz %w[out], %w[in]" : [out]"=r"(n) : [in]"r"(x) );
+  return 32 - n ;
+#else
+  uint32_t m = 0xFFFF ;
+  n = 0 ;
+  n  += ((x > m) ? 16 : 0) ;
+  x >>= ((x > m) ? 16 : 0) ;
+  m >>= 8 ;
+  n  += ((x > m) ? 8 : 0) ;
+  x >>= ((x > m) ? 8 : 0) ;
+  m >>= 4 ;
+  n  += ((x > m) ? 4 : 0) ;
+  x >>= ((x > m) ? 4 : 0) ;
+  m >>= 2 ;
+  n  += ((x > m) ? 2 : 0) ;
+  x >>= ((x > m) ? 2 : 0) ;
+  m >>= 1 ;
+  n  += ((x > m) ? 1 : 0) ;
+  x >>= ((x > m) ? 1 : 0) ;
+  m >>= 1 ;
+  n  += ((x > m) ? 1 : 0) ;
+  return n ;
+#endif
+}
+
+// linear quantization header
+typedef struct {
+  int o ;      // quantization offset
+  int e ;      // largest exponent (min, max, range) (with bias removed)
+  int nbits ;  // number of useful bits in quantized token
+  float q ;    // quantization interval
+} QuantizeHeader;
+
+// linear quantization functions
+void float_quantize_prep(int nbits, QuantizeHeader *p, float maxval, float minval, float quantum);
+void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, QuantizeHeader *p );
+void float_unquantize(void *iz, float *z, int ni, int lni, int lniz, int nj, QuantizeHeader *p);
+int float_info_no_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs);
+int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval, uint32_t spmask);
+int float_info(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval, uint32_t spmask);
 
 // the basic struct to handle insertion/extraction into/from a packed stream
 typedef struct{
@@ -139,5 +256,7 @@ static void unpack_stream(void *p, uint32_t *u, int nbits, int n){
     for( ; i<n ; i+=1) { u[i] = stream32_get(&ps32, nbits) ; }
   }
 }
+
+#endif
 
 #endif

@@ -20,13 +20,7 @@
 #include <stdint.h>
 #include <misc_types.h>
 #include <misc_operators.h>
-
-typedef struct {
-  int o;      // quantization offset
-  int e;      // largest exponent (min, max, range) (with bias removed)
-  int nbits ; // number of useful bits in quantized token
-//   float fac ;
-} PackHeader;
+#include <misc_pack.h>
 
 // pre-quantizer, prepare the packing header that will be used by the next stages
 // p       : packing header to be initialized
@@ -35,7 +29,7 @@ typedef struct {
 // minval  : lowest value in array  to be quantized
 // quantum : if nonzero and positive, use inverse of quantum as the quantization factor
 //           nbits will be recomputed from maxval and minval
-void float_quantize_prep(int nbits, PackHeader *p, float maxval, float minval, float quantum) {
+void float_quantize_prep(int nbits, QuantizeHeader *p, float maxval, float minval, float quantum) {
   FloatInt   m1, m2, m3;  // access as float or 32 bit int
   DoubleLong m0 ;         // access as double or 64 bit long
   int exp1, exp2, exp3 ;
@@ -52,7 +46,8 @@ void float_quantize_prep(int nbits, PackHeader *p, float maxval, float minval, f
     m1.i &= (~0x7FFFFF) ;                    // first power of 2 <= quantum
     irange = (range / m1.f) ;
     NEEDBITS( irange, neededbits) ;
-printf("new nbits = %d, quantum = %g (%8.8x) -> %g (%8.8x)\n", neededbits, quantum, m2.i, m1.f, m1.i) ;
+// printf("new nbits = %d, quantum = %g (%8.8x) -> %g (%8.8x)\n", neededbits, quantum, m2.i, m1.f, m1.i) ;
+    nbits = neededbits ;
   }
 
   if(nbits <= 0 ) return;
@@ -84,13 +79,19 @@ printf("new nbits = %d, quantum = %g (%8.8x) -> %g (%8.8x)\n", neededbits, quant
 //     printf(" fac64 = %10.4g(%d) ", fac64, p->e);
   }
 
+  m3.i = (exp3 - nbits + 1) << 23 ;          // subtract nbits - 1 from range exponent (quick divide)
+  if( (exp3 - nbits + 1) < 0) {              // range too small, compute quantum the hard way
+    m3.i = exp3 << 23 ;                      // exp3 is IEEE exponent from range
+    m3.f = m3.f / (1 << (nbits -1)) ;        // divide by 2**(nbits - 1)
+  }
+  p->q = m3.f ;                              // effective quantum
   offset = offset & mask_trunc ;             // drop lower (24 - nbits) bits
   p->o = offset ;                            // truncated minimum value
 }
 
 // quantizer for 32 bit floats producing a stream of unsigned 32 bit integers
 // nbits is assumed to be <= 24 and taken from the packing header
-void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, PackHeader *p ) {
+void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, QuantizeHeader *p ) {
   int i, j, it;
   int offset = p->o ;   // offset reflecting minimum value
   int expmax = p->e ;   // largest exponent in original float values (bias removed)
@@ -142,7 +143,7 @@ void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, PackH
 
 // inverse quantizer for 32 bit floats producing a stream of unsigned 32 bit integers
 // nbits is taken from the packing header
-void float_unquantize(void *iz, float *z, int ni, int lni, int lniz, int nj, PackHeader *p) {
+void float_unquantize(void *iz, float *z, int ni, int lni, int lniz, int nj, QuantizeHeader *p) {
   int i, j, t;
   unsigned int   *izw = (unsigned int   *) iz;
   int offset = p->o;
@@ -188,75 +189,3 @@ void float_unquantize(void *iz, float *z, int ni, int lni, int lniz, int nj, Pac
   }
 }
 
-#if defined(SELF_TEST)
-#define NPTS 32800
-// #define ABS(a) ((a) > 0 ? a : -(a))
-#include <stdio.h>
-int main(){
-  float zi[NPTS] ;
-  float zo[NPTS] ;
-  int iw[NPTS] ;
-  PackHeader p;
-  int i, j;
-  double toler;
-  double avg, avgi, avgo ;
-  int error=0;
-  float minval, maxval ;
-  double delta, maxdelta ;
-  double avgdelta = 0.0 ;
-  int NBITS = 22 ;
-  float quantum ;
-
-  for(i=0 ; i<NPTS ; i++) { zi[i] = .00001 + .012345 * (i - NPTS/2 ) ;  zo[i] = -99999.0 ; }
-  avgi = 0.0 ;
-  for(i=0 ; i<NPTS ; i++) { zi[i] *= 1.6E+30 ; avgi += zi[i] ;}
-  avgi /= NPTS ;
-  printf("avgi = %15.8g\n\n", avgi) ;
-  minval = maxval = zi[0] ;
-  for(i=1 ; i<NPTS ; i++) { 
-    maxval = (zi[i] > maxval) ? zi[i] : maxval ; minval = (zi[i] < minval) ? zi[i] : minval ;
-  }
-
-  for(j = 1 ; j < 25 ; j++) {
-    NBITS = j ;
-    i = 1 << (NBITS);
-    toler = zi[NPTS-1]; toler -= zi[0] ;
-    toler /= i; //  toler *= 2;
-
-    quantum = toler * 2.0 ;
-    float_quantize_prep(NBITS, &p, maxval, minval, quantum);
-//     printf("offset = %10d, exp = %d, nbits = %d, \n", p.o, p.e, NBITS);
-    if(p.e > -127 && p.e < 127){
-      printf(" [32] ");
-      float_quantize(iw, zi, NPTS/2, NPTS/2, NPTS/2, 2, &p ) ;
-      float_unquantize(iw, zo, NPTS/2, NPTS/2, NPTS/2, 2, &p);
-    }else{
-      printf(" [64] ");
-      float_quantize(iw, zi, NPTS/2, NPTS/2, NPTS/2, 2, &p ) ;
-      float_unquantize(iw, zo, NPTS/2, NPTS/2, NPTS/2, 2, &p);
-    }
-    printf("nbits = %2d, max, min, rng = %9.5g %9.5g %9.5g, ", NBITS, maxval, minval, maxval-minval);
-    avgo = 0.0 ;
-    for(i=0 ; i<NPTS ; i++) avgo += zo[i] ;
-    avgo /= NPTS ;
-    printf("avgo = %15.8g, ", avgo) ;
-    error = 0 ; maxdelta = 0.0 ; avgdelta = 0.0 ; avg = 0.0 ;
-    for(i=0 ; i<NPTS ; i++) {
-//       delta = ABS(zo[i]-zi[i]) ;
-      delta = zo[i] ; delta -= zi[i] ;
-      avg += delta ;
-      delta = ABS(delta) ;
-      avgdelta += delta ;
-      maxdelta = (delta > maxdelta) ? delta : maxdelta ;
-      if(delta > toler) error++;
-    }
-    avg /= NPTS;
-//     printf("%d points from %15.5f to %15.5f, maxdelta = %15.8f, avgdelta = %15.8f\n",
-//            NPTS, zi[0], zi[NPTS-1], maxdelta, avgdelta/NPTS);
-    printf("maxdelta = %10.4g, avgdelta = %10.4g, ",
-           maxdelta, avgdelta/NPTS);
-    printf("bias = %15.8g, toler = %9.5g, bias/toler = %8.4f, maxdelta/toler = %6.4f, exceed=%d\n\n",
-          avg, toler, avg/toler, maxdelta/toler, error);
-  }
-}
-#endif

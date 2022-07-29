@@ -1,22 +1,43 @@
-// Hopefully useful code for C
-// Copyright (C) 2022  Recherche en Prevision Numerique
-//
-// This code is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Lesser General Public
-// License as published by the Free Software Foundation,
-// version 2.1 of the License.
-//
-// This code is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// in the ARM V8 case, all the cycle counters use the same instruction
-// in the X86_64 case, various cycle counters and fences are used
-
-// useful references :
-// https://sites.utexas.edu/jdm4372/2018/07/   John McCalpin's blog
-// https://github.com/jdmccalpin/low-overhead-timers
+/*
+ * Hopefully useful code for C and Fortran
+ * Copyright (C) 2022  Recherche en Prevision Numerique
+ *
+ * This code is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation,
+ * version 2.1 of the License.
+ *
+ * This code is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * in the ARM V8 case, all the cycle counters use the same instruction
+ * in the X86_64 case, various cycle counters and fences are used
+ *
+ * useful references :
+ * https://sites.utexas.edu/jdm4372/2018/07/   John McCalpin's blog
+ * https://github.com/jdmccalpin/low-overhead-timers
+ */
+#if defined(IN_FORTRAN_CODE)
+interface
+  function elapsed_us() result(t) bind(C,name='ElapsedUs')
+    import C_INT64_T
+    implicit none
+    integer(C_INT64_T) :: t
+  end function elapsed_us
+  function elapsed_cycles() result(t) bind(C,name='ElapsedCycles')
+    import C_INT64_T
+    implicit none
+    integer(C_INT64_T) :: t
+  end function elapsed_cycles
+  function cycles_counter_freq() result(t) bind(C,name='CyclesCounterFreq')
+    import C_INT64_T
+    implicit none
+    integer(C_INT64_T) :: t
+  end function cycles_counter_freq
+end interface
+#else
 
 #if ! defined(MISC_TIMERS)
 #define MISC_TIMERS
@@ -118,5 +139,11 @@ static inline uint64_t cycles_counter_freq(void){
   timerfreq = 1000000 * (tc2-tc1) / (t2-t1);
   return timerfreq ;
 }
+
+uint64_t ElapsedUs(void);
+uint64_t ElapsedCycles(void);
+uint64_t CyclesCounterFreq(void);
+
+#endif
 
 #endif
