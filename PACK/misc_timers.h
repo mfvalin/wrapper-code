@@ -62,13 +62,13 @@ static inline uint64_t elapsed_cycles_fast(void) {
   uint64_t lo, hi ;
   __asm__ volatile ("rdtsc" : /* outputs   */ "=a" (lo), "=d" (hi) );
   return lo | (hi << 32);
-#endif
-#if defined(__aarch64__)
+#elif defined(__aarch64__)
   uint64_t time0 ;
   asm volatile ("isb ; mrs %0, cntvct_el0" : "=r" (time0));
   return time0;
-#endif
+#else
   return elapsed_us() * 1000 ;  // nanoseconds
+#endif
 }
 
 // WITH serializing, NO fencing
@@ -77,13 +77,13 @@ static inline uint64_t elapsed_cycles_nofence(void) {
   uint64_t lo, hi, misc ;
   __asm__ volatile ("rdtscp": /* outputs   */ "=a" (lo), "=d" (hi), "=c" (misc) );
   return lo | (hi << 32);
-#endif
-#if defined(__aarch64__)
+#elif defined(__aarch64__)
   uint64_t time0 ;
   asm volatile ("isb ; mrs %0, cntvct_el0" : "=r" (time0));
   return time0;
-#endif
+#else
   return elapsed_us() * 1000 ;  // nanoseconds
+#endif
 }
 
 // WITH serializing, WITH memory fencing after
@@ -93,13 +93,13 @@ static inline uint64_t elapsed_cycles_fenced(void) {
   __asm__ volatile ("rdtscp": /* outputs   */ "=a" (lo), "=d" (hi), "=c" (misc) );
   __asm__ volatile ("mfence");
   return lo | (hi << 32);
-#endif
-#if defined(__aarch64__)
+#elif defined(__aarch64__)
   uint64_t time0 ;
   asm volatile ("isb ; mrs %0, cntvct_el0" : "=r" (time0));
   return time0;
-#endif
+#else
   return elapsed_us() * 1000 ;  // nanoseconds
+#endif
 }
 
 // NO serializing, LOCAL fencing before
@@ -110,13 +110,13 @@ static inline uint64_t elapsed_cycles(void) {
   __asm__ volatile ("lfence");
   __asm__ volatile ("rdtsc" : /* outputs   */ "=a" (lo), "=d" (hi) );
   return lo | (hi << 32);
-#endif
-#if defined(__aarch64__)
+#elif defined(__aarch64__)
   uint64_t time0 ;
   asm volatile ("isb ; mrs %0, cntvct_el0" : "=r" (time0));
   return time0;
-#endif
+#else
   return elapsed_us() * 1000 ;  // nanoseconds
+#endif
 }
 
 static inline uint64_t cycles_counter_freq(void){
