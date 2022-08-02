@@ -8,7 +8,7 @@ static int b_conts = 0b01010101 ;
 
 #define EXTERN extern
 
-// separate a into even and odd terms
+// split a into even and odd terms
 EXTERN inline void split_even_odd_n(int *a, int *e, int *o, int n){
   int i, j;
   for(i=0, j=0 ; j<n/2 ; j++, i+=2){
@@ -17,7 +17,7 @@ EXTERN inline void split_even_odd_n(int *a, int *e, int *o, int n){
   }
 }
 
-// separate a into even and odd terms
+// split a into even and odd terms (8 items)
 EXTERN inline void split_even_odd_8(float *a, float *e, float *o){
   int i, j;
   for(i=0, j=0 ; j<4 ; j++, i+=2){
@@ -26,7 +26,34 @@ EXTERN inline void split_even_odd_8(float *a, float *e, float *o){
   }
 }
 
-// interleave even and odd terms into a
+// split a into even and odd terms (16 items)
+EXTERN inline void split_even_odd_16(float *a, float *e, float *o){
+  int i, j;
+  for(i=0, j=0 ; j<8 ; j++, i+=2){
+    e[j] = a[i] ;
+    o[j] = a[i+1] ;
+  }
+}
+
+// split a into even and odd terms (32 items)
+EXTERN inline void split_even_odd_32(float *a, float *e, float *o){
+  int i, j;
+  for(i=0, j=0 ; j<16 ; j++, i+=2){
+    e[j] = a[i] ;
+    o[j] = a[i+1] ;
+  }
+}
+
+// split a into even and odd terms (64 items)
+EXTERN inline void split_even_odd_64(float *a, float *e, float *o){
+  int i, j;
+  for(i=0, j=0 ; j<32 ; j++, i+=2){
+    e[j] = a[i] ;
+    o[j] = a[i+1] ;
+  }
+}
+
+// interleave even and odd terms into a (8 items)
 EXTERN inline void shuffle_even_odd_8(float *a, float *e, float *o){
 #if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
   __m128 ve, vo ;
@@ -43,28 +70,7 @@ EXTERN inline void shuffle_even_odd_8(float *a, float *e, float *o){
 #endif
 }
 
-// interleave even and odd terms into a
-// EXTERN inline void shuffle_even_odd_8_avx2(float *a, float *e, float *o){
-// #if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
-//   __m128 ve, vo ;
-//   ve = _mm_loadu_ps(e) ;
-//   vo = _mm_loadu_ps(o) ;
-//   _mm_storeu_ps(a  , _mm_unpacklo_ps(ve, vo) ) ;
-//   _mm_storeu_ps(a+4, _mm_unpackhi_ps(ve, vo) ) ;
-// #else
-// #endif
-// }
-
-// separate a into even and odd terms
-EXTERN inline void split_even_odd_16(float *a, float *e, float *o){
-  int i, j;
-  for(i=0, j=0 ; j<8 ; j++, i+=2){
-    e[j] = a[i] ;
-    o[j] = a[i+1] ;
-  }
-}
-
-// interleave even and odd terms into a
+// interleave even and odd terms into a (16 items)
 EXTERN inline void shuffle_even_odd_16(float *a, float *e, float *o){
 #if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
   __m256 ve, vo, v0, v1 ;
@@ -83,30 +89,7 @@ EXTERN inline void shuffle_even_odd_16(float *a, float *e, float *o){
 #endif
 }
 
-// interleave even and odd terms into a
-// EXTERN inline void shuffle_even_odd_16_avx2(float *a, float *e, float *o){
-// #if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
-//   __m256 ve, vo, v0, v1 ;
-//   ve = _mm256_loadu_ps(e) ;
-//   vo = _mm256_loadu_ps(o) ;
-//   v0 = _mm256_unpacklo_ps(ve, vo) ;
-//   v1 = _mm256_unpackhi_ps(ve, vo) ;
-//   _mm256_storeu_ps(a  , _mm256_permute2f128_ps(v0, v1, 32) ) ;
-//   _mm256_storeu_ps(a+8, _mm256_permute2f128_ps(v0, v1, 49) ) ;
-// #else
-// #endif
-// }
-
-// separate a into even and odd terms
-EXTERN inline void split_even_odd_32(float *a, float *e, float *o){
-  int i, j;
-  for(i=0, j=0 ; j<16 ; j++, i+=2){
-    e[j] = a[i] ;
-    o[j] = a[i+1] ;
-  }
-}
-
-// interleave even and odd terms into a
+// interleave even and odd terms into a (32 items)
 EXTERN inline void shuffle_even_odd_32(float *a, float *e, float *o){
 #if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
   __m256 ve0, ve1, vo0, vo1, v0, v1, v2, v3 ;
@@ -131,56 +114,19 @@ EXTERN inline void shuffle_even_odd_32(float *a, float *e, float *o){
 #endif
 }
 
-// interleave even and odd terms into a
-// EXTERN inline void shuffle_even_odd_32_avx2(float *a, float *e, float *o){
-// #if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
-//   __m256 ve0, ve1, vo0, vo1, v0, v1, v2, v3 ;
-//   ve0 = _mm256_loadu_ps(e) ;
-//   vo0 = _mm256_loadu_ps(o) ;
-//   ve1 = _mm256_loadu_ps(e+8) ;
-//   vo1 = _mm256_loadu_ps(o+8) ;
-//   v0 = _mm256_unpacklo_ps(ve0, vo0) ;
-//   v1 = _mm256_unpackhi_ps(ve0, vo0) ;
-//   v2 = _mm256_unpacklo_ps(ve1, vo1) ;
-//   v3 = _mm256_unpackhi_ps(ve1, vo1) ;
-//   _mm256_storeu_ps(a  , _mm256_permute2f128_ps(v0, v1, 32) ) ;
-//   _mm256_storeu_ps(a+8, _mm256_permute2f128_ps(v0, v1, 49) ) ;
-//   _mm256_storeu_ps(a+16, _mm256_permute2f128_ps(v2, v3, 32) ) ;
-//   _mm256_storeu_ps(a+24, _mm256_permute2f128_ps(v2, v3, 49) ) ;
-// #else
-// #endif
-// }
-
-// separate a into even and odd terms
-EXTERN inline void split_even_odd_64(float *a, float *e, float *o){
+// interleave even and odd terms into a (64 items)
+EXTERN inline void shuffle_even_odd_64(float *a, float *e, float *o){
+#if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
+  shuffle_even_odd_32(a   , e   , o   ) ;   // first 32
+  shuffle_even_odd_32(a+32, e+16, o+16) ;   // next 32
+#else
   int i, j;
   for(i=0, j=0 ; j<32 ; j++, i+=2){
-    e[j] = a[i] ;
-    o[j] = a[i+1] ;
+    a[i]   = e[j] ;
+    a[i+1] = o[j] ;
   }
+#endif
 }
-
-// interleave even and odd terms into a
-EXTERN inline void shuffle_even_odd_64(float *a, float *e, float *o){
-  shuffle_even_odd_32(a   , e   , o   ) ;
-  shuffle_even_odd_32(a+32, e+16, o+16) ;
-// #if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
-//   shuffle_even_odd_32_avx2(a   , e   , o   ) ;
-//   shuffle_even_odd_32_avx2(a+32, e+16, o+16) ;
-// #else
-//   int i, j;
-//   for(i=0, j=0 ; j<32 ; j++, i+=2){
-//     a[i]   = e[j] ;
-//     a[i+1] = o[j] ;
-//   }
-// #endif
-}
-
-// interleave even and odd terms into a
-// EXTERN inline void shuffle_even_odd_64_avx2(float *a, float *e, float *o){
-//   shuffle_even_odd_32_avx2(a   , e   , o   ) ;
-//   shuffle_even_odd_32_avx2(a+32, e+16, o+16) ;
-// }
 
 // a[8] , b[8] -> c[4] , row length of a = 8
 EXTERN inline void average_rows_8x2_8(float *a, float *c){
