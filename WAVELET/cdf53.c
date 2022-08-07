@@ -15,7 +15,7 @@
 //****P* librkl/wavelet-transforms
 // Synopsis
 //
-// Cohen-Daubechies-Favreau 5/3 wavelets
+// Cohen-Daubechies-Feauveau 5/3 wavelets
 // https://en.wikipedia.org/wiki/Cohen%E2%80%93Daubechies%E2%80%93Feauveau_wavelet
 //
 // this code is using a lifting implementation
@@ -770,10 +770,14 @@ void F_CDF53_2D_split_inplace_n(float *x, int ni, int lni, int nj, int levels){ 
 
 int main() {
   float x[NPTS+1], y[NPTS+1], e[NPTS+1], o[NPTS+1], z[NPTS+1], d[NPTS+1];
-  float xy[NPTS][NPTS] ;
+  float xy[NPTS][NPTS], xy0[NPTS][NPTS] ;
+  int *ixy = (int *) xy ;
+  int mask ;
   int i, j, k;
   double sum2;
-  float quantum;
+  float quantum, quantum2, quantum4, expected ;
+  float maxll, maxlh, maxhl, maxhh, minll, minlh, minhl, minhh ;
+  int spanll, spanhl, spanlh, spanhh ;
   int npts2 = (NPTS+1)/2;
   int npts4 = (npts2+1)/2;
 
@@ -783,10 +787,14 @@ int main() {
   for (i=0;i<NPTS;i++) { e[i] = 0 ; o[i] = 0 ; }
   for (j=0;j<NPTS;j++) {
   // Makes a fancy cubic signal
-    for (i=0;i<NPTS;i++) xy[j][i] = (3+i+0.4*i*i-0.02*i*i*i) * (3+i+0.4*j*j-0.02*j*j*j);
+    for (i=0;i<NPTS;i++) {
+      xy[j][i] = (3+i+0.4*i*i-0.02*i*i*i) * (3+i+0.4*j*j-0.02*j*j*j);
+//       xy[j][i] = sqrt( powf(i-NPTS/2.0f+.5f,2.0f) +  powf(j-NPTS/2.0f+.5f,2.0f) ) ;
+      xy0[j][i] = xy[j][i] ;
+    }
 //     for (i=0;i<NPTS;i++) xy[j][i] = sqrt((i-7.45)*(i-7.45) + (j-7.55)*(j-7.55));
   }
-  
+
   printf("Original 2D signal:\n");
   for (j=NPTS-1;j>=0;j--) {
     for (i=0;i<NPTS;i++) printf(" %8.3f",xy[j][i]);
@@ -796,17 +804,72 @@ int main() {
 //   F_CDF53_2D_split_inplace((float *)xy, NPTS,  NPTS, NPTS);
 //   F_CDF53_2D_split_inplace((float *)xy, npts2, NPTS, npts2);
 //   F_CDF53_2D_split_inplace((float *)xy, npts4, NPTS, npts4);
-  
+#if 0
   printf("Transformed 2D signal (before quantification):\n");
+  for (j=NPTS-1;j>=0;j--) {
+    for (i=0;i<NPTS;i++) printf(" %8.2f",xy[j][i]);
+    printf("\n");
+  }
+#endif
+  quantum = .025f ;
+  quantum = .125f ;
+//   quantum = 1.0f ;
+//   quantum = .25 ;
+  quantum = .05f ;
+//   quantum = quantum / 64 ;
+  quantum2 = quantum *  1.0f ;
+  quantum4 = quantum *  1.0f ;
+//   printf("quantum used = %8.3f\n",quantum);     // quantification pass
+//   for (j=0;j<NPTS;j++) {               // quantification pass
+//     for (i=0;i<NPTS;i++) { 
+//       k = xy[j][i] / quantum + .5f ;
+//       xy[j][i] = k * quantum ;
+//     }
+//   }
+  minll = minhl = minlh = minhh =  999999999 ;
+  maxll = maxhl = maxlh = maxhh = -999999999 ;
+  for (j=0;j<NPTS/2;j++) {
+    for (i=0;i<NPTS/2;i++) {          // LL quadrant
+      k = xy[j][i] / quantum + .5f ;
+      xy[j][i] = k * quantum ;
+//       ixy[j*NPTS+i] &= ~0xF ;
+      minll = (xy[j][i] < minll) ? xy[j][i] : minll ;
+      maxll = (xy[j][i] > maxll) ? xy[j][i] : maxll ;
+    }
+    for (i=NPTS/2;i<NPTS;i++) {       // HL quadrant
+      k = xy[j][i] / quantum2 + .5f ;
+      xy[j][i] = k * quantum2 ;
+      minhl = (xy[j][i] < minhl) ? xy[j][i] : minhl ;
+      maxhl = (xy[j][i] > maxhl) ? xy[j][i] : maxhl ;
+    }
+  }
+  for (j=NPTS/2;j<NPTS;j++) {
+    for (i=0;i<NPTS/2;i++) {          // LH quadrant
+      k = xy[j][i] / quantum2 + .5f ;
+      xy[j][i] = k * quantum2 ;
+      minlh = (xy[j][i] < minlh) ? xy[j][i] : minlh ;
+      maxlh = (xy[j][i] > maxlh) ? xy[j][i] : maxlh ;
+    }
+    for (i=NPTS/2;i<NPTS;i++) {       // HH quadrant
+      k = xy[j][i] / quantum4 + .5f ;
+      xy[j][i] = k * quantum4 ;
+      minhh = (xy[j][i] < minhh) ? xy[j][i] : minhh ;
+      maxhh = (xy[j][i] > maxhh) ? xy[j][i] : maxhh ;
+    }
+  }
+  printf("Transformed 2D signal (after quantification by %8.2f):\n",quantum);
   for (j=NPTS-1;j>=0;j--) {
     for (i=0;i<NPTS;i++) printf(" %8.3f",xy[j][i]);
     printf("\n");
   }
-  quantum = .025;
-  printf("quantum used = %8.3f\n",quantum);
-  for (j=0;j<NPTS;j++) {               // quantification pass
-    for (i=0;i<NPTS;i++) { k = xy[j][i] / quantum + .5f ; xy[j][i] = k * quantum ; }
-  }
+  printf("max = %8.3f, %8.3f, %8.3f, %8.3f\n", maxll, maxhl, maxlh, maxhh) ;
+  printf("min = %8.3f, %8.3f, %8.3f, %8.3f\n", minll, minhl, minlh, minhh) ;
+  printf("q   = %8.3f, %8.3f, %8.3f, %8.3f\n", quantum, quantum2, quantum2, quantum4) ;
+  spanll = (maxll-minll)/quantum ;
+  spanhl = (maxhl-minhl)/quantum2 ;
+  spanlh = (maxlh-minlh)/quantum2 ;
+  spanhh = (maxhh-minhh)/quantum4 ;
+  printf("spanll = %8d, spanhl = %8d, spanlh = %8d, spanhh = %8d\n", spanll, spanhl, spanlh, spanhh) ;
   I_CDF53_2D_split_inplace_n((float *)xy, NPTS,  NPTS, NPTS, 3);
 //   I_CDF53_2D_split_inplace((float *)xy, npts4, NPTS, npts4);
 //   I_CDF53_2D_split_inplace((float *)xy, npts2, NPTS, npts2);
@@ -816,9 +879,22 @@ int main() {
 //     for (i=0;i<NPTS;i++) printf(" %8.3f",xy[j][i]);
 //     printf("\n");
 //   }
+#if 0
   printf("Restored 2D signal error:\n");
   for (j=NPTS-1;j>=0;j--) {
-    for (i=0;i<NPTS;i++) printf(" %8.3f",xy[j][i] - ((3+i+0.4*i*i-0.02*i*i*i) * (3+i+0.4*j*j-0.02*j*j*j)));
+    for (i=0;i<NPTS;i++) {
+      expected = xy0[j][i] ;
+      printf(" %8.3f",xy[j][i] - expected);
+    }
+    printf("\n");
+  }
+#endif
+  printf("Restored 2D signal error in units of quantum (%5.2f):\n", quantum);
+  for (j=NPTS-1;j>=0;j--) {
+    for (i=0;i<NPTS;i++) {
+      expected = xy0[j][i] ;
+      printf(" %8.2f",(xy[j][i] - expected)/quantum);
+    }
     printf("\n");
   }
 

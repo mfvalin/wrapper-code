@@ -114,18 +114,7 @@ static int b_const = 0b01010101 ;
 #define STATIC static
 #endif
 
-// split a into even and odd terms (n items)
-// if n is odd, n-1 is used
-STATIC inline void SplitEvenOdd_n(void *pa, void *pe, void *po, int n){
-  int i, j ;
-  float *a = (float *) pa ;
-  float *e = (float *) pe ;
-  float *o = (float *) po ;
-  for(i=0, j=0 ; j<n/2 ; j++, i+=2){
-    e[j] = a[i] ;
-    o[j] = a[i+1] ;
-  }
-}
+static int index[8] = {0, 2, 4, 6, 1, 3, 5, 7 } ;
 
 // split a into even and odd terms (8 items)
 STATIC inline void SplitEvenOdd_8(void *pa, void *pe, void *po){
@@ -133,10 +122,22 @@ STATIC inline void SplitEvenOdd_8(void *pa, void *pe, void *po){
   float *a = (float *) pa ;
   float *e = (float *) pe ;
   float *o = (float *) po ;
+#if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
+  __m256 v ;
+  __m256i vx ;
+  __m128 ve, vo ;
+  vx = (__m256i) _mm256_loadu_ps((float *) index) ;
+  v = _mm256_loadu_ps(pa) ;
+  v = _mm256_permutevar8x32_ps(v, vx) ;
+  _mm_storeu_ps(e, _mm256_extractf128_ps(v, 0) ) ;
+  _mm_storeu_ps(o, _mm256_extractf128_ps(v, 1) ) ;
+// printf("+++\n");
+#else
   for(i=0, j=0 ; j<4 ; j++, i+=2){
     e[j] = a[i] ;
     o[j] = a[i+1] ;
   }
+#endif
 }
 
 // split a into even and odd terms (16 items)
@@ -145,10 +146,15 @@ STATIC inline void SplitEvenOdd_16(void *pa, void *pe, void *po){
   float *a = (float *) pa ;
   float *e = (float *) pe ;
   float *o = (float *) po ;
+#if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
+  SplitEvenOdd_8(a  , e  , o  ) ;
+  SplitEvenOdd_8(a+8, e+4, o+4) ;
+#else
   for(i=0, j=0 ; j<8 ; j++, i+=2){
     e[j] = a[i] ;
     o[j] = a[i+1] ;
   }
+#endif
 }
 
 // split a into even and odd terms (32 items)
@@ -157,10 +163,15 @@ STATIC inline void SplitEvenOdd_32(void *pa, void *pe, void *po){
   float *a = (float *) pa ;
   float *e = (float *) pe ;
   float *o = (float *) po ;
+#if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
+  SplitEvenOdd_16(a   , e  , o  ) ;
+  SplitEvenOdd_16(a+16, e+8, o+8) ;
+#else
   for(i=0, j=0 ; j<16 ; j++, i+=2){
     e[j] = a[i] ;
     o[j] = a[i+1] ;
   }
+#endif
 }
 
 // split a into even and odd terms (64 items)
@@ -169,10 +180,50 @@ STATIC inline void SplitEvenOdd_64(void *pa, void *pe, void *po){
   float *a = (float *) pa ;
   float *e = (float *) pe ;
   float *o = (float *) po ;
+#if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
+  SplitEvenOdd_32(a   , e   , o   ) ;
+  SplitEvenOdd_32(a+32, e+16, o+16) ;
+#else
   for(i=0, j=0 ; j<32 ; j++, i+=2){
     e[j] = a[i] ;
     o[j] = a[i+1] ;
   }
+#endif
+}
+
+// split a into even and odd terms (n items)
+// if n is odd, n-1 is used
+STATIC inline void SplitEvenOdd_n(void *pa, void *pe, void *po, int n){
+  int i, j ;
+  int nodd = n >> 1 ;
+  float *a = (float *) pa ;
+  float *e = (float *) pe ;
+  float *o = (float *) po ;
+
+  while(n >= 64){
+    SplitEvenOdd_64(a , e , o ) ;
+    a += 64 ; e += 32 ; o += 32 ; n -= 64 ;
+  }
+  if(n >= 32){
+    SplitEvenOdd_32(a , e , o ) ;
+    a += 32 ; e += 16 ; o += 16 ; n -= 32 ;
+  }
+  if(n >= 16){
+    SplitEvenOdd_16(a , e , o ) ;
+    a += 16 ; e += 8 ; o += 8 ; n -= 16 ;
+  }
+  if(n >= 8){
+    SplitEvenOdd_8(a , e , o ) ;
+    a += 8 ; e += 4 ; o += 4 ; n -= 8 ;
+  }
+  if(n < 8 && n > 0){
+    for(i=0, j=0 ; i<(n-1) ; j++, i+=2){
+      e[j] = a[i] ;
+      o[j] = a[i+1] ;
+    }
+    if(i<n) e[j] = a[i] ;  // n was odd ?
+  }
+  return ;
 }
 
 // interleave even and odd terms into a (8 items)
@@ -266,6 +317,7 @@ STATIC inline void ShuffleEvenOdd_64(void *pa, void *pe, void *po){
 // if n is odd, n-1 is used
 STATIC inline void ShuffleEvenOdd_n(void *pa, void *pe, void *po, int n){
   int i, j ;
+  int nodd = n >> 1;
   float *a = (float *) pa ;
   float *e = (float *) pe ;
   float *o = (float *) po ;
@@ -286,12 +338,12 @@ STATIC inline void ShuffleEvenOdd_n(void *pa, void *pe, void *po, int n){
     ShuffleEvenOdd_8(a, e, o) ;   // next 32
     n -= 8 ; a += 8 ; e += 4 ; o += 4 ;
   }
-  for(i=0, j=0 ; j<n/2 ; j++, i+=2){
+  for(i=0, j=0 ; j<nodd ; j++, i+=2){
     a[i]   = e[j] ;
     a[i+1] = o[j] ;
   }
 #else
-  for(i=0, j=0 ; j<n/2 ; j++, i+=2){
+  for(i=0, j=0 ; j<nodd ; j++, i+=2){
     a[i]   = e[j] ;
     a[i+1] = o[j] ;
   }
