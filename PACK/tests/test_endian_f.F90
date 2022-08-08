@@ -1,7 +1,7 @@
 program test_endian_f
   use ISO_C_BINDING
   implicit none
-#include <fast_endian.hf>
+#include <misc_endian.hf>
 #include <misc_timers.hf>
   integer, parameter :: NTIMES = 10
   integer(C_INT64_T) :: t0, t1, tmin, t(NTIMES*100), tmax, freq
