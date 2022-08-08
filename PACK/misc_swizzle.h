@@ -104,7 +104,7 @@ end interface
 // shuffle even and odd indices back
 
 #include <stdint.h>
-#if defined(__x86_64__) && defined(__AVX__) && defined(SIMD)
+#if defined(__x86_64__) && defined(__AVX__) && defined(WITH_SIMD)
 #include <immintrin.h>
 #endif
 
@@ -122,7 +122,7 @@ STATIC inline void SplitEvenOdd_8(void *pa, void *pe, void *po){
   float *a = (float *) pa ;
   float *e = (float *) pe ;
   float *o = (float *) po ;
-#if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m256 v ;
   __m256i vx ;
   __m128 ve, vo ;
@@ -146,7 +146,7 @@ STATIC inline void SplitEvenOdd_16(void *pa, void *pe, void *po){
   float *a = (float *) pa ;
   float *e = (float *) pe ;
   float *o = (float *) po ;
-#if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   SplitEvenOdd_8(a  , e  , o  ) ;
   SplitEvenOdd_8(a+8, e+4, o+4) ;
 #else
@@ -163,7 +163,7 @@ STATIC inline void SplitEvenOdd_32(void *pa, void *pe, void *po){
   float *a = (float *) pa ;
   float *e = (float *) pe ;
   float *o = (float *) po ;
-#if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   SplitEvenOdd_16(a   , e  , o  ) ;
   SplitEvenOdd_16(a+16, e+8, o+8) ;
 #else
@@ -180,7 +180,7 @@ STATIC inline void SplitEvenOdd_64(void *pa, void *pe, void *po){
   float *a = (float *) pa ;
   float *e = (float *) pe ;
   float *o = (float *) po ;
-#if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   SplitEvenOdd_32(a   , e   , o   ) ;
   SplitEvenOdd_32(a+32, e+16, o+16) ;
 #else
@@ -231,7 +231,7 @@ STATIC inline void ShuffleEvenOdd_8(void *pa, void *pe, void *po){
   float *a = (float *) pa ;
   float *e = (float *) pe ;
   float *o = (float *) po ;
-#if defined(__x86_64__) && defined(__AVX__) && defined(SIMD)
+#if defined(__x86_64__) && defined(__AVX__) && defined(WITH_SIMD)
   __m128 ve, vo ;
   ve = _mm_loadu_ps(e) ;
   vo = _mm_loadu_ps(o) ;
@@ -251,7 +251,7 @@ STATIC inline void ShuffleEvenOdd_16(void *pa, void *pe, void *po){
   float *a = (float *) pa ;
   float *e = (float *) pe ;
   float *o = (float *) po ;
-#if defined(__x86_64__) && defined(__AVX__) && defined(SIMD)
+#if defined(__x86_64__) && defined(__AVX__) && defined(WITH_SIMD)
   __m256 ve, vo, v0, v1 ;
   ve = _mm256_loadu_ps(e) ;
   vo = _mm256_loadu_ps(o) ;
@@ -273,7 +273,7 @@ STATIC inline void ShuffleEvenOdd_32(void *pa, void *pe, void *po){
   float *a = (float *) pa ;
   float *e = (float *) pe ;
   float *o = (float *) po ;
-#if defined(__x86_64__) && defined(__AVX__) && defined(SIMD)
+#if defined(__x86_64__) && defined(__AVX__) && defined(WITH_SIMD)
   __m256 ve0, ve1, vo0, vo1, v0, v1, v2, v3 ;
   ve0 = _mm256_loadu_ps(e) ;
   vo0 = _mm256_loadu_ps(o) ;
@@ -301,7 +301,7 @@ STATIC inline void ShuffleEvenOdd_64(void *pa, void *pe, void *po){
   float *a = (float *) pa ;
   float *e = (float *) pe ;
   float *o = (float *) po ;
-#if defined(__x86_64__) && defined(__AVX__) && defined(SIMD)
+#if defined(__x86_64__) && defined(__AVX__) && defined(WITH_SIMD)
   ShuffleEvenOdd_32(a   , e   , o   ) ;   // first 32
   ShuffleEvenOdd_32(a+32, e+16, o+16) ;   // next 32
 #else
@@ -321,7 +321,7 @@ STATIC inline void ShuffleEvenOdd_n(void *pa, void *pe, void *po, int n){
   float *a = (float *) pa ;
   float *e = (float *) pe ;
   float *o = (float *) po ;
-#if defined(__x86_64__) && defined(__AVX__) && defined(SIMD)
+#if defined(__x86_64__) && defined(__AVX__) && defined(WITH_SIMD)
   while(n >= 64){
     ShuffleEvenOdd_64(a   , e   , o   ) ;   // batch of 64
     n -= 64 ; a += 64 ; e += 32 ; o += 32 ;

@@ -1,6 +1,6 @@
 
 #include <stdint.h>
-#if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 #include <immintrin.h>
 #endif
 
@@ -23,7 +23,7 @@ STATIC inline void average_rows_8x2_8(float *a, float *c){
 
 // a[8,2] , b[8,2] -> c[4] , row length of a = lrow
 STATIC inline void average_rows_8x2(float *a, float *c, int lrow){
-#if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m256 vr ;
   __m128 va, vb, v0, v1 ;
   vr = _mm256_add_ps ( _mm256_loadu_ps(a) , _mm256_loadu_ps(a + lrow) ) ;
@@ -49,7 +49,7 @@ STATIC inline void average_rows_8x2(float *a, float *c, int lrow){
 
 // c[4] -> a[8,2] , b[8,2] , row length of a = lrow
 STATIC inline void expand_rows_8x2(float *a, float *c, int lrow){
-#if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m128 v2, va, vb ;
   __m256 v ;
   v2 = _mm_loadu_ps(c) ;
@@ -69,7 +69,7 @@ STATIC inline void expand_rows_8x2(float *a, float *c, int lrow){
 
 // a[8] , b[8] -> c[4] , row length of a = lrow
 STATIC inline void average_rows_8x2_avx2(float *a, float *c, int lrow){
-#if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m256 vr ;
   __m128 va, vb, v0, v1 ;
   vr = _mm256_add_ps ( _mm256_loadu_ps(a) , _mm256_loadu_ps(a + lrow) ) ;
@@ -99,7 +99,7 @@ STATIC inline void average_rows_16x2_16(float *a, float *c){
 
 // a[16,2] -> c[8] , row length of a = lrow
 STATIC inline void average_rows_16x2(float *a, float *c, int lrow){
-#if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m256 vr0, vr1 ;
   __m256 vlo, vhi, v0, v1 ;
   vr0 = _mm256_add_ps ( _mm256_loadu_ps(a  ) , _mm256_loadu_ps(a + lrow    ) ) ;
@@ -126,7 +126,7 @@ STATIC inline void average_rows_16x2(float *a, float *c, int lrow){
 
 // c[8] -> a[16,2] , b[16,2] , row length of a = lrow
 STATIC inline void expand_rows_16x2(float *a, float *c, int lrow){
-#if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m256 v, va, vb, vc, vd ;
   v  = _mm256_loadu_ps(c) ;                  // 7 6 5 4 3 2 1 0
   va = _mm256_unpacklo_ps(v, v) ;            // 5 5 4 4 1 1 0 0
@@ -147,7 +147,7 @@ STATIC inline void expand_rows_16x2(float *a, float *c, int lrow){
 
 // a[16,2] -> c[8] , row length of a = lrow
 STATIC inline void average_rows_16x2_avx2(float *a, float *c, int lrow){
-#if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m256 vr0, vr1 ;
   __m256 vlo, vhi, v0, v1 ;
   vr0 = _mm256_add_ps ( _mm256_loadu_ps(a  ) , _mm256_loadu_ps(a + lrow    ) ) ;
@@ -178,7 +178,7 @@ STATIC inline void average_rows_32x2_32(float *a, float *c){
 
 // a[32,2] -> c[16] , row length of a = lrowlength of a = lrow
 STATIC inline void average_rows_32x2(float *a, float *c, int lrow){
-#if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m256 vr0, vr1 ;
   __m256 vlo, vhi, v0, v1 ;
   vr0 = _mm256_add_ps ( _mm256_loadu_ps(a  ) , _mm256_loadu_ps(a + lrow    ) ) ;
@@ -216,7 +216,7 @@ STATIC inline void average_rows_32x2(float *a, float *c, int lrow){
 
 // c[16] -> a[32,2] , b[32,2] , row length of a = lrow
 STATIC inline void expand_rows_32x2(float *a, float *c, int lrow){
-#if defined(__x86_64__) && defined(__AVX2__) && defined(SIMD)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m256 v, va, vb, vc, vd ;
   v  = _mm256_loadu_ps(c) ;                  // 7 6 5 4 3 2 1 0
   va = _mm256_unpacklo_ps(v, v) ;            // 5 5 4 4 1 1 0 0

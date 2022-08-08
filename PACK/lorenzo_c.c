@@ -14,7 +14,7 @@
  *
  */
 #include <stdint.h>
-#if defined(SIMD) && defined(__AVX2__) && defined(__x86_64__)
+#if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
 #include <immintrin.h>
 #endif
 
@@ -31,7 +31,7 @@
 // the SIMD version is 2-4x faster then the non SIMD version
 void LorenzoPredict2D(int32_t *orig, int32_t *diff, int ni, int lnio, int lnid, int nj){
   int i, i0, ii0 ;
-#if defined(SIMD) && defined(__AVX2__) && defined(__x86_64__)
+#if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
     __m256i vi, vi1, vj1, vij1, t ;
 #endif
     int tmp[VL], j ;
@@ -43,7 +43,7 @@ void LorenzoPredict2D(int32_t *orig, int32_t *diff, int ni, int lnio, int lnid, 
   }else{
     for(ii0 = 1 ; ii0 < ni ; ii0 += VL){
       i0 = (ii0 > ni-VL) ? (ni-VL) : ii0 ;
-#if defined(SIMD) && defined(__AVX2__) && defined(__x86_64__)
+#if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
       vi   = (__m256i) _mm256_loadu_ps((float *) orig+i0) ;
       vi1  = (__m256i) _mm256_loadu_ps((float *) orig+i0-1) ;
       t    = _mm256_sub_epi32(vi, vi1) ;
@@ -64,7 +64,7 @@ void LorenzoPredict2D(int32_t *orig, int32_t *diff, int ni, int lnio, int lnid, 
     }else{
       for(ii0 = 1 ; ii0 < ni ; ii0 += VL){
         i0 = (ii0 > ni-VL) ? (ni-VL) : ii0 ;
-#if defined(SIMD) && defined(__AVX2__) && defined(__x86_64__)
+#if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
         vi   = (__m256i) _mm256_loadu_ps((float *) orig+i0) ;
         vi1  = (__m256i) _mm256_loadu_ps((float *) orig+i0-1) ;
         vj1  = (__m256i) _mm256_loadu_ps((float *) orig+i0-lnio) ;
