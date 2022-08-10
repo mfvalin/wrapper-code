@@ -65,6 +65,7 @@
 */
 #include <stdio.h>
 #include <stdint.h>
+#include <math.h>
 
 void F_dwt53i_1D_inplace(int32_t *x, int32_t n){
   int i ;
@@ -271,13 +272,59 @@ void I_dwt53i_2D_split_inplace(int32_t *x, int ni, int lni, int nj){
   int niodd  = ni >> 1 ;      // number of odd terms in row
   int njeven = (nj+1) >> 1 ;  // number of even rows
   int njodd  = nj >> 1 ;      // number of odd rows
-  int32_t o[ni*njodd] ;       // local temporary for even rows
+  int32_t e[ni*njeven] ;      // local temporary for even rows
   int32_t *erow, *orow ;      // pointers to even row and odd row
-  int32_t *erow2 ;            // where odd rows will end up after transform
+  int32_t *erow2 ;            // temporary pointer to even row storage
+  int32_t *orow2 ;            // temporary pointer to odd row storage
+  int32_t *row ;              // temporary pointer to row storage
 
+  // "save" even rows
+  erow = x ;
+  erow2 = e ;
+  for(j=0 ; j<njeven ; j++){
+    for(i=0 ; i<ni ; i++) erow2[i] = erow[i] ;
+    erow2 += ni ;   // next row in e
+    erow  += lni ;  // next row in x
+  }
   // unupdate odd rows
+  orow  = x + njeven*lni ;       // odd rows in x (top part)
+  orow2 = x + lni ;              // first odd row in x (from bottom)
+  erow  = e ;                    // first even row
+  for(j=0 ; j<njodd-1 ; j++){    // unupdate all but last odd row
+    for(i=0 ; i<ni ; i++) orow2[i] = orow[i] - (erow[i] + erow[i+ni]) / 2 ;
+    orow  += lni ;
+    orow2 += (lni*2) ;
+    erow  += ni ;
+  }
+  if(nj & 1){                     // nj is odd, top row is an even row
+    for(i=0 ; i<ni ; i++) orow2[i] = orow[i] - (erow[i] + erow[i+ni]) / 2 ;
+  }else{                          // nj is even, top row is an odd row
+    for(i=0 ; i<ni ; i++) orow2[i] = orow[i] - (erow[i] + erow[i]) / 2 ;
+  }
   // unpredict enven rows
+  erow2 = x ;                     // first even row in x
+  erow  = e ;                     // first even row in e
+  orow  = x + lni ;               // first odd row in x
+  for(i=0 ; i<ni ; i++) erow2[i] = erow[i] + (2 + orow[i] + orow[i])/4 ;
+  for(j=1 ; j<njeven-1 ; j++){    // all but last even row
+    erow  += ni ;                 // next even row in e
+    erow2 += (lni*2) ;            // next even row in x
+    orow  += (lni*2) ;            // next odd row in x
+    for(i=0 ; i<ni ; i++) erow2[i] = erow[i] + (2 + orow[i] + orow[i-lni])/4 ;
+  }
+  erow2 += (lni*2) ;              // next even row in x
+  erow  += ni ;                   // next even row in e
+  if(nj & 1){                     // nj is odd, top row is an even row
+    for(i=0 ; i<ni ; i++) erow2[i] = erow[i] + (2 + orow[i] + orow[i])/4 ;
+  }else{                          // nj is even, top row is an odd row
+    for(i=0 ; i<ni ; i++) erow2[i] = erow[i] + (2 + orow[i] + orow[i+lni])/4  ;
+  }
   // inverse 1D transform on rows along i
+  row = x ;
+  for(j=0 ; j<nj ; j++){
+    I_dwt53i_1D_split_inplace(row, ni) ;
+    row += lni ;
+  }
 }
 
 #if defined(SELF_TEST)
@@ -285,8 +332,8 @@ void I_dwt53i_2D_split_inplace(int32_t *x, int ni, int lni, int nj){
 #if ! defined(NPTS)
 #define NPTS 4
 #endif
-#define NI 1
-#define LNI NI
+#define NI NPTS
+#define LNI (NPTS+1)
 #define NJ NPTS
 
 int main(int argc, char **argv){
@@ -332,17 +379,29 @@ int main(int argc, char **argv){
   for(i=0 ; i<=NPTS ; i++) printf("%5d", x[i]) ;
   printf(" I_dwt53i_1D_split_inplace (restored)\n\n") ;
 
-  for(j = 0 ; j < NJ ; j++){
+  for(j = NJ-1 ; j >= 0 ; j--){
     for(i = 0 ; i < NI ; i++) {
-      x2d[j][i] = j ;
+//       x2d[j][i] = j + i ;
+      x2d[j][i] = sqrtf( (j-NJ/2.0f)*(j-NJ/2.0f) + (i-NI/2.0f)*(i-NI/2.0f)) ;
+      printf("%5d", x2d[j][i]) ;
     }
-    printf("%5d", x2d[j][0]) ;
+    printf("\n");
   }
-  printf(" transverse data\n");
+  printf(" original data\n\n");
   for(i = 0 ; i < NI ; i++) {
     x2d[NJ][i] = -1 ;
   }
   F_dwt53i_2D_split_inplace((int32_t *) x2d, NI, LNI, NJ) ;
-  for(j = 0 ; j < NJ ; j++) printf("%5d", x2d[j][0]) ; printf(" F_dwt53i_2D_split_inplace\n");
+  for(j = NJ-1 ; j >= 0 ; j--){
+    for(i=0 ; i<NI ; i++) printf("%5d", x2d[j][i]) ;
+    printf("\n");
+  }
+  printf(" F_dwt53i_2D_split_inplace\n\n");
+  I_dwt53i_2D_split_inplace((int32_t *) x2d, NI, LNI, NJ) ;
+  for(j = NJ-1 ; j >= 0 ; j--){
+    for(i=0 ; i<NI ; i++) printf("%5d", x2d[j][i]) ;
+    printf("\n");
+  }
+  printf(" I_dwt53i_2D_split_inplace\n");
 }
 #endif
