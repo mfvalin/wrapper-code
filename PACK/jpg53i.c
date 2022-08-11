@@ -199,6 +199,15 @@ void F_dwt53i_2D_split_inplace(int32_t *x, int ni, int lni, int nj){
   }
 }
 
+void F_dwt53i_2D_split_inplace_n(int32_t *x, int ni, int lni, int nj, int levels){
+  F_dwt53i_2D_split_inplace(x, ni, lni, nj) ;
+printf("forward level %d done (%d x %d)\n", levels, ni, nj);
+  if(levels > 1){
+    F_dwt53i_2D_split_inplace_n(x + (ni+1)/2 + lni *((nj+1)/2), (ni)/2, lni, (nj)/2, levels-1) ;
+//     F_dwt53i_2D_split_inplace_n(x, (ni+1)/2, lni, (nj+1)/2, levels-1) ;
+  }
+}
+
 void I_dwt53i_1D_inplace(int32_t *x, int32_t n){
   int i ;
 
@@ -310,14 +319,14 @@ void I_dwt53i_2D_split_inplace(int32_t *x, int ni, int lni, int nj){
     erow  += ni ;                 // next even row in e
     erow2 += (lni*2) ;            // next even row in x
     orow  += (lni*2) ;            // next odd row in x
-    for(i=0 ; i<ni ; i++) erow2[i] = erow[i] + (2 + orow[i] + orow[i-lni])/4 ;
+    for(i=0 ; i<ni ; i++) erow2[i] = erow[i] + (2 + orow[i] + orow[i-lni*2])/4 ;
   }
   erow2 += (lni*2) ;              // next even row in x
   erow  += ni ;                   // next even row in e
   if(nj & 1){                     // nj is odd, top row is an even row
     for(i=0 ; i<ni ; i++) erow2[i] = erow[i] + (2 + orow[i] + orow[i])/4 ;
   }else{                          // nj is even, top row is an odd row
-    for(i=0 ; i<ni ; i++) erow2[i] = erow[i] + (2 + orow[i] + orow[i+lni])/4  ;
+    for(i=0 ; i<ni ; i++) erow2[i] = erow[i] + (2 + orow[i] + orow[i+lni*2])/4  ;
   }
   // inverse 1D transform on rows along i
   row = x ;
@@ -327,23 +336,45 @@ void I_dwt53i_2D_split_inplace(int32_t *x, int ni, int lni, int nj){
   }
 }
 
+void I_dwt53i_2D_split_inplace_n(int32_t *x, int ni, int lni, int nj, int levels){
+  if(levels > 1){
+    I_dwt53i_2D_split_inplace_n(x + (ni+1)/2 + lni *((nj+1)/2), (ni)/2, lni, (nj)/2, levels-1) ;
+//     I_dwt53i_2D_split_inplace_n(x, (ni+1)/2, lni, (nj+1)/2, levels-1) ;
+  }
+  I_dwt53i_2D_split_inplace(x, ni, lni, nj) ;
+printf("inverse level %d done (%d x %d)\n", levels, ni, nj);
+}
+
+
 #if defined(SELF_TEST)
 
 #if ! defined(NPTS)
 #define NPTS 4
 #endif
+
+#if ! defined(LEVELS)
+#define LEVELS 1
+#endif
+
 #define NI NPTS
 #define LNI (NPTS+1)
 #define NJ NPTS
 
 int main(int argc, char **argv){
-  int32_t x[NPTS+1], e[NPTS+1], o[NPTS+1] ;
+  int32_t x[NPTS+1], e[NPTS+1], o[NPTS+1], r[NPTS+1] ;
   int32_t x2d[NJ+1][LNI] ;
-  int i, j ;
+  int32_t r2d[NJ+1][LNI] ;
+  int i, j, errors ;
   int neven = (NPTS+1)/2 ;
   int nodd = NPTS/2 ;
-
-  for(i=0 ; i<NPTS ; i++) x[i] = i ; x[NPTS] = -1 ;
+#if defined(TEST1D)
+  for(i=0 ; i<NPTS ; i++) {
+//     x[i] = i ;
+    x[i] =  2 * sqrtf( (i-NPTS/2.0f)*(i-NPTS/2.0f) ) ;
+    r[i] = x[i] ;
+  }
+  x[NPTS] = -1 ;
+  r[NPTS] = -1 ;
   for(i=0 ; i<=NPTS ; i++) printf("%5d", x[i]) ;
   printf(" original\n\n") ;
   F_dwt53i_1D_split(x, e, o, NPTS) ;
@@ -352,10 +383,10 @@ int main(int argc, char **argv){
   printf("      F_dwt53i_1D_split (even/odd)\n") ;
 
   I_dwt53i_1D_split(x, e, o, NPTS) ;
-  for(i=0 ; i<=NPTS ; i++) printf("%5d", x[i]) ;
+  for(i=0 ; i<=NPTS ; i++) printf("%5d", x[i]-r[i]) ;
   printf(" I_dwt53i_1D_split (restored)\n\n") ;
 
-  for(i=0 ; i<NPTS ; i++) x[i] = i ; x[NPTS] = -1 ;
+  for(i=0 ; i<NPTS ; i++) x[i] = r[i] ; x[NPTS] = -1 ;
   F_dwt53i_1D_inplace(x, NPTS) ;
   for(i=0 ; i<=NPTS ; i++) printf("%5d", x[i]) ;
   printf(" F_dwt53i_1D_inplace\n") ;
@@ -364,10 +395,10 @@ int main(int argc, char **argv){
   printf("%5d F_dwt53i_1D_inplace (%d even, %d odd)\n",x[NPTS], neven, nodd) ;
 
   I_dwt53i_1D_inplace(x, NPTS) ;
-  for(i=0 ; i<=NPTS ; i++) printf("%5d", x[i]) ;
+  for(i=0 ; i<=NPTS ; i++) printf("%5d", r[i]-x[i]) ;
   printf(" I_dwt53i_1D_inplace (restored)\n\n") ;
 
-  for(i=0 ; i<NPTS ; i++) x[i] = i ; x[NPTS] = -1 ;
+  for(i=0 ; i<NPTS ; i++) x[i] = r[i] ; x[NPTS] = -1 ;
   F_dwt53i_1D_split_inplace(x, NPTS) ;
   for(i=0 ; i<nodd ; i++) printf("%5d%5d", x[i], x[neven+i]) ;
   if(NPTS&1) printf("%5d", x[NPTS/2]);
@@ -376,32 +407,50 @@ int main(int argc, char **argv){
   printf("%5d F_dwt53i_1D_split_inplace (straight)\n",x[NPTS]) ;
 
   I_dwt53i_1D_split_inplace(x, NPTS) ;
-  for(i=0 ; i<=NPTS ; i++) printf("%5d", x[i]) ;
+  for(i=0 ; i<=NPTS ; i++) printf("%5d", x[i]-r[i]) ;
   printf(" I_dwt53i_1D_split_inplace (restored)\n\n") ;
-
+#endif
   for(j = NJ-1 ; j >= 0 ; j--){
     for(i = 0 ; i < NI ; i++) {
 //       x2d[j][i] = j + i ;
-      x2d[j][i] = sqrtf( (j-NJ/2.0f)*(j-NJ/2.0f) + (i-NI/2.0f)*(i-NI/2.0f)) ;
-      printf("%5d", x2d[j][i]) ;
+      x2d[j][i] =  2 * sqrtf( (j-NJ/2.0f)*(j-NJ/2.0f) + (i-NI/2.0f)*(i-NI/2.0f)) ;
+//       x2d[j][i] =  2 * sqrtf( (j-NJ/2.0f)*(j-NJ/2.0f) ) ;
+      r2d[j][i] = x2d[j][i] ;
+//       printf("%5d", x2d[j][i]) ;
     }
-    printf("\n");
+//     printf("\n");
   }
-  printf(" original data\n\n");
+//   printf(" original data\n\n");
   for(i = 0 ; i < NI ; i++) {
     x2d[NJ][i] = -1 ;
   }
-  F_dwt53i_2D_split_inplace((int32_t *) x2d, NI, LNI, NJ) ;
+
+  F_dwt53i_2D_split_inplace_n((int32_t *) x2d, NI, LNI, NJ, LEVELS) ;
   for(j = NJ-1 ; j >= 0 ; j--){
     for(i=0 ; i<NI ; i++) printf("%5d", x2d[j][i]) ;
     printf("\n");
   }
   printf(" F_dwt53i_2D_split_inplace\n\n");
-  I_dwt53i_2D_split_inplace((int32_t *) x2d, NI, LNI, NJ) ;
-  for(j = NJ-1 ; j >= 0 ; j--){
-    for(i=0 ; i<NI ; i++) printf("%5d", x2d[j][i]) ;
-    printf("\n");
+
+  I_dwt53i_2D_split_inplace_n((int32_t *) x2d, NI, LNI, NJ, LEVELS) ;
+  errors = 0 ;
+  for(j=0 ; j<NJ ; j++){
+    for(i=0 ; i<NI ; i++){
+      if(x2d[j][i] != r2d[j][i]) errors++ ;
+    }
+  }
+  if(errors == 0){
+//     for(j = NJ-1 ; j >= 0 ; j--){
+//       for(i=0 ; i<NI ; i++) printf("%5d", x2d[j][i]) ;
+//       printf("\n");
+//     }
+  }else{
+    for(j = NJ-1 ; j >= 0 ; j--){
+      for(i=0 ; i<NI ; i++) printf("%5d", x2d[j][i]-r2d[j][i]) ;
+      printf("\n");
+    }
   }
   printf(" I_dwt53i_2D_split_inplace\n");
+  printf("restore errors = %d\n", errors);
 }
 #endif
