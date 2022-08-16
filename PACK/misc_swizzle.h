@@ -348,6 +348,7 @@ STATIC inline void ShuffleEvenOdd_n(void *pa, void *pe, void *po, int n){
     a[i+1] = o[j] ;
   }
 #endif
+  if(n&1) a[n-1] = e[nodd] ;   // odd number of values, one extra even value
 }
 
 #endif

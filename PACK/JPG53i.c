@@ -67,6 +67,41 @@
 #include <stdint.h>
 #include <math.h>
 
+static void quadrants(int32_t *z, int ni, int lni, int nj, int32_t *min, int32_t *max){
+  int i, j, pts[4] ; ;
+for (i=0;i<4;i++) pts[i] = 0 ;
+  min[0] = min[1] = min[2] = min[3] =  9999999 ;
+  max[0] = max[1] = max[2] = max[3] = -9999999 ;
+  for (j=0;j<(nj+1)/2;j++) {
+    for (i=0;i<(ni+1)/2;i++) {          // LL quadrant, level 1
+      min[0] = (z[i+lni*j] < min[0]) ? z[i+lni*j] : min[0] ;
+      max[0] = (z[i+lni*j] > max[0]) ? z[i+lni*j] : max[0] ;
+      pts[0]++ ;
+    }
+  }
+  for (j=0;j<(nj+1)/2;j++) {
+    for (i=(ni+1)/2;i<ni;i++) {       // HL quadrant, level 1
+      min[1] = (z[i+lni*j] < min[1]) ? z[i+lni*j] : min[1] ;
+      max[1] = (z[i+lni*j] > max[1]) ? z[i+lni*j] : max[1] ;
+      pts[1]++ ;
+    }
+  }
+  for (j=(nj+1)/2;j<nj;j++) {
+    for (i=0;i<(ni+1)/2;i++) {          // LH quadrant, level 1
+      min[2] = (z[i+lni*j] < min[2]) ? z[i+lni*j] : min[2] ;
+      max[2] = (z[i+lni*j] > max[2]) ? z[i+lni*j] : max[2] ;
+      pts[2]++ ;
+    }
+  }
+  for (j=(nj+1)/2;j<nj;j++) {
+    for (i=(ni+1)/2;i<ni;i++) {       // HH quadrant, level 1
+      min[3] = (z[i+lni*j] < min[3]) ? z[i+lni*j] : min[3] ;
+      max[3] = (z[i+lni*j] > max[3]) ? z[i+lni*j] : max[3] ;
+      pts[3]++ ;
+    }
+  }
+}
+
 void F_DWT53i_1D_inplace(int32_t *x, int32_t n){
   int i ;
 
@@ -220,11 +255,13 @@ void F_DWT53i_2D_split_inplace(int32_t *x, int ni, int lni, int nj){
 }
 
 void F_DWT53i_2D_split_inplace_n(int32_t *x, int ni, int lni, int nj, int levels){
+  int min[4], max[4] ;
   F_DWT53i_2D_split_inplace(x, ni, lni, nj) ;
-printf("forward level %d done (%d x %d)\n", levels, ni, nj);
+  quadrants(x, ni, lni, nj, min, max) ;
+printf("(%5d %5d) (%5d %5d)\n(%5d %5d) (%5d %5d)",min[2],max[2],min[3],max[3],min[0],max[0],min[1],max[1]) ;
+printf("  forward level %d done (%d x %d)\n", levels, ni, nj);
   if(levels > 1){
-    F_DWT53i_2D_split_inplace_n(x, (ni)/2, lni, (nj)/2, levels-1) ;
-//     F_DWT53i_2D_split_inplace_n(x, (ni+1)/2, lni, (nj+1)/2, levels-1) ;
+    F_DWT53i_2D_split_inplace_n(x, (ni+1)/2, lni, (nj+1)/2, levels-1) ;
   }
 }
 
@@ -376,8 +413,7 @@ void I_DWT53i_2D_split_inplace(int32_t *x, int ni, int lni, int nj){
 
 void I_DWT53i_2D_split_inplace_n(int32_t *x, int ni, int lni, int nj, int levels){
   if(levels > 1){
-    I_DWT53i_2D_split_inplace_n(x + (ni+1)/2 + lni *((nj+1)/2), (ni)/2, lni, (nj)/2, levels-1) ;
-//     I_DWT53i_2D_split_inplace_n(x, (ni+1)/2, lni, (nj+1)/2, levels-1) ;
+    I_DWT53i_2D_split_inplace_n(x, (ni+1)/2, lni, (nj+1)/2, levels-1) ;
   }
   I_DWT53i_2D_split_inplace(x, ni, lni, nj) ;
 printf("inverse level %d done (%d x %d)\n", levels, ni, nj);
@@ -475,16 +511,16 @@ int main(int argc, char **argv){
     x2d[NJ][i] = -1 ;
   }
 
-  F_DWT53i_2D_split_inplace((int32_t *) x2d, NI, LNI, NJ) ;
-//   F_DWT53i_2D_split_inplace_n((int32_t *) x2d, NI, LNI, NJ, LEVELS) ;
+//   F_DWT53i_2D_split_inplace((int32_t *) x2d, NI, LNI, NJ) ;
+  F_DWT53i_2D_split_inplace_n((int32_t *) x2d, NI, LNI, NJ, LEVELS) ;
   for(j = NJ-1 ; j >= 0 ; j--){
     for(i=0 ; i<NI ; i++) printf("%5d", x2d[j][i]) ;
     printf("\n");
   }
   printf(" F_DWT53i_2D_split_inplace\n\n");
 
-  I_DWT53i_2D_split_inplace((int32_t *) x2d, NI, LNI, NJ) ;
-//   I_DWT53i_2D_split_inplace_n((int32_t *) x2d, NI, LNI, NJ, LEVELS) ;
+//   I_DWT53i_2D_split_inplace((int32_t *) x2d, NI, LNI, NJ) ;
+  I_DWT53i_2D_split_inplace_n((int32_t *) x2d, NI, LNI, NJ, LEVELS) ;
   errors = 0 ;
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<NI ; i++){
