@@ -9,7 +9,8 @@ DEF =
 .SUFFIXES : .F90 .c .o
 
 OBJECTS = lorenzo_f.o lorenzo_c.o cdf97.o cdf53.o average_by_2_4_8.o analyze_8x8.o \
-          misc_timers.o quantize.o float_info.o misc_swizzle.o misc_endian.o
+          misc_timers.o quantize.o float_info.o misc_swizzle.o misc_endian.o \
+          ieee_quantize.o
 
 .F90.o:
 	(module load $(MOD)$(EXT) >/dev/null ; mkdir -p obj_$(MOD) include_$(MOD) ; \
@@ -25,7 +26,8 @@ libmisc_$(MOD).a: $(OBJECTS)
 
 all_tests : test_compress test_lorenzo test_pack test_pack_macros \
             test_quantize test_float_info test_helpers test_averages \
-            test_cdf97 test_cdf53 test_endian test_endian_f
+            test_cdf97 test_cdf53 test_endian test_endian_f \
+            test_ieeequantize
 
 test_compress : test_compress.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; rm -f sample_compressed ; ./$< sample $(VAR) sample_compressed) || true
@@ -54,6 +56,12 @@ test_pack_macros.$(MOD).exe : tests/test_pack_macros.c
 test_quantize : test_quantize.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
 test_quantize.$(MOD).exe : tests/test_quantize.c libmisc_$(MOD).a
+	(module load $(MOD)$(EXT) >/dev/null ; \
+	$$CC $(OPT) $(DEF) -I. $^ -L. -lmisc_$(MOD) -o $@ )
+
+test_ieeequantize : test_ieeequantize.$(MOD).exe
+	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
+test_ieeequantize.$(MOD).exe : tests/test_ieeequantize.c libmisc_$(MOD).a
 	(module load $(MOD)$(EXT) >/dev/null ; \
 	$$CC $(OPT) $(DEF) -I. $^ -L. -lmisc_$(MOD) -o $@ )
 

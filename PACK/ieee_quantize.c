@@ -22,19 +22,8 @@
 #include <limits.h>
 #include <float.h>
 
-#define MAX(a,b) ( ((a) > (b)) ? (a) : (b) )
-#define MIN(a,b) ( ((a) < (b)) ? (a) : (b) )
-#define ABS(a) ( ((a) < 0) ? (-(a)) : (a) )
-
-typedef union{
-  int32_t i ;
-  float f ;
-} FloatInt;
-
-typedef union{
-  uint32_t i ;
-  float    f ;
-} FloatUint ;
+#include <misc_operators.h>
+#include <misc_types.h>
 
 typedef struct{
   int32_t e0 ;       // reference exponent (used at unquantize time) (ieee quantization)
@@ -145,7 +134,6 @@ void ieee_clip(void *f, int n, int nbits){
 
   mask >>= (32 -(23-nbits))  ; // lower 23 -nbits bits
   mask = ~mask ;
-// fprintf(stdout,"mask = %8.8x\n",mask) ;
   for(i=0 ; i<4 ; i++) fi[i] = fi[i] & mask ;
   for(j=(n&3) ; j<n ; j+=4){
     for(i=0; i<4 ; i++) fi[i+j] = fi[i+j] & mask ;
@@ -158,19 +146,23 @@ void ieee_clip(void *f, int n, int nbits){
 // t0    : float scaling factor
 // nm    : number of effective mantissa bits ( 1 - 23 )
 // limit : maximum permitted absolute value once quantized
+// sbit  : (0/1) mask for sign bit. if 0, sign will be ignored
 // return signed quantized integer value of f
+// the absolute value of the input float is converted to a new floating format
+// with a reduced size exponent and a reduced size mantissa (nm bits)
+// this new "reduced size float" is treated as an integer when restoring sign if needed
 static inline int32_t ieee_f_to_q(float f, int32_t e0, int32_t round, float t0, int nm, int32_t limit, int32_t sbit){
   FloatUint z, x1, y ;
   int sign, ex, q ;
-  z.f = f ;                     // float will be mostly manipulated as an integer
-  sign = z.i >> 31 ;            // sign (high bit)
+  z.f = f ;                     // float will be mostly manipulated as an unsigned integer
+  sign = z.i >> 31 ;            // get sign (most significant bit)
   sign = sign & sbit ;
   z.i &= 0x7FFFFFFF ;           // suppress FP sign bit
-  z.i += round ;                // apply mantissa rounding
+  z.i += round ;                // apply mantissa rounding (may cause an exponent increase by 1)
   ex = (z.i >> 23) ;            // get exponent (including IEEE bias of 127)
-  x1.i = ((ex - e0) << 23) |    // alter exponent (largest value becomes 127), keep mantissa
+  x1.i = ((ex - e0) << 23) |    // alter exponent (largest value becomes 127), keep mantissa intact
          (z.i & 0x7FFFFF) ;     // (equivalent to dividing by 2**e0)
-  y.f = x1.f * t0 ;             // apply scaling (may produce denormalized float)
+  y.f = x1.f * t0 ;             // apply scaling (may produce a denormalized float)
   q = y.i >> (23 - nm) ;        // get rid of unused rightmost mantissa bits
   q = q > limit ? limit : q ;   // limit is expected to have the nbits rightmost bits set
   q = sign ? -q : q ;           // restore sign
