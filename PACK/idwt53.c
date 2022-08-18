@@ -16,6 +16,57 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  */
+/*
+   integer forward and inverse wavelet transforms (as in jpeg 2000)
+
+   this code is using a lifting implementation
+   https://en.wikipedia.org/wiki/Lifting_scheme
+
+   1 dimensional transform, "in place", "even/odd split", or "in place with even/odd split"
+     original data
+     +--------------------------------------------------------+
+     |                  N data                                |
+     +--------------------------------------------------------+
+
+     transformed data (in place, no split, even number of data)
+     +--------------------------------------------------------+
+     |   N data, even/odd, even/odd, ..... , even/odd         +
+     +--------------------------------------------------------+
+
+     transformed data (in place, no split, odd number of data)
+     +--------------------------------------------------------+
+     |   N data, even/odd, even/odd, ..... , even/odd, even   +
+     +--------------------------------------------------------+
+
+     transformed data, in place with even/odd split
+     +--------------------------------------------------------+
+     | (N+1)/2 even data            |    (N/2) odd data       |
+     +--------------------------------------------------------+
+
+     original data                     transformed data (2 output arrays)
+     +------------------------------+  +-------------------+  +------------------+
+     |             N data           |  | (N+1)/2 even data |  |   N/2 odd data   |
+     +------------------------------+  +-------------------+  +------------------+
+
+     even data are the "approximation" terms ("low frequency" terms)
+     odd data are the "detail" terms         ("high frequency" terms)
+
+   2 dimensional in place with 2 D split
+     original data                               transformed data (in same array)
+     +------------------------------------+      +-------------------+----------------+
+     |                  ^                 |      +                   |                |
+     |                  |                 |      +   even i/odd j    |  odd i/odd j   |
+     |                  |                 |      +                   |                |
+     |                  |                 |      +                   |                |
+     |                  |                 |      +-------------------+----------------+
+     |               NJ data              |      +                   |                |
+     |                  |                 |      +                   |                |
+     |                  |                 |      +   even i/even j   |  odd i/even j  |
+     |<----- NI data ---|---------------->|      +                   |                |
+     |                  v                 |      +                   |                |
+     +------------------------------------+      +-------------------+----------------+
+     the process can be applied again to the even/even transformed part to achieve a multi level transform
+*/
 
 #include <stdio.h>
 #include <stdint.h>
