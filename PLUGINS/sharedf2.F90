@@ -8,7 +8,7 @@ integer(C_INT) function  fn1(arg) BIND(C,name='name1f')
 use ISO_C_BINDING
 implicit none
 integer(C_INT), intent(IN) :: arg
-print *,'in fortran function name1f from sharedf1 : arg =',arg
+print *,'in fortran function name1f from sharedf2 : arg =',arg
 fn1 = arg
 return
 end
@@ -17,7 +17,7 @@ integer(C_INT) function  fn2(arg) BIND(C,name='name2f')
 use ISO_C_BINDING
 implicit none
 integer(C_INT), intent(IN) :: arg
-print *,'in fortran function name2f from sharedf1 : arg =',arg
+print *,'in fortran function name2f from sharedf2 : arg =',arg
 fn2 = arg
 return
 end
@@ -26,7 +26,7 @@ integer(C_INT) function  fn3(arg) BIND(C,name='name3f')
 use ISO_C_BINDING
 implicit none
 integer(C_INT), intent(IN) :: arg
-print *,'in fortran function name3f from sharedf1 : arg =',arg
+print *,'in fortran function name3f from sharedf2 : arg =',arg
 fn3 = arg
 return
 end
@@ -35,7 +35,7 @@ integer(C_INT) function  fn4(arg) BIND(C,name='name4f')
 use ISO_C_BINDING
 implicit none
 integer(C_INT), intent(IN) :: arg
-print *,'in fortran function name4f from sharedf1 : arg =',arg
+print *,'in fortran function name4f from sharedf2 : arg =',arg
 fn4 = arg
 return
 end
@@ -44,7 +44,7 @@ integer(C_INT) function  fn5(arg) BIND(C,name='unadvertised')  ! unadvertised en
 use ISO_C_BINDING
 implicit none
 integer(C_INT), intent(IN), value :: arg
-print *,'in fortran function unadvertised from sharedf1 : arg =',arg
+print *,'in fortran function unadvertised from sharedf2 : arg =',arg
 fn5 = arg
 return
 end
@@ -85,7 +85,7 @@ contains
     implicit none
     integer(C_INT) :: number
     if(nargs == 0) then
-      print *,"calling insert_symbols from symbols(sharedf1)"
+      print *,"calling insert_symbols from symbols(sharedf2)"
       call insert_symbols()
     endif
     number = nargs   ! return number of arguments
@@ -96,7 +96,7 @@ contains
     implicit none
     nargs = 0
 ! start of user adjusted code
-print *,'automatic insertion of symbols for sharedf1'
+print *,'automatic insertion of symbols for sharedf2'
     call insert_in_name_table('name1f')
     call insert_in_name_table('name2f')
     call insert_in_name_table('name3f')

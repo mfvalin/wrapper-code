@@ -28,6 +28,7 @@ module fortran_plugins
       integer(C_SIZE_T) :: length
     end function c_strlen_
   end interface
+  private :: c_strlen_
 
   integer, parameter :: SILENT  = 0               !< constant for verbosity control
   integer, parameter :: VERBOSE = 1               !< constant for verbosity control

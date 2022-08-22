@@ -228,7 +228,7 @@ int Unload_plugin(void *handle)  //InTc
   p->handle = NULL;
   p->ordinal = -1;
   p->nentries = 0;
-  if(verbose) printf("INFO: plugin %s has been closed (slot %ld)\n",p->name,p-plugin_table);
+  if(verbose) printf("INFO: plugin %s has been closed (slot %ld/%d)\n",p->name,(p-plugin_table)+1,MAX_PLUGINS);
   if(p->name) free(p->name);
   p->name = NULL;
   return (0);   // entry has been freed
