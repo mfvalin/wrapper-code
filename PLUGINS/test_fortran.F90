@@ -28,7 +28,7 @@ program test_plugin   ! test of fortran plugin module
 
   procedure(procval) , pointer :: fpl2 => NULL()  ! pointer to integer function with one value integer argument
   abstract interface                              ! abstract interface needed for pointer to function
-    integer function procval(arg)                 ! with argument passed by value
+    integer function procval(arg) BIND(C)        ! with argument passed by value
       integer, intent(IN), value :: arg
     end function procval
   end interface
