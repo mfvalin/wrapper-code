@@ -114,6 +114,13 @@
 // int get_symbol_number(){  // function to get number of symbols, optional
 //   return(2);
 // }
+// void __attribute__ ((constructor)) PluginConstructor(void) { // executed before load
+//    printf("plugin constructor for plugin\n");
+// }
+// 
+// void __attribute__ ((destructor)) PluginDestructor(void) {   // executed before unload
+//    printf("plugin destructor for plugin\n");
+// }
 // 
 // ----------------------- Example of Fortran plugin -----------------------
 //               ( needs a little more extra code than C )
@@ -146,6 +153,7 @@
 // print *,'automatic insertion of symbols for sharedf1'
 //   call insert_in_name_table('name1f')
 //   call insert_in_name_table('name2f')
+// ! perform any tasks needed for library initialization here
 //   return
 // end subroutine user_symbols
 // 
