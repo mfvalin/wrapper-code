@@ -49,13 +49,18 @@ program test_plugin   ! test of fortran plugin module
   end interface
 
   call sharedf1 % diag(VERBOSE)                                         ! set verbose diagnostics
+! call sharedf1 % diag(SILENT)                                          ! set non verbose diagnostics
   status = sharedf1 % load('libsharedf1.so')                            ! load sharedf1    (slot 0)
   status = sharedf1 % unload()                                          ! unload sharedf1  (slot 0)
 
   status = sharedf3 % load('libsharedf3.so')                            ! load sharedf2    (slot 0)
+  print *,'load libsharedf3, status =',status
   status = sharedf2 % load('libsharedf2.so')                            ! load sharedf2    (slot 0)
+  print *,'load libsharedf2, status =',status
   status = sharedf1 % load('libsharedf1.so')                            ! load sharedf1    (slot 1)
-  status = sharedf3 % unload()                                          ! unload sharedf2  (slot 0)
+  print *,'load libsharedf1, status =',status
+  status = sharedf3 % unload()                                          ! unload sharedf3
+  print *,'unload libsharedf3, status =',status
 
   print *,"========================================"
   print *,'looking up name4f in libsharedf1.so'
@@ -170,16 +175,31 @@ program test_plugin   ! test of fortran plugin module
     if(answer .ne. 789) print *,"ERROR: expecting 789, got",answer
   endif
 
+  print *,'looking up unadvertised in ANY plugin'
+  fptr2 = anonymous % fnptr('unadvertised')     ! blind call, anonymous is not initialized
+  if(.not. c_associated(fptr2)) then
+    print *,'unadvertised not found (NOT EXPECTED)'
+  else
+    call c_f_procpointer(fptr2,fpl2)
+    answer = fpl2(567)                    ! call by value type
+    print *, 'fpl2(567) =',answer
+    if(answer .ne. 567) print *,"ERROR: expecting 567, got",answer
+  endif
+  print *,"========================================"
+
   status = sharedf1 % library(longstr)
   print *,"closing plugin library '"//trim(longstr)//"'"
   status = sharedf1 % unload()                ! unload sharedf1  (slot 1)
+  print *,'unload '//trim(longstr)//', status =',status
 
   status = sharedf2 % library(longstr)
   print *,"closing plugin library '"//trim(longstr)//"'"
   status = sharedf2 % unload()                ! unload sharedf1  (slot 1)
+  print *,'unload '//trim(longstr)//', status =',status
 
   status = shared2 % library(longstr)
   print *,"closing plugin library '"//trim(longstr)//"'"
   status = shared2 % unload()                 ! unload shared2  (slot 0)
+  print *,'unload '//trim(longstr)//', status =',status
 
 end program

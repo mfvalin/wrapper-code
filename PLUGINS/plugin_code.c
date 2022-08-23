@@ -190,7 +190,6 @@
 //   return
 // end
 // subroutine fortran_destructor() bind(C,name='fortran_destructor')
-// print *,'in subroutine fortran_destructor for sharedf1'
 // ! START of user adjustable code
 // ! perform any tasks needed before closing library
 // ! END of user adjustable code

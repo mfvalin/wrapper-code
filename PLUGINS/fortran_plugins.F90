@@ -11,7 +11,7 @@
 ! Lesser General Public License for more details.
 ! 
 ! Author:
-!     M. Valin,   Environnement et Changement climatique Canada, 2020/2021
+!     M. Valin,   Environnement et Changement climatique Canada, 2020-2022
 !
 !> \file
 !> \brief interface  to C plugin library management routines (object oriented)
