@@ -1,0 +1,384 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+                      "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html  xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Style-Type" content="text/css" />
+<meta http-equiv="Content-type" content="text/html; charset=ISO-8859-1" />
+<link rel="stylesheet" href="./robodoc.css" type="text/css" />
+<title>./plugin_code</title>
+<!-- Source: ./ -->
+<!-- Generated with ROBODoc Version 4.99.41 (Nov 27 2013) -->
+</head>
+<body>
+<div id="logo">
+<a name="robo_top_of_doc">TITLE</a>
+</div> <!-- logo -->
+<h3>TABLE OF CONTENTS</h3>
+<ul>
+<li><a href="#robo0">libplugin/plugins</a></li>
+<li><a href="#robo1">libplugin/Load_plugin</a></li>
+<li><a href="#robo2">libplugin/Plugin_function</a></li>
+<li><a href="#robo3">libplugin/Plugin_function_name</a></li>
+<li><a href="#robo4">libplugin/Plugin_function_names</a></li>
+<li><a href="#robo5">libplugin/Plugin_n_functions</a></li>
+<li><a href="#robo6">libplugin/Set_plugin_diag</a></li>
+<li><a href="#robo7">libplugin/Unload_plugin</a></li>
+</ul>
+<hr />
+<a name="libplugin2fplugins"></a>
+<a name="robo0"></a><h2>libplugin/plugins [ package ]</h2>
+
+<p>[ <a href="#robo_top_of_doc">Top</a> ] [ package ]</p>
+<p class="item_name">Synopsis</p>
+<pre> Fortran anc C callable package to use dynamic libraries (shared objects) at runtime
+
+ a "plugin" is a dynamic library (shared object) that contains some special elements
+
+ <a href="http://github.com/mfvalin/wrapper-code/tree/master/PLUGINS">http://github.com/mfvalin/wrapper-code/tree/master/PLUGINS</a>
+ 
+ step 0: declarations
+         Fortran :
+           use ISO_C_BINDING
+           include '<strong>plugins</strong>.inc'
+         Fortran with module :
+           use ISO_C_BINDING
+           use fortran_plugins
+         C:
+           #include &lt;<strong>plugins</strong>.h&gt;
+ 
+ step 1: Load a dynamic library (shared object)
+         Fortran :
+           type(C_PTR) :: handle
+           handle = load_plugin("my_library_name.so")  ! NULL pointer if not successful
+         Fortran with module :
+           type(plugin) :: sharedf
+           logical :: status     ! .true. if successful
+           status = sharedf % load('libsharedf.so')
+         C :
+           void *handle;
+           handle = load_plugin("my_library_name.so");  ! NULL pointer if not successful
+ 
+ step 2: Get number of advertised entry points in dynamic library
+         Fortran:
+           integer(C_INT) :: nsym
+           nsym = plugin_n_functions(handle)  ! zero if not successful
+         Fortran with module :
+           type(plugin) :: sharedf
+           nsym = sharedf % symbols()         ! zero if not successful
+         C:
+           int nsym = plugin_n_functions(handle);   ! zero if not successful
+ 
+ step 3: Get the name of advertised entry point n
+         Fortran:
+           type(C_PTR) :: string
+           integer(C_INT) :: n
+           string = plugin_function_name(handle,n)  ! NULL pointer if not successful
+         Fortran with module :
+           type(plugin) :: sharedf
+           logical :: status               ! .true. if successful
+           character(len=128) :: longstr   ! "" if not successful
+           status = sharedf % fname(n, longstr)
+         C:
+           int n;
+           char *string = plugin_function_name(handle,n);  ! NULL pointer if not successful
+ 
+ step 4: Get address of entry point by name and call it
+         Fortran:
+           type(C_FUNPTR) :: faddress
+           procedure(xxx), pointer :: fptr
+           character(C_CHAR), dimension(*) :: name
+           faddress = plugin_function(handle,name)  ! NULL pointer if not successful
+           call c_f_procpointer(faddress,fptr)
+           call fptr(...arguments...)
+         Fortran with module :
+           type(plugin) :: sharedf
+           character(len=128) :: longstr
+           faddress = sharedf % fnptr(trim(longstr))  ! NULL pointer if not successful
+           call c_f_procpointer(faddress,fptr)
+           call fptr(...arguments...)
+         C:
+           void *faddress;
+           char *name;
+           faddress = plugin_function(handle,name);  ! NULL pointer if not successful
+           .. = (*faddress)(...arguments...);
+ 
+ step n: unload plugin
+         Fortran:
+           integer(C_INT) :: status
+           status = unload_plugin(handle)        ! 0 if successful
+         Fortran with module :
+           type(plugin) :: sharedf
+           logical :: status                     ! .true. if successful
+           status = sharedf % unload()
+         C:
+           int status = unload_plugin(handle);   ! 0 if successful
+ 
+ other : set diagnostics verbosity
+         Fortran:
+           integer(C_INT) :: verbose
+           call set_plugin_diag(verbose)
+         Fortran with module :
+           type(plugin) :: sharedf
+           call sharedf % diag(VERBOSE)
+         C:
+           int verbose;
+           set_plugin_diag(verbose);
+ 
+ NOTES:
+   the presence of entry point "EntryList_" is mandatory in a "plugin", it is
+   a NULL pointer terminated list of pointers to NULL terminated strings
+   providing the names of the advertised entry points in the plugin
+   (see examples below)
+ 
+   function "get_symbol_number" is optional and may be used to get the
+   number of values in "EntryList_" (see Fortran)
+
+   if neither "EntryList_" nor "get_symbol_number" is present, plugin_n_functions
+   will return 0, and the user must then known in advance the names available 
+   before calling "plugin_function"
+</pre>
+<p class="item_name">EXAMPLES</p>
+<pre> ----------------------- Example of C plugin -----------------------
+ c_compiler -shared -fpic -o libxxx.so xxx.c
+ 
+ #include &lt;stdio.h&gt;
+ #include &lt;string.h&gt;
+ 
+ char *EntryList_[4] = { "name1","name2",NULL} ;
+ 
+ int name1(int arg){
+ printf("name1: %d\n",arg);
+ return(arg);
+ }
+ 
+ int name2(int arg){
+ printf("name2: %d\n",arg);
+ return(arg);
+ }
+ 
+ int get_symbol_number(){  // function to get number of symbols, optional
+   return(2);
+ }
+ void __attribute__ ((constructor)) PluginConstructor(void) { // executed before load
+    printf("plugin constructor for plugin\n");
+ }
+ 
+ void __attribute__ ((destructor)) PluginDestructor(void) {   // executed before unload
+    printf("plugin destructor for plugin\n");
+ }
+ 
+ ----------------------- Example of Fortran plugin -----------------------
+               ( needs a little more extra code than C )
+ fortran_compiler -shared -fpic -o libxxx.so xxx.F90 -lbuildplugin
+ libbuildplugin.a is a special library that contains constructor ans destructor functions
+                  that call fortran_constructor and fortran_destructor
+ 
+ integer function  fn1(arg) BIND(C,name='name1f')
+ integer, intent(IN) :: arg
+ print *,'Fortran name1 =',arg
+ fn1 = arg
+ return
+ end
+ 
+ integer function  fn2(arg) BIND(C,name='name2f')
+ integer, intent(IN) :: arg
+ print *,'Fortran name2 =',arg
+ fn2 = arg
+ return
+ end
+ !
+ ! what follows is boiler plate code
+ ! to be adjusted by user : MAX_NAMES, MAX_NAME_LENGTH, 
+ !                          calls to insert_in_name_table in subroutine user_symbols
+ !                          initialization (ONCE ONLY) code
+ ! fortran_constructor will be called by the plugin library constructor
+ ! fortran_destructor will be called by the plugin library destructor
+ #define MAX_NAMES 2
+ #define MAX_NAME_LENGTH 8
+ #include &lt;library_plugin_mod.hf&gt;
+ subroutine fortran_constructor() bind(C,name='fortran_constructor')
+   use library_plugin_mod
+   implicit none
+ ! START of user adjustable code
+   call insert_in_name_table('name1f')
+   call insert_in_name_table('name2f')
+ ! perform any tasks needed for library initialization here
+ ! END of user adjustable code
+   return
+ end
+ subroutine fortran_destructor() bind(C,name='fortran_destructor')
+ ! START of user adjustable code
+ ! perform any tasks needed before closing library
+ ! END of user adjustable code
+ end 
+</pre>
+
+<hr />
+<a name="libplugin2fLoad5fplugin"></a>
+<a name="robo1"></a><h2>libplugin/Load_plugin [ function ]</h2>
+
+<p>[ <a href="#robo_top_of_doc">Top</a> ] [ function ]</p>
+<p class="item_name">Synopsis</p>
+<pre>  load a plugin (shared object)
+
+ Fortran interface
+   function <strong>Load_plugin</strong>(lib) result(handle) BIND(C,name='<strong>Load_plugin</strong>')
+     import :: C_CHAR, C_INT, C_PTR
+     character(C_CHAR), dimension(*), intent(IN) :: lib
+     type(C_PTR) :: handle
+   end function <strong>Load_plugin</strong>
+
+  lib     : character string, name of shared object
+
+  function return :  handle (blind pointer to a plugin structure)
+
+  the rules for finding "lib" are the rules followed by dlopen (see: man dlopen)
+</pre>
+<p class="item_name">ARGUMENTS</p>
+<pre class="source">void *<strong>Load_plugin</strong>(const char *lib)
+</pre>
+
+<hr />
+<a name="libplugin2fPlugin5ffunction"></a>
+<a name="robo2"></a><h2>libplugin/Plugin_function [ function ]</h2>
+
+<p>[ <a href="#robo_top_of_doc">Top</a> ] [ function ]</p>
+<p class="item_name">Synopsis</p>
+<pre>  get address of plugin entry name
+  if pointer to plugin is NULL, scan all known <a href="#robo0">plugins</a>
+
+ Fortran interface
+   function <strong>Plugin_function</strong>(handle,fname) result(faddress) BIND(C,name='<strong>Plugin_function</strong>')
+     import :: C_PTR, C_FUNPTR, C_CHAR
+     type(C_PTR), intent(IN), value :: handle
+     character(C_CHAR), dimension(*), intent(IN) :: fname
+     type(C_FUNPTR) :: faddress
+   end function <strong>Plugin_function</strong>
+
+  handle : handle obtained from <a href="#robo1">Load_plugin</a> (if NULL, scan all known <a href="#robo0">plugins</a> and return first match)
+  name   : null terminated string, name of entry 
+
+  function return : address of requested entry ( void * / type(C_PTR)  )
+</pre>
+<p class="item_name">ARGUMENTS</p>
+<pre class="source">void *<strong>Plugin_function</strong>(const void *handle, const char *name)
+</pre>
+
+<hr />
+<a name="libplugin2fPlugin5ffunction5fname"></a>
+<a name="robo3"></a><h2>libplugin/Plugin_function_name [ function ]</h2>
+
+<p>[ <a href="#robo_top_of_doc">Top</a> ] [ function ]</p>
+<p class="item_name">Synopsis</p>
+<pre> get name of entry number ordinal from plugin entry name table
+
+ Fortran interface
+   function <strong>Plugin_function_name</strong>(handle,ordinal) result(string) BIND(C,name='<strong>Plugin_function_name</strong>')
+     import :: C_PTR, C_INT
+     type(C_PTR), intent(IN), value :: handle
+     integer(C_INT), value :: ordinal
+     type(C_PTR) :: string
+   end function <strong>Plugin_function_name</strong>
+
+  handle  : handle obtained from <a href="#robo1">Load_plugin</a>
+  ordinal : int, ordinal in entry list of desired name (first entry has ordinal 1)
+
+  function return : pointer to the name of requested entry ( char * / type(C_PTR)  )
+</pre>
+<p class="item_name">ARGUMENTS</p>
+<pre class="source">const char* <strong>Plugin_function_name</strong>(const void *handle, int ordinal)
+</pre>
+
+<hr />
+<a name="libplugin2fPlugin5ffunction5fnames"></a>
+<a name="robo4"></a><h2>libplugin/Plugin_function_names [ function ]</h2>
+
+<p>[ <a href="#robo_top_of_doc">Top</a> ] [ function ]</p>
+<p class="item_name">Synopsis</p>
+<pre>  get list of advertised entry names in a given plugin
+
+ there is no Fortran interface
+
+  handle : handle obtained from <a href="#robo1">Load_plugin</a>
+
+  function return : pointer to the list of names (char**) or NULL if none available
+</pre>
+<p class="item_name">ARGUMENTS</p>
+<pre class="source">const char* *<strong>Plugin_function_names</strong>(const void *handle)
+</pre>
+
+<hr />
+<a name="libplugin2fPlugin5fn5ffunctions"></a>
+<a name="robo5"></a><h2>libplugin/Plugin_n_functions [ function ]</h2>
+
+<p>[ <a href="#robo_top_of_doc">Top</a> ] [ function ]</p>
+<p class="item_name">Synopsis</p>
+<pre>  find number of functions in a given plugin
+
+ Fortran interface
+   function <strong>Plugin_n_functions</strong>(handle) result(number) BIND(C,name='<strong>Plugin_n_functions</strong>')
+     import :: C_PTR, C_INT
+     type(C_PTR), intent(IN), value :: handle
+     integer(C_INT) :: number
+   end function <strong>Plugin_n_functions</strong>
+
+  handle          : handle obtained from <a href="#robo1">Load_plugin</a>
+
+  function return :  number of symbols advertised in the shared object, 0 if error
+</pre>
+<p class="item_name">ARGUMENTS</p>
+<pre class="source">int <strong>Plugin_n_functions</strong>(const void *handle)
+</pre>
+
+<hr />
+<a name="libplugin2fSet5fplugin5fdiag"></a>
+<a name="robo6"></a><h2>libplugin/Set_plugin_diag [ function ]</h2>
+
+<p>[ <a href="#robo_top_of_doc">Top</a> ] [ function ]</p>
+<p class="item_name">Synopsis</p>
+<pre> set diagnostic verbosity level
+
+ Fortran interface
+   subroutine <strong>Set_plugin_diag</strong>(level) BIND(C,name='<strong>Set_plugin_diag</strong>')
+     import C_INT
+     integer(C_INT), value :: level
+   end subroutine <strong>Set_plugin_diag</strong>
+
+ diag  : diagnotic verbosity level
+ 0 = silent
+ 1 = verbose
+ there is no return value
+</pre>
+<p class="item_name">ARGUMENTS</p>
+<pre class="source">void <strong>Set_plugin_diag</strong>(int diag)
+</pre>
+
+<hr />
+<a name="libplugin2fUnload5fplugin"></a>
+<a name="robo7"></a><h2>libplugin/Unload_plugin [ function ]</h2>
+
+<p>[ <a href="#robo_top_of_doc">Top</a> ] [ function ]</p>
+<p class="item_name">Synopsis</p>
+<pre> unload a plugin library
+
+ Fortran interface
+   function <strong>Unload_plugin</strong>(handle) result(status) BIND(C,name='<strong>Unload_plugin</strong>')
+     import :: C_INT, C_PTR
+     integer(C_INT) :: status
+     type(C_PTR), intent(IN), value :: handle
+   end function <strong>Unload_plugin</strong>
+
+  handle          : handle obtained from <a href="#robo1">Load_plugin</a>
+  function return : 0 if no error, -1 if there was an error
+</pre>
+<p class="item_name">ARGUMENTS</p>
+<pre class="source">int <strong>Unload_plugin</strong>(void *handle)
+</pre>
+
+<div id="footer">
+<p>Generated from ./ with <a href="http://www.xs4all.nl/~rfsber/Robo/robodoc.html">ROBODoc</a> V4.99.41 on Tue Aug 23 2022 11:54:32
+</p>
+</div> <!-- footer -->
+</body>
+</html>
