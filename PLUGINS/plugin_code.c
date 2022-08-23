@@ -117,7 +117,7 @@
 // 
 // ----------------------- Example of Fortran plugin -----------------------
 //               ( needs a little more extra code than C )
-// fortran_compiler -shared -fpic -o libxxx.so xxx.F90
+// fortran_compiler -shared -fpic -o libxxx.so xxx.F90 -lbuildplugin
 // 
 // integer function  fn1(arg) BIND(C,name='name1f')
 // integer, intent(IN) :: arg
@@ -134,42 +134,20 @@
 // end
 // !
 // ! what follows is boiler plate code
-// ! to be adjusted by user : MAX_NAMES, MAX_NAME_LENGTH, calls to insert_in_name_table in subroutine symbols
-// module interop
-//   use ISO_C_BINDING
-//   implicit none
-// ! start of user adjusted code
+// ! to be adjusted by user : MAX_NAMES, MAX_NAME_LENGTH, 
+// !                          calls to insert_in_name_table in subroutine user_symbols
+// ! fortran_constructor will be called by the plugin library constructor
 // #define MAX_NAMES 2
 // #define MAX_NAME_LENGTH 8
-// ! end of user adjusted code
-//   type(C_PTR), dimension(MAX_NAMES+1), save, target, BIND(C,name='EntryList_') :: name_table
-//   character(len=1), dimension(MAX_NAME_LENGTH+1,MAX_NAMES), save, target :: names
-//   integer, save :: nargs
-//   contains
-//   subroutine insert_in_name_table(name)  ! add name to name table and name pointers
-//     use ISO_C_BINDING
-//     implicit none
-//     character(len=*) :: name
-//     integer :: l
-//     l = len(trim(name)) + 1
-//     nargs = nargs + 1
-//     names(1:l,nargs) = transfer(trim(name)//achar(0) , names, l)
-//     name_table(nargs) = C_LOC(names(1,nargs))
-//     return
-//   end subroutine insert_in_name_table
-//   function symbols() bind(C,name='get_symbol_number') result(number)
-//     use ISO_C_BINDING
-//     implicit none
-//     integer(C_INT) :: number
-//     nargs = 0
-// ! start of user adjusted code
-//     call insert_in_name_table('name1f')
-//     call insert_in_name_table('name2f')
-// ! end of user adjusted code
-//     number = nargs   ! return number of arguments
-//     return
-//   end function symbols
-// end module interop
+// #include <library_plugin_mod.hf>
+// subroutine user_symbols() bind(C,name='fortran_constructor')
+//   use library_plugin_mod
+//   implicit none
+// print *,'automatic insertion of symbols for sharedf1'
+//   call insert_in_name_table('name1f')
+//   call insert_in_name_table('name2f')
+//   return
+// end subroutine user_symbols
 // 
 //****
 #endif
