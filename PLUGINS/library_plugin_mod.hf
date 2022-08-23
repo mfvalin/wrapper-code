@@ -1,0 +1,53 @@
+! Copyright (C) 2021  Environnement et Changement climatique Canada
+! 
+! This is free software; you can redistribute it and/or
+! modify it under the terms of the GNU Lesser General Public
+! License as published by the Free Software Foundation,
+! version 2.1 of the License.
+! 
+! This software is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+! Lesser General Public License for more details.
+! 
+! Author:
+!     M. Valin,   Environnement et Changement climatique Canada, 2020/2021
+!
+module library_plugin_mod
+  use ISO_C_BINDING
+  implicit none
+  save
+  type(C_PTR), dimension(MAX_NAMES+1), BIND(C,name='EntryList_') :: name_table ! mandatory external name
+  character(len=1), dimension(MAX_NAME_LENGTH+1,MAX_NAMES), target :: names
+  integer :: nargs = 0
+  interface
+    subroutine constructor() bind(C,name='FortranConstructor')
+    end subroutine constructor
+  end interface
+contains
+  subroutine insert_in_name_table(name)  ! add name to name table and name pointers
+    use ISO_C_BINDING
+    implicit none
+    character(len=*) :: name
+    integer :: l
+    l = len(trim(name)) + 1
+    nargs = min(nargs+1, MAX_NAMES)   ! make sure that list can be null terminated
+    names(1:l,nargs) = transfer(trim(name)//achar(0) , names, l)
+    name_table(nargs) = C_LOC(names(1,nargs))
+    name_table(nargs+1) = C_NULL_PTR   ! make sure list is null terminated
+    if(nargs == 999999) call constructor  ! never called, but forces FortranConstructor to be loaded from library
+    return
+  end subroutine insert_in_name_table
+  function symbols() bind(C,name='get_symbol_number') result(number)  ! this function is mandatory in a valid Fortran plugin
+    use ISO_C_BINDING
+    implicit none
+    integer(C_INT) :: number
+    if(nargs == 0) then
+      print *,"calling insert_symbols from symbols(sharedf1)"
+      call insert_symbols()
+    endif
+    number = nargs   ! return number of arguments
+    return
+  end function symbols
+end module library_plugin_mod
+
