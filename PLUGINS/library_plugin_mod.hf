@@ -13,18 +13,24 @@
 ! Author:
 !     M. Valin,   Environnement et Changement climatique Canada, 2020/2021
 !
+! include file used to build Fortran based plugin libraries
 module library_plugin_mod
   use ISO_C_BINDING
   implicit none
   save
+  ! used for the plugin API
+  private :: names, nargs
   type(C_PTR), dimension(MAX_NAMES+1), BIND(C,name='EntryList_') :: name_table ! mandatory external name
   character(len=1), dimension(MAX_NAME_LENGTH+1,MAX_NAMES), target :: names
   integer :: nargs = 0
   interface
-    subroutine constructor() bind(C,name='FortranConstructor')
-    end subroutine constructor
+    subroutine constructor() bind(C,name='FortranConstructor')            ! from libbuildplugin.a
+    end subroutine
+    subroutine load_library_symbols() bind(C,name='fortran_constructor')  ! from user plugin
+    end subroutine
   end interface
 contains
+  ! called by user plugin code subroutine load_library_symbols
   subroutine insert_in_name_table(name)  ! add name to name table and name pointers
     use ISO_C_BINDING
     implicit none
@@ -38,13 +44,14 @@ contains
     if(nargs == 999999) call constructor  ! never called, but forces FortranConstructor to be loaded from library
     return
   end subroutine insert_in_name_table
+  ! called as part of the plugin API
   function symbols() bind(C,name='get_symbol_number') result(number)  ! this function is mandatory in a valid Fortran plugin
     use ISO_C_BINDING
     implicit none
     integer(C_INT) :: number
     if(nargs == 0) then
-      print *,"calling insert_symbols from symbols(sharedf1)"
-      call insert_symbols()
+      print *,"calling user_symbols from symbols"
+      call load_library_symbols()
     endif
     number = nargs   ! return number of arguments
     return
