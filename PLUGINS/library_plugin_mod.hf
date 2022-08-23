@@ -37,20 +37,20 @@ contains
     character(len=*) :: name
     integer :: l
     l = len(trim(name)) + 1
-    nargs = min(nargs+1, MAX_NAMES)   ! make sure that list can be null terminated
-    names(1:l,nargs) = transfer(trim(name)//achar(0) , names, l)
-    name_table(nargs) = C_LOC(names(1,nargs))
+    nargs = min(nargs+1, MAX_NAMES)    ! make sure that the list can be null terminated
+    names(1:l,nargs)    = transfer(trim(name)//achar(0) , names, l)
+    name_table(nargs)   = C_LOC(names(1,nargs))
     name_table(nargs+1) = C_NULL_PTR   ! make sure list is null terminated
-    if(nargs == 999999) call constructor  ! never called, but forces FortranConstructor to be loaded from library
+    if(nargs == 999999) call constructor  ! never happens, but forces FortranConstructor to be loaded
     return
   end subroutine insert_in_name_table
   ! called as part of the plugin API
-  function symbols() bind(C,name='get_symbol_number') result(number)  ! this function is mandatory in a valid Fortran plugin
+  function symbols() bind(C,name='get_symbol_number') result(number)  ! function is mandatory in a valid Fortran plugin
     use ISO_C_BINDING
     implicit none
     integer(C_INT) :: number
-    if(nargs == 0) then
-      print *,"calling user_symbols from symbols"
+    if(nargs == 0) then   ! should not happen, load_library_symbols should have been called by the constructor
+      print *,"calling load_library_symbols from symbols"
       call load_library_symbols()
     endif
     number = nargs   ! return number of arguments
