@@ -8,7 +8,8 @@ CFLAGS = -O -fpic
 
 all:	inc obj libs abs
 
-libs:	libplugin.a libshared0.so libshared1.so libshared2.so libsharedf1.so libsharedf2.so libsharednone.so libdyn_c.so libdyn_f90.so
+libs:	libplugin.a libbuildplugin.a libshared0.so libshared1.so libshared2.so \
+	libsharedf1.so libsharedf2.so libsharednone.so libdyn_c.so libdyn_f90.so
 
 obj: plugin_code.o
 
@@ -21,8 +22,11 @@ abs: test_c test_dl_f test_fortran
 plugin_code.o:	plugin_code.c plugins.h
 	$(CC) $(CFLAGS) -c -I. $<
 
-libplugin.a : plugin_code.o FortranConstructor.o
+libplugin.a : plugin_code.o
 	ar rcv $@ $^
+
+libbuildplugin.a : FortranConstructor.o
+	ar rcv $@ FortranConstructor.o
 
 libshared0.so:	shared0.c
 	$(CC) $(CFLAGS) -I. -shared -o $@ -fpic $<
@@ -43,10 +47,10 @@ libsharednone.so:	sharednone.c
 	$(CC) $(CFLAGS) -I. -shared -o $@ -fpic $<
 
 libsharedf1.so:	sharedf1.F90 libplugin.a
-	$(FC) $(FFLAGS) -I. -shared -o $@ -fpic $< -L. -lplugin
+	$(FC) $(FFLAGS) -I. -shared -o $@ -fpic $< # -L. -lbuildplugin
 
 libsharedf2.so:	sharedf2.F90 libplugin.a
-	$(FC) $(FFLAGS) -I. -shared -o $@ -fpic $< -L. -lplugin
+	$(FC) $(FFLAGS) -I. -shared -o $@ -fpic $< # -L. -lbuildplugin
 
 test_c:	test_c.c plugin_code.o libs
 	$(CC) $(CFLAGS) -I. -o $@ $< plugin_code.o -ldl -Wl,-rpath,.
@@ -58,4 +62,4 @@ test_fortran: fortran_plugins.F90 test_fortran.F90 plugin_code.o libs
 	$(FC) $(FFLAGS) -I. -o $@ fortran_plugins.F90 test_fortran.F90 plugin_code.o -ldl '-Wl,-rpath,$$ORIGIN'
 
 clean:
-	rm -f *.so *.o *.mod test_fortran test_c test_dl_c test_dl_f a.out
+	rm -f *.so *.o *.mod test_fortran test_c test_dl_c test_dl_f a.out *.a
