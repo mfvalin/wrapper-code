@@ -24,13 +24,17 @@ module library_plugin_mod
   character(len=1), dimension(MAX_NAME_LENGTH+1,MAX_NAMES), target :: names
   integer :: nargs = 0
   interface
-    subroutine constructor() bind(C,name='FortranConstructor')            ! from libbuildplugin.a
+    subroutine constructor() bind(C,name='PluginConstructor')            ! from libbuildplugin.a
     end subroutine
-    subroutine load_library_symbols() bind(C,name='fortran_constructor')  ! from user plugin
+    subroutine destructor() bind(C,name='PluginDestructor')              ! from libbuildplugin.a
+    end subroutine
+    subroutine user_constructor() bind(C,name='fortran_constructor')      ! from user plugin
+    end subroutine
+    subroutine user_destructor() bind(C,name='fortran_destructor')        ! from user plugin
     end subroutine
   end interface
 contains
-  ! called by user plugin code subroutine load_library_symbols
+  ! called by user plugin code subroutine user_constructor
   subroutine insert_in_name_table(name)  ! add name to name table and name pointers
     use ISO_C_BINDING
     implicit none
@@ -42,6 +46,7 @@ contains
     name_table(nargs)   = C_LOC(names(1,nargs))
     name_table(nargs+1) = C_NULL_PTR   ! make sure list is null terminated
     if(nargs == 999999) call constructor  ! never happens, but forces FortranConstructor to be loaded
+    if(nargs == 999999) call destructor   ! never happens, but forces FortranDestructor to be loaded
     return
   end subroutine insert_in_name_table
   ! called as part of the plugin API
@@ -49,9 +54,9 @@ contains
     use ISO_C_BINDING
     implicit none
     integer(C_INT) :: number
-    if(nargs == 0) then   ! should not happen, load_library_symbols should have been called by the constructor
-      print *,"calling load_library_symbols from symbols"
-      call load_library_symbols()
+    if(nargs == 0) then   ! should not happen, user_constructor should have been called by the constructor
+      print *,"calling user_constructor from symbols"
+      call user_constructor()
     endif
     number = nargs   ! return number of arguments
     return

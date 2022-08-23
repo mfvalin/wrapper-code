@@ -1,5 +1,5 @@
-//  RMNLIB - useful routines for C and Fortran programming
-//  Copyright (C) 2020/2021  Environnement Canada
+//  libplugin - functions for C and Fortran programming
+//  Copyright (C) 2020-2022  Environnement Canada
 // 
 //  This is free software; you can redistribute it and/or
 //  modify it under the terms of the GNU Lesser General Public
@@ -19,62 +19,90 @@
 //
 // http://github.com/mfvalin/wrapper-code/tree/master/PLUGINS
 // 
-// step 0: declaration
+// step 0: declarations
 //         Fortran :
-//           USE ISO_C_BINDING
+//           use ISO_C_BINDING
 //           include 'plugins.inc'
+//         Fortran with module :
+//           use ISO_C_BINDING
+//           use fortran_plugins
 //         C:
 //           #include <plugins.h>
 // 
 // step 1: Load a dynamic library (shared object)
 //         Fortran :
 //           type(C_PTR) :: handle
-//           handle = load_plugin("my_library_name.so")
+//           handle = load_plugin("my_library_name.so")  ! NULL pointer if not successful
+//         Fortran with module :
+//           type(plugin) :: sharedf
+//           logical :: status     ! .true. if successful
+//           status = sharedf % load('libsharedf.so')
 //         C :
 //           void *handle;
-//           handle = load_plugin("my_library_name.so");
+//           handle = load_plugin("my_library_name.so");  ! NULL pointer if not successful
 // 
 // step 2: Get number of advertised entry points in dynamic library
 //         Fortran:
 //           integer(C_INT) :: nsym
-//           nsym = plugin_n_functions(handle)
+//           nsym = plugin_n_functions(handle)  ! zero if not successful
+//         Fortran with module :
+//           type(plugin) :: sharedf
+//           nsym = sharedf % symbols()         ! zero if not successful
 //         C:
-//           int nsym = plugin_n_functions(handle);
+//           int nsym = plugin_n_functions(handle);   ! zero if not successful
 // 
 // step 3: Get the name of advertised entry point n
 //         Fortran:
 //           type(C_PTR) :: string
 //           integer(C_INT) :: n
-//           string = plugin_function_name(handle,n)
+//           string = plugin_function_name(handle,n)  ! NULL pointer if not successful
+//         Fortran with module :
+//           type(plugin) :: sharedf
+//           logical :: status               ! .true. if successful
+//           character(len=128) :: longstr   ! "" if not successful
+//           status = sharedf % fname(n, longstr)
 //         C:
 //           int n;
-//           char *string = plugin_function_name(handle,n);
+//           char *string = plugin_function_name(handle,n);  ! NULL pointer if not successful
 // 
 // step 4: Get address of entry point by name and call it
 //         Fortran:
 //           type(C_FUNPTR) :: faddress
-//           character(C_CHAR), dimension(*) :: name
 //           procedure(xxx), pointer :: fptr
-//           faddress = plugin_function(handle,name)
+//           character(C_CHAR), dimension(*) :: name
+//           faddress = plugin_function(handle,name)  ! NULL pointer if not successful
+//           call c_f_procpointer(faddress,fptr)
+//           call fptr(...arguments...)
+//         Fortran with module :
+//           type(plugin) :: sharedf
+//           character(len=128) :: longstr
+//           faddress = sharedf % fnptr(trim(longstr))  ! NULL pointer if not successful
 //           call c_f_procpointer(faddress,fptr)
 //           call fptr(...arguments...)
 //         C:
 //           void *faddress;
 //           char *name;
-//           faddress = plugin_function(handle,name);
+//           faddress = plugin_function(handle,name);  ! NULL pointer if not successful
 //           .. = (*faddress)(...arguments...);
 // 
 // step n: unload plugin
 //         Fortran:
 //           integer(C_INT) :: status
-//           status = unload_plugin(handle)
+//           status = unload_plugin(handle)        ! 0 if successful
+//         Fortran with module :
+//           type(plugin) :: sharedf
+//           logical :: status                     ! .true. if successful
+//           status = sharedf % unload()
 //         C:
-//           int status = unload_plugin(handle);
+//           int status = unload_plugin(handle);   ! 0 if successful
 // 
 // other : set diagnostics verbosity
 //         Fortran:
 //           integer(C_INT) :: verbose
 //           call set_plugin_diag(verbose)
+//         Fortran with module :
+//           type(plugin) :: sharedf
+//           call sharedf % diag(VERBOSE)
 //         C:
 //           int verbose;
 //           set_plugin_diag(verbose);
@@ -125,6 +153,8 @@
 // ----------------------- Example of Fortran plugin -----------------------
 //               ( needs a little more extra code than C )
 // fortran_compiler -shared -fpic -o libxxx.so xxx.F90 -lbuildplugin
+// libbuildplugin.a is a special library that contains constructor ans destructor functions
+//                  that call fortran_constructor and fortran_destructor
 // 
 // integer function  fn1(arg) BIND(C,name='name1f')
 // integer, intent(IN) :: arg
@@ -143,19 +173,28 @@
 // ! what follows is boiler plate code
 // ! to be adjusted by user : MAX_NAMES, MAX_NAME_LENGTH, 
 // !                          calls to insert_in_name_table in subroutine user_symbols
+// !                          initialization (ONCE ONLY) code
 // ! fortran_constructor will be called by the plugin library constructor
+// ! fortran_destructor will be called by the plugin library destructor
 // #define MAX_NAMES 2
 // #define MAX_NAME_LENGTH 8
 // #include <library_plugin_mod.hf>
-// subroutine user_symbols() bind(C,name='fortran_constructor')
+// subroutine fortran_constructor() bind(C,name='fortran_constructor')
 //   use library_plugin_mod
 //   implicit none
-// print *,'automatic insertion of symbols for sharedf1'
+// ! START of user adjustable code
 //   call insert_in_name_table('name1f')
 //   call insert_in_name_table('name2f')
 // ! perform any tasks needed for library initialization here
+// ! END of user adjustable code
 //   return
-// end subroutine user_symbols
+// end
+// subroutine fortran_destructor() bind(C,name='fortran_destructor')
+// print *,'in subroutine fortran_destructor for sharedf1'
+// ! START of user adjustable code
+// ! perform any tasks needed before closing library
+// ! END of user adjustable code
+// end 
 // 
 //****
 #endif

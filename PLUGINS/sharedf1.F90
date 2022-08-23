@@ -52,18 +52,23 @@ end
 !
 ! what follows is boiler plate code
 ! to be adjusted by user : MAX_NAMES, MAX_NAME_LENGTH, 
-!                          calls to insert_in_name_table in subroutine user_symbols
+!                          calls to insert_in_name_table in subroutine fortran_constructor
 ! fortran_constructor will be called by the plugin library constructor
 #define MAX_NAMES 4
 #define MAX_NAME_LENGTH 10
 #include <library_plugin_mod.hf>
-subroutine user_symbols() bind(C,name='fortran_constructor')
+subroutine fortran_constructor() bind(C,name='fortran_constructor')
   use library_plugin_mod
   implicit none
-print *,'insertion of symbols for sharedf1'
+print *,'loading symbols in table for sharedf1'
   call insert_in_name_table('name1f')
   call insert_in_name_table('name2f')
   call insert_in_name_table('name3f')
   call insert_in_name_table('name4f')
+! perform any tasks needed for library initialization here
   return
-end subroutine user_symbols
+end
+subroutine fortran_destructor() bind(C,name='fortran_destructor')
+print *,'in subroutine fortran_destructor for sharedf1'
+! perform any tasks needed before closing library
+end 

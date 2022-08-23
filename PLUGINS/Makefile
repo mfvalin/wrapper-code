@@ -13,6 +13,11 @@ libs:	libplugin.a libbuildplugin.a libshared0.so libshared1.so libshared2.so \
 
 obj: plugin_code.o
 
+html : plugin_code.html
+
+plugin_code.html : plugin_code.c
+	robodoc_html.sh $<
+
 inc:
 	grep InTf *.c | sed -e 's:^.*//::' -e 's/[ ]*!InTf!.*//' >plugins.inc
 	grep InTc plugin_code.c | sed 's:[ ]*//InTc.*:;:'        >plugins.h
@@ -25,8 +30,8 @@ plugin_code.o:	plugin_code.c plugins.h
 libplugin.a : plugin_code.o
 	ar rcv $@ $^
 
-libbuildplugin.a : FortranConstructor.o
-	ar rcv $@ FortranConstructor.o
+libbuildplugin.a : FortranConstructor.o FortranDestructor.o
+	ar rcv $@ $^
 
 libshared0.so:	shared0.c
 	$(CC) $(CFLAGS) -I. -shared -o $@ -fpic $<
@@ -47,10 +52,10 @@ libsharednone.so:	sharednone.c
 	$(CC) $(CFLAGS) -I. -shared -o $@ -fpic $<
 
 libsharedf1.so:	sharedf1.F90 libplugin.a
-	$(FC) $(FFLAGS) -I. -shared -o $@ -fpic $< # -L. -lbuildplugin
+	$(FC) $(FFLAGS) -I. -shared -o $@ -fpic $< -L. -lbuildplugin
 
 libsharedf2.so:	sharedf2.F90 libplugin.a
-	$(FC) $(FFLAGS) -I. -shared -o $@ -fpic $< # -L. -lbuildplugin
+	$(FC) $(FFLAGS) -I. -shared -o $@ -fpic $< -L. -lbuildplugin
 
 test_c:	test_c.c plugin_code.o libs
 	$(CC) $(CFLAGS) -I. -o $@ $< plugin_code.o -ldl -Wl,-rpath,.

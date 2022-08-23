@@ -56,14 +56,17 @@ end
 #define MAX_NAMES 4
 #define MAX_NAME_LENGTH 10
 #include <library_plugin_mod.hf>
-subroutine user_symbols() bind(C,name='fortran_constructor')
+subroutine fortran_constructor() bind(C,name='fortran_constructor')
   use library_plugin_mod
   implicit none
-print *,'automatic insertion of symbols for sharedf2'
+print *,'loading symbols in table for  sharedf2'
 !   call insert_in_name_table('name1f')
   call insert_in_name_table('name2f')
   call insert_in_name_table('name3f')
   call insert_in_name_table('name4f')
 ! perform any tasks needed for library initialization here
   return
-end subroutine user_symbols
+end
+subroutine fortran_destructor() bind(C,name='fortran_destructor')
+print *,'in subroutine fortran_destructor for sharedf1'
+end 
