@@ -37,14 +37,14 @@ program test_plugin   ! test of fortran plugin module
   procedure(procval) , pointer :: fpl2 => NULL()  ! pointer to integer function with one value integer argument
   abstract interface                              ! abstract interface needed for pointer to function
     integer function procval(arg) BIND(C)         ! with argument passed by value (BIND(C) is MANDATORY)
-      integer, intent(IN), value :: arg
-    end function procval
+      integer, intent(IN), value :: arg           ! errors have been seen at run time
+    end function procval                          ! with some compilers if BIND(C) is missing
   end interface
 
   procedure(procadr) , pointer :: fpl1 => NULL()  ! pointer to generic integer function with one integer argument
   abstract interface                              ! abstract interface needed for pointer to function
-    integer function procadr(arg) BIND(C)         ! with argument passed by address
-      integer, intent(IN) :: arg
+    integer function procadr(arg) BIND(C)         ! with argument passed by address (BIND(C) is a good idea)
+      integer, intent(IN) :: arg                  ! absence of BIND(C) seems not to induce runtime errors
     end function procadr
   end interface
 
