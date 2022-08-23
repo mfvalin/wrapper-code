@@ -17,3 +17,10 @@ printf("C name3.0: %d\n",arg);
 return(arg);
 }
 
+void __attribute__ ((constructor)) Constructor0(void) {
+   printf("plugin constructor for shared0\n");
+}
+
+void __attribute__ ((destructor)) Destructor0(void) {
+   printf("plugin destructor for shared0\n");
+}

@@ -22,3 +22,11 @@ return(arg);
 int get_symbol_number(){  // like fortran, function to get number of symbols, optional
   return(3);
 }
+
+void __attribute__ ((constructor)) Constructor1(void) {
+   printf("plugin constructor for shared1\n");
+}
+
+void __attribute__ ((destructor)) Destructor1(void) {
+   printf("plugin destructor for shared1\n");
+}
