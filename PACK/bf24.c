@@ -36,63 +36,37 @@ static uint8_t lower_24_to_32[] = { 1, 2, 3, 128, 6, 7, 0, 128, 11, 4, 5, 128, 8
 static uint32_t mask24[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0 } ;
 
 #endif
-/*
-void c_fp32_bf24(void *f32, void *f24, uint32_t n){
-  int i, j ;
-  uint8_t *c32 = (uint8_t *) f32 ;
-  uint8_t *c24 = (uint8_t *) f24 ;
-  for(i=0 ; i<n-3 ; i++){
-    for(j=0 ; j<12 ; j++){
-      c24[j] = c32[f32_to_24[j]] ;
-    }
-    c32 += 16 ;
-    c24 += 12 ;
-  }
-}*/
-/*
-void i_fp32_bf24(void *f32, void *f24, uint32_t n){
-  int i ;
-  uint32_t *fp32 = f32 ;
-  uint32_t *bf24 = f24 ;
-  uint32_t mask = ~0xFF ;
-  for(i=0 ; i<n-3 ; i++){
-    bf24[0] =  (fp32[0] & mask)        | (fp32[1] >> 24) ;
-    bf24[1] = ((fp32[1] & mask) <<  8) | (fp32[2] >> 16) ;
-    bf24[2] = ((fp32[2] & mask) << 16) | (fp32[3] >> 8) ;
-    fp32 += 4 ;
-    bf24 += 3 ;
-  }
-}*/
 
 // pack upper 24 bits from 4 32 bit words into 3 32 bit unsigned integers
 // normally used to pack floats
-void fp32_bf24(void *f32, uint32_t *u24, uint32_t n){
-  int i ;
+void fp32_bf24(void *f32, uint32_t *u24, int32_t n){
+  int32_t i ;
   uint32_t *u32 = f32 ;
   uint32_t n3 = (n & 3) ;
 
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-  __m128i vx, v32, v24, vm ;
+  __m128i vx, v32, v24, V32, V24, vm ;
   vx = _mm_loadu_si128((__m128i*) upper_32_to_24) ;
   vm = _mm_loadu_si128((__m128i*) mask24) ;
-  for(i=0 ; i<n-7 ; i+=8){   // 8 words into 6 words
+  for(i=0 ; i < n-8 ; i+=8){   // 8 words into 6 words
     v32 = _mm_loadu_si128((__m128i*) u32) ;
     v24 = _mm_shuffle_epi8(v32, vx) ;
     _mm_storeu_si128((__m128i*) u24, v24) ;      // plenty of extra room
     u32 += 4 ;
     u24 += 3 ;
-    v32 = _mm_loadu_si128((__m128i*) u32) ;
-    v24 = _mm_shuffle_epi8(v32, vx) ;
-    _mm_storeu_si128((__m128i*) u24, v24) ;      // plenty of extra room
+    V32 = _mm_loadu_si128((__m128i*) u32) ;
+    V24 = _mm_shuffle_epi8(V32, vx) ;
+    _mm_storeu_si128((__m128i*) u24, V24) ;      // there is enough room for one extra word
     u32 += 4 ;
     u24 += 3 ;
   }
-  if(i < n-3){   // 4 words into 3 words
+  while(i < n-3){   // 4 words into 3 words
     v32 = _mm_loadu_si128((__m128i*) u32) ;
     v24 = _mm_shuffle_epi8(v32, vx) ;
     _mm_maskstore_epi32((int *) u24, vm, v24) ;  // mask used to store only 3 words
     u32 += 4 ;
     u24 += 3 ;
+    i   += 4 ;
   }
 #else
   for(i=0 ; i<n-3 ; i+=4){
@@ -119,7 +93,7 @@ void fp32_bf24(void *f32, uint32_t *u24, uint32_t n){
 }
 
 // pack lower 24 bits from 4 32 bit unsigned integers into 3 32 bit unsigned integers
-void u32_u24(uint32_t *u32, uint32_t *u24, uint32_t n){
+void u32_u24(uint32_t *u32, uint32_t *u24, int32_t n){
   int i ;
   uint32_t n3 = (n & 3) ;
 
@@ -127,18 +101,7 @@ void u32_u24(uint32_t *u32, uint32_t *u24, uint32_t n){
   __m128i vx, v32, v24, vm ;
   vx = _mm_loadu_si128((__m128i*) lower_32_to_24) ;
   vm = _mm_loadu_si128((__m128i*) mask24) ;
-//   for(i=0 ; i<n-3 ; i+=4){
-//     v32 = _mm_loadu_si128((__m128i*) u32) ;
-//     v24 = _mm_shuffle_epi8(v32, vx) ;
-//     if(i < n-4) {
-//       _mm_storeu_si128((__m128i*) u24, v24) ;      // plenty of extra room
-//     }else{
-//       _mm_maskstore_epi32((int *) u24, vm, v24) ;  // mask used to store only 3 words
-//     }
-//     u32 += 4 ;
-//     u24 += 3 ;
-//   }
-  for(i=0 ; i<n-7 ; i+=8){
+  for(i=0 ; i<n-8 ; i+=8){
     v32 = _mm_loadu_si128((__m128i*) u32) ;
     v24 = _mm_shuffle_epi8(v32, vx) ;
     _mm_storeu_si128((__m128i*) u24, v24) ;      // plenty of extra room
@@ -150,12 +113,13 @@ void u32_u24(uint32_t *u32, uint32_t *u24, uint32_t n){
     u32 += 4 ;
     u24 += 3 ;
   }
-  if(i < n-3){   // 4 words into 3 words
+  while(i < n-3){   // 4 words into 3 words
     v32 = _mm_loadu_si128((__m128i*) u32) ;
     v24 = _mm_shuffle_epi8(v32, vx) ;
     _mm_maskstore_epi32((int *) u24, vm, v24) ;  // mask used to store only 3 words
     u32 += 4 ;
     u24 += 3 ;
+    i += 4 ;
   }
 #else
   for(i=0 ; i<n-3 ; i+=4){
@@ -182,13 +146,13 @@ void u32_u24(uint32_t *u32, uint32_t *u24, uint32_t n){
 }
 
 // pack lower 24 bits from 4 32 bit signed integers into 3 32 bit unsigned integers
-void i32_u24(int32_t *i32, uint32_t *u24, uint32_t n){
+void i32_u24(int32_t *i32, uint32_t *u24, int32_t n){
   u32_u24((uint32_t *) i32, u24, n) ;
 }
 
 // restore the upper 24 bits of 4 32 bit words from 4 24 bit tokens in 3 32 bit words
 // normally used to restore floats
-void bf24_fp32(void *f32, uint32_t *u24, uint32_t n){
+void bf24_fp32(void *f32, uint32_t *u24, int32_t n){
   int i ;
   uint32_t *u32 = f32 ;
   uint32_t n3 = (n & 3) ;
@@ -196,7 +160,7 @@ void bf24_fp32(void *f32, uint32_t *u24, uint32_t n){
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m128i vx, v32, v24 ;
   vx = _mm_loadu_si128((__m128i*) upper_24_to_32) ;
-  for(i=0 ; i<n-7 ; i+=8){
+  for(i=0 ; i<n-8 ; i+=8){
     v24 = _mm_loadu_si128((__m128i*) u24) ;
     v32 = _mm_shuffle_epi8(v24, vx) ;
     _mm_storeu_si128((__m128i*) u32, v32) ;
@@ -208,12 +172,13 @@ void bf24_fp32(void *f32, uint32_t *u24, uint32_t n){
     u32 += 4 ;
     u24 += 3 ;
   }
-  if(i < n-3){
+  while(i < n-3){   // 4 words into 3 words
     v24 = _mm_loadu_si128((__m128i*) u24) ;
     v32 = _mm_shuffle_epi8(v24, vx) ;
     _mm_storeu_si128((__m128i*) u32, v32) ;
     u32 += 4 ;
     u24 += 3 ;
+    i += 4 ;
   }
 #else
   for(i=0 ; i<n-3 ; i+=4){
@@ -240,7 +205,7 @@ void bf24_fp32(void *f32, uint32_t *u24, uint32_t n){
 }
 
 // restore the lower 24 bits of 4 32 bit unsigned integers from 4 24 bit tokens in 3 32 bit words
-void u24u32(uint32_t *u32, uint32_t *u24, uint32_t n){
+void u24u32(uint32_t *u32, uint32_t *u24, int32_t n){
   int i ;
   uint32_t n3 = (n & 3) ;
 
@@ -293,7 +258,7 @@ void u24u32(uint32_t *u32, uint32_t *u24, uint32_t n){
 // restore the lower 24 bits of 4 32 bit signed integers from 4 24 bit tokens in 3 32 bit words
 // the most significant of the 24 bits is treated as a sign bit
 // same as bf24_fp32 but with an 8 bit arithmetic right shift to propagate sign
-void i24i32(int32_t *i32, uint32_t *u24, uint32_t n){
+void i24i32(int32_t *i32, uint32_t *u24, int32_t n){
   int i ;
   uint32_t n3 = (n & 3) ;
 
@@ -376,7 +341,7 @@ int verify_lower(uint32_t *a, uint32_t *b, int n){
   return errors ;
 }
 
-#define NPTS 4096
+#define NPTS 32775
 #define NTIMES 1000000
 
 #include <misc_timers.h>
@@ -387,7 +352,7 @@ int main(int argc, char **argv){
                               0x10911213, 0x14951617, 0x18991A1B, 0x1C9D1E1F  } ;
   static uint32_t uf24[8]  ;
   static uint32_t fp32b [8] ;
-  uint32_t lfp32[NPTS], luf24[NPTS], lfp32b[NPTS] ;
+  uint32_t lfp32[NPTS+1], luf24[NPTS+1], lfp32b[NPTS+1] ;
   float float32[NPTS], float32b[NPTS] ;
   uint64_t t0, t1, tmin, tmax, tavg, freq ;
   double nano ;
@@ -400,13 +365,13 @@ int main(int argc, char **argv){
   for(i=0 ; i<NPTS ; i++) { float32[i] = -i - .111 ; float32b[i] = -1 ; }
 
   memset(uf24, 0xFF, sizeof(uf24));
-  fp32_bf24(fp32, uf24, n) ;
+  fp32_bf24((void *) fp32, uf24, n) ;
   printf("fp32      : ");
   for(i=0 ; i<8 ; i++) printf("%8.8x ",fp32[i]) ; printf("\n") ;
   tmin = 1000000000 ;  nt = 0 ; tavg = 0.0f ; tmax = 0 ;
   for(j=0 ; j < NTIMES ; j++) {
     t0 = elapsed_cycles() ;
-    fp32_bf24(float32, luf24, NPTS) ;
+    fp32_bf24((void *) float32, luf24, NPTS) ;
     t1 = elapsed_cycles() ;
     t[j] = t1 - t0 ;
     tmin = (t[j] < tmin) ? t[j] : tmin ;
