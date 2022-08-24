@@ -45,25 +45,23 @@ void fp32_bf24(void *f32, uint32_t *u24, int32_t n){
   uint32_t n3 = (n & 3) ;
 
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-  __m128i vx, v32, v24, V32, V24, vm ;
+  __m128i vx, v32a, v24a, v32b, v24b, vm ;
   vx = _mm_loadu_si128((__m128i*) upper_32_to_24) ;
   vm = _mm_loadu_si128((__m128i*) mask24) ;
   for(i=0 ; i < n-8 ; i+=8){   // 8 words into 6 words
-    v32 = _mm_loadu_si128((__m128i*) u32) ;
-    v24 = _mm_shuffle_epi8(v32, vx) ;
-    _mm_storeu_si128((__m128i*) u24, v24) ;      // plenty of extra room
-    u32 += 4 ;
-    u24 += 3 ;
-    V32 = _mm_loadu_si128((__m128i*) u32) ;
-    V24 = _mm_shuffle_epi8(V32, vx) ;
-    _mm_storeu_si128((__m128i*) u24, V24) ;      // there is enough room for one extra word
-    u32 += 4 ;
-    u24 += 3 ;
+    v32a = _mm_loadu_si128((__m128i*)  u32) ;
+    v32b = _mm_loadu_si128((__m128i*) (u32+4)) ;
+    v24a = _mm_shuffle_epi8(v32a, vx) ;
+    v24b = _mm_shuffle_epi8(v32b, vx) ;
+    _mm_storeu_si128((__m128i*)  u24,    v24a) ;      // plenty of extra room
+    _mm_storeu_si128((__m128i*) (u24+3), v24b) ;      // there is enough room for one extra word
+    u32 += 8 ;
+    u24 += 6 ;
   }
   while(i < n-3){   // 4 words into 3 words
-    v32 = _mm_loadu_si128((__m128i*) u32) ;
-    v24 = _mm_shuffle_epi8(v32, vx) ;
-    _mm_maskstore_epi32((int *) u24, vm, v24) ;  // mask used to store only 3 words
+    v32a = _mm_loadu_si128((__m128i*) u32) ;
+    v24a = _mm_shuffle_epi8(v32a, vx) ;
+    _mm_maskstore_epi32((int *) u24, vm, v24a) ;  // mask used to store only 3 words
     u32 += 4 ;
     u24 += 3 ;
     i   += 4 ;
@@ -98,25 +96,23 @@ void u32_u24(uint32_t *u32, uint32_t *u24, int32_t n){
   uint32_t n3 = (n & 3) ;
 
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-  __m128i vx, v32, v24, vm ;
+  __m128i vx, v32a, v24a, v32b, v24b, vm ;
   vx = _mm_loadu_si128((__m128i*) lower_32_to_24) ;
   vm = _mm_loadu_si128((__m128i*) mask24) ;
   for(i=0 ; i<n-8 ; i+=8){
-    v32 = _mm_loadu_si128((__m128i*) u32) ;
-    v24 = _mm_shuffle_epi8(v32, vx) ;
-    _mm_storeu_si128((__m128i*) u24, v24) ;      // plenty of extra room
-    u32 += 4 ;
-    u24 += 3 ;
-    v32 = _mm_loadu_si128((__m128i*) u32) ;
-    v24 = _mm_shuffle_epi8(v32, vx) ;
-    _mm_storeu_si128((__m128i*) u24, v24) ;      // plenty of extra room
-    u32 += 4 ;
-    u24 += 3 ;
+    v32a = _mm_loadu_si128((__m128i*)  u32) ;
+    v32b = _mm_loadu_si128((__m128i*) (u32+4)) ;
+    v24a = _mm_shuffle_epi8(v32a, vx) ;
+    v24b = _mm_shuffle_epi8(v32b, vx) ;
+    _mm_storeu_si128((__m128i*)  u24,    v24a) ;      // plenty of extra room
+    _mm_storeu_si128((__m128i*) (u24+3), v24b) ;      // plenty of extra room
+    u32 += 8 ;
+    u24 += 6 ;
   }
   while(i < n-3){   // 4 words into 3 words
-    v32 = _mm_loadu_si128((__m128i*) u32) ;
-    v24 = _mm_shuffle_epi8(v32, vx) ;
-    _mm_maskstore_epi32((int *) u24, vm, v24) ;  // mask used to store only 3 words
+    v32a = _mm_loadu_si128((__m128i*) u32) ;
+    v24a = _mm_shuffle_epi8(v32a, vx) ;
+    _mm_maskstore_epi32((int *) u24, vm, v24a) ;  // mask used to store only 3 words
     u32 += 4 ;
     u24 += 3 ;
     i += 4 ;
@@ -158,24 +154,22 @@ void bf24_fp32(void *f32, uint32_t *u24, int32_t n){
   uint32_t n3 = (n & 3) ;
 
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-  __m128i vx, v32, v24 ;
+  __m128i vx, v32a, v24a, v32b, v24b, vm ;
   vx = _mm_loadu_si128((__m128i*) upper_24_to_32) ;
   for(i=0 ; i<n-8 ; i+=8){
-    v24 = _mm_loadu_si128((__m128i*) u24) ;
-    v32 = _mm_shuffle_epi8(v24, vx) ;
-    _mm_storeu_si128((__m128i*) u32, v32) ;
-    u32 += 4 ;
-    u24 += 3 ;
-    v24 = _mm_loadu_si128((__m128i*) u24) ;
-    v32 = _mm_shuffle_epi8(v24, vx) ;
-    _mm_storeu_si128((__m128i*) u32, v32) ;
-    u32 += 4 ;
-    u24 += 3 ;
+    v24a = _mm_loadu_si128((__m128i*)  u24) ;
+    v24b = _mm_loadu_si128((__m128i*) (u24+3)) ;
+    v32a = _mm_shuffle_epi8(v24a, vx) ;
+    v32b = _mm_shuffle_epi8(v24b, vx) ;
+    _mm_storeu_si128((__m128i*)  u32,    v32a) ;
+    _mm_storeu_si128((__m128i*) (u32+4), v32b) ;
+    u32 += 8 ;
+    u24 += 6 ;
   }
   while(i < n-3){   // 4 words into 3 words
-    v24 = _mm_loadu_si128((__m128i*) u24) ;
-    v32 = _mm_shuffle_epi8(v24, vx) ;
-    _mm_storeu_si128((__m128i*) u32, v32) ;
+    v24a = _mm_loadu_si128((__m128i*) u24) ;
+    v32a = _mm_shuffle_epi8(v24a, vx) ;
+    _mm_storeu_si128((__m128i*) u32, v32a) ;
     u32 += 4 ;
     u24 += 3 ;
     i += 4 ;
@@ -210,24 +204,22 @@ void u24u32(uint32_t *u32, uint32_t *u24, int32_t n){
   uint32_t n3 = (n & 3) ;
 
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-  __m128i vx, v32, v24 ;
+  __m128i vx, v32a, v24a, v32b, v24b, vm ;
   vx = _mm_loadu_si128((__m128i*) lower_24_to_32) ;
   for(i=0 ; i<n-7 ; i+=8){
-    v24 = _mm_loadu_si128((__m128i*) u24) ;
-    v32 = _mm_shuffle_epi8(v24, vx) ;
-    _mm_storeu_si128((__m128i*) u32, v32) ;
-    u32 += 4 ;
-    u24 += 3 ;
-    v24 = _mm_loadu_si128((__m128i*) u24) ;
-    v32 = _mm_shuffle_epi8(v24, vx) ;
-    _mm_storeu_si128((__m128i*) u32, v32) ;
-    u32 += 4 ;
-    u24 += 3 ;
+    v24a = _mm_loadu_si128((__m128i*)  u24) ;
+    v24b = _mm_loadu_si128((__m128i*) (u24+3)) ;
+    v32a = _mm_shuffle_epi8(v24a, vx) ;
+    v32b = _mm_shuffle_epi8(v24b, vx) ;
+    _mm_storeu_si128((__m128i*)  u32,    v32a) ;
+    _mm_storeu_si128((__m128i*) (u32+4), v32b) ;
+    u32 += 8 ;
+    u24 += 6 ;
   }
   if(i < n-3){
-    v24 = _mm_loadu_si128((__m128i*) u24) ;
-    v32 = _mm_shuffle_epi8(v24, vx) ;
-    _mm_storeu_si128((__m128i*) u32, v32) ;
+    v24a = _mm_loadu_si128((__m128i*) u24) ;
+    v32a = _mm_shuffle_epi8(v24a, vx) ;
+    _mm_storeu_si128((__m128i*) u32, v32a) ;
     u32 += 4 ;
     u24 += 3 ;
   }
@@ -263,27 +255,25 @@ void i24i32(int32_t *i32, uint32_t *u24, int32_t n){
   uint32_t n3 = (n & 3) ;
 
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-  __m128i vx, v32, v24 ;
+  __m128i vx, v32a, v24a, v32b, v24b, vm ;
   vx = _mm_loadu_si128((__m128i*) upper_24_to_32) ;
   for(i=0 ; i<n-7 ; i+=8){
-    v24 = _mm_loadu_si128((__m128i*) u24) ;
-    v32 = _mm_shuffle_epi8(v24, vx) ;
-    v32 = _mm_srai_epi32(v32, 8) ;    // right shift by 8 positions
-    _mm_storeu_si128((__m128i*) i32, v32) ;
-    i32 += 4 ;
-    u24 += 3 ;
-    v24 = _mm_loadu_si128((__m128i*) u24) ;
-    v32 = _mm_shuffle_epi8(v24, vx) ;
-    v32 = _mm_srai_epi32(v32, 8) ;    // right shift by 8 positions
-    _mm_storeu_si128((__m128i*) i32, v32) ;
-    i32 += 4 ;
-    u24 += 3 ;
+    v24a = _mm_loadu_si128((__m128i*)  u24) ;
+    v24b = _mm_loadu_si128((__m128i*) (u24+3)) ;
+    v32a = _mm_shuffle_epi8(v24a, vx) ;
+    v32b = _mm_shuffle_epi8(v24b, vx) ;
+    v32a = _mm_srai_epi32(v32a, 8) ;    // right shift by 8 positions
+    v32b = _mm_srai_epi32(v32b, 8) ;    // right shift by 8 positions
+    _mm_storeu_si128((__m128i*)  i32,    v32a) ;
+    _mm_storeu_si128((__m128i*) (i32+4), v32b) ;
+    i32 += 8 ;
+    u24 += 6 ;
   }
   if(i < n-3) {
-    v24 = _mm_loadu_si128((__m128i*) u24) ;
-    v32 = _mm_shuffle_epi8(v24, vx) ;
-    v32 = _mm_srai_epi32(v32, 8) ;    // right shift by 8 positions
-    _mm_storeu_si128((__m128i*) i32, v32) ;
+    v24a = _mm_loadu_si128((__m128i*) u24) ;
+    v32a = _mm_shuffle_epi8(v24a, vx) ;
+    v32a = _mm_srai_epi32(v32a, 8) ;    // right shift by 8 positions
+    _mm_storeu_si128((__m128i*) i32, v32a) ;
     i32 += 4 ;
     u24 += 3 ;
   }
@@ -383,7 +373,7 @@ int main(int argc, char **argv){
       nt++ ;
     }
   }
-  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %5.2f ns/pt] (%6d) %f\n",
+  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f\n",
          NPTS, tmin*nano, tmax*nano, tavg/nt*nano, tavg/nt*nano/NPTS, nt, nano) ;
 
   printf("uf24      : ");
@@ -411,7 +401,7 @@ int main(int argc, char **argv){
   errors = verify_upper((uint32_t *) float32, (uint32_t *) float32b, NPTS) ;
   printf("floats : %f %f, relative error = %8.3g\n", 
          float32[NPTS/2], float32b[NPTS/2], (float32[NPTS/2]-float32b[NPTS/2])/float32[NPTS/2]) ;
-  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %5.2f ns/pt] (%6d) %f, errors = %d\n",
+  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f, errors = %d\n",
          NPTS, tmin*nano, tmax*nano, tavg/nt*nano, tavg/nt*nano/NPTS, nt, nano, errors) ;
   printf("\n") ;
 
@@ -434,7 +424,7 @@ int main(int argc, char **argv){
       nt++ ;
     }
   }
-  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %5.2f ns/pt] (%6d) %f\n",
+  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f\n",
          NPTS, tmin*nano, tmax*nano, tavg/nt*nano, tavg/nt*nano/NPTS, nt, nano) ;
 
   printf("u24       : ");
@@ -460,7 +450,7 @@ int main(int argc, char **argv){
     }
   }
   errors = verify_lower((uint32_t *) lfp32, (uint32_t *) lfp32b, NPTS) ;
-  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %5.2f ns/pt] (%6d) %f, errors = %d\n",
+  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f, errors = %d\n",
          NPTS, tmin*nano, tmax*nano, tavg/nt*nano, tavg/nt*nano/NPTS, nt, nano, errors) ;
 
   printf("\n") ;
@@ -484,7 +474,7 @@ int main(int argc, char **argv){
       nt++ ;
     }
   }
-  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %5.2f ns/pt] (%6d) %f\n",
+  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f\n",
          NPTS, tmin*nano, tmax*nano, tavg/nt*nano, tavg/nt*nano/NPTS, nt, nano) ;
 
   printf("i24       : ");
@@ -510,7 +500,7 @@ int main(int argc, char **argv){
     }
   }
   errors = verify_lower((uint32_t *) lfp32, (uint32_t *) lfp32b, NPTS) ;
-  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %5.2f ns/pt] (%6d) %f, errors = %d\n",
+  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f, errors = %d\n",
          NPTS, tmin*nano, tmax*nano, tavg/nt*nano, tavg/nt*nano/NPTS, nt, nano, errors) ;
 
   printf("\n\n\n\n\n");
