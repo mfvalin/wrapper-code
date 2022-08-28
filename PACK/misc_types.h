@@ -18,7 +18,7 @@
 #include <stddef.h>
 
 typedef union{
-  uint32_t i ;
+  uint32_t u ;
   float    f ;
 } FloatUint ;
 
@@ -28,7 +28,7 @@ typedef union{
 } FloatInt;
 
 typedef union{
-  uint64_t l ;
+  uint64_t ul ;
   double   d ;
 } DoubleUlong;
 
