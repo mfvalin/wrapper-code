@@ -18,6 +18,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <misc_types.h>
+#include <misc_floats.h>
 
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 #include <emmintrin.h>
@@ -59,7 +60,16 @@ void fp32_bf16(void *f32, uint32_t *u16, int32_t n){
   i=0 ;
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   for(    ; i < n-15 ; i += 16){
-    v32  = _mm256_loadu_si256((__m256i*)  u32) ;
+    v32  = _mm256_loadu_si256((__m256i*)  u32) ;     // get 8 floats
+    v32  = _mm256_add_epi32(v32, vr) ;               // add rounding term
+    v32  = _mm256_srli_epi32(v32,16) ;               // to lower 16 bits
+    v16a = _mm256_extracti128_si256(v32, 0) ;        // get lower 128 bits
+    v16b = _mm256_extracti128_si256(v32, 1) ;        // get upper 128 bits
+    v16a = _mm_shuffle_epi8(v16a, vx) ;              // shuffle to lower 64 bits
+    v16b = _mm_shuffle_epi8(v16b, vx) ;              // shuffle to lower 64 bits
+    v16c = _mm_unpacklo_epi64(v16a, v16b) ;          // merge to 128 bits
+    _mm_storeu_si128((__m128i *) u16  , v16c) ;      // store 4 words
+    v32  = _mm256_loadu_si256((__m256i*)  (u32+8)) ; // get next 8 floats
     v32  = _mm256_add_epi32(v32, vr) ;
     v32  = _mm256_srli_epi32(v32,16) ;
     v16a = _mm256_extracti128_si256(v32, 0) ;
@@ -67,22 +77,7 @@ void fp32_bf16(void *f32, uint32_t *u16, int32_t n){
     v16a = _mm_shuffle_epi8(v16a, vx) ;
     v16b = _mm_shuffle_epi8(v16b, vx) ;
     v16c = _mm_unpacklo_epi64(v16a, v16b) ;
-    _mm_storeu_si128((__m128i *) u16  , v16c) ;
-//     _mm_storeu_si64(u16  , v16a) ;
-//     _mm_storeu_si64(u16+2, v16b) ;
-//     _mm_storeu_si128((__m128i*) u16, _mm_packus_epi32(v16a, v16b)) ;
-    v32  = _mm256_loadu_si256((__m256i*)  (u32+8)) ;
-    v32  = _mm256_add_epi32(v32, vr) ;
-    v32  = _mm256_srli_epi32(v32,16) ;
-    v16a = _mm256_extracti128_si256(v32, 0) ;
-    v16b = _mm256_extracti128_si256(v32, 1) ;
-    v16a = _mm_shuffle_epi8(v16a, vx) ;
-    v16b = _mm_shuffle_epi8(v16b, vx) ;
-    v16c = _mm_unpacklo_epi64(v16a, v16b) ;
-    _mm_storeu_si128((__m128i *) (u16+4), v16c) ;
-//     _mm_storeu_si64(u16+4, v16a) ;
-//     _mm_storeu_si64(u16+6, v16b) ;
-//     _mm_storeu_si128((__m128i*) (u16+4), _mm_packus_epi32(v16a, v16b)) ;
+    _mm_storeu_si128((__m128i *) (u16+4), v16c) ;      // store next 4 words
     u32 += 16 ;
     u16 +=  8 ;
   }
@@ -97,13 +92,28 @@ void fp32_bf16(void *f32, uint32_t *u16, int32_t n){
   if(i < n) u16[0]  =  (u32[0]+round) & (~0xFFFF) ;
 }
 
+// return maximum absolute value that can be represented by a 16 bit float
+// using nexp (<=8) bits for the exponent field
+float nf16_floatmax(int nexp){
+  FloatUint top ;
+  uint32_t s8 = (8 - nexp) ;
+  uint32_t fexp = (0x7F >> s8) ;
+  if(nexp == 8) fexp-- ;
+  top.u = ((128+fexp) << 23) | 0x7FFFFF ;
+  top.u >>= (9 + nexp) ;
+  top.u <<= (9 + nexp) ;
+  return top.f ;
+}
+
 // pack upper 16 bits from 4 32 bit words into 2 32 bit unsigned integers
 // normally used to pack floats 
 // 1 bit : sign / nexp bits : exponent / (16 - nexp - 1) bits : mantissa
+// when nexp == 8, "brain float 16" is produced (same as fp32_bf16)
+// NOTE: add overflow to infinity argument, set top = 0x7FFF0000u in that case
 void fp32_nf16(void *f32, uint32_t *u16, int32_t n, int32_t nexp){
   int32_t i ;
   FloatUint *u32 = f32 ;
-  uint32_t round, top, fexp, sign ;
+  uint32_t round, fexp, sign, top ;
   uint32_t s8 ;
   FloatUint nfac, z ;
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
@@ -116,39 +126,45 @@ void fp32_nf16(void *f32, uint32_t *u16, int32_t n, int32_t nexp){
   round = (0x8000 >> s8) ;                    // rounding term to be added before clipping mantissa
   fexp = (0x7F >> s8) ;                       // new offset for exponent
   nfac.u = (fexp  << 23) ;                    // normalisation factor
-  top = nfac.u | 0x7FFFFF ;                   // maximum allowable value after normalisation
+  //  largest source absolute value that can be represented = ((128+fexp) << 23) | 0x7FFFFF
+  //   top = ((fexp+fexp+1) << 23) | 0x7FFFFF ;    // maximum allowable value after normalisation
+  top = 0x7FFE0000u ;                         // maximum value once coded
+  if(nexp == 8) top = 0x7FFF0000u ;
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   vr = _mm256_set1_epi32(round) ;
   vs = _mm256_set1_epi32(s8) ;
+//   vt = _mm256_set1_epi32(top) ;
+//   vt = _mm256_set1_epi32(0x7FFF0000u) ;
   vt = _mm256_set1_epi32(top) ;
   vn = _mm256_set1_epi32(nfac.u) ;
   vm = _mm256_set1_epi32(0x80000000u) ;    // sign mask
   vx = _mm_loadu_si128((__m128i*) _32_from_lower16) ;
   for(    ; i < n-15 ; i += 16){
-    vf = _mm256_loadu_ps((float *) u32 ) ;          // get float
+    vf = _mm256_loadu_ps((float *) u32 ) ;          // get 8 floats
     vi = (__m256i) _mm256_mul_ps(vf, (__m256) vn) ; // normalize
     v1 = _mm256_and_si256(vm, vi) ;                 // get sign
     vi = _mm256_andnot_si256(vm, vi) ;              // absolute value
     vi = _mm256_add_epi32(vr, vi) ;                 // add rounding factor
-    vi = _mm256_min_epi32(vt, vi) ;                 // "infinity" clip
+//     vi = _mm256_min_epi32(vt, vi) ;                 // "infinity" clip
     vi = _mm256_sllv_epi32(vi, vs) ;                // shift
+    vi = _mm256_min_epi32(vt, vi) ;                 // "infinity" clip
     vi = _mm256_or_si256(v1, vi) ;                  // restore sign
     vi  = _mm256_srli_epi32(vi,16) ;                // shift right by 16 bits
-    v16a = _mm256_extracti128_si256(vi, 0) ;
-    v16b = _mm256_extracti128_si256(vi, 1) ;
-    v16a = _mm_shuffle_epi8(v16a, vx) ;
-    v16b = _mm_shuffle_epi8(v16b, vx) ;
-    v16c = _mm_unpacklo_epi64(v16a, v16b) ;
-    _mm_storeu_si128((__m128i *) u16, v16c) ;
+    v16a = _mm256_extracti128_si256(vi, 0) ;        // lower 128 bits
+    v16b = _mm256_extracti128_si256(vi, 1) ;        // upper 128 bits
+    v16a = _mm_shuffle_epi8(v16a, vx) ;             // shuffle to lower 64 bits
+    v16b = _mm_shuffle_epi8(v16b, vx) ;             // shuffle to lower 64 bits
+    v16c = _mm_unpacklo_epi64(v16a, v16b) ;         // merge to 128 bits
+    _mm_storeu_si128((__m128i *) u16, v16c) ;       // store 4 words
 
-//     _mm_storeu_si128((__m128i*) u16, _mm_packus_epi32(v16a, v16b)) ;
-    vf = _mm256_loadu_ps((float *) (u32+8) ) ;          // get float
+    vf = _mm256_loadu_ps((float *) (u32+8) ) ;      // get next 8 floats
     vi = (__m256i) _mm256_mul_ps(vf, (__m256) vn) ; // normalize
     v1 = _mm256_and_si256(vm, vi) ;                 // get sign
     vi = _mm256_andnot_si256(vm, vi) ;              // absolute value
     vi = _mm256_add_epi32(vr, vi) ;                 // add rounding factor
-    vi = _mm256_min_epi32(vt, vi) ;                 // "infinity" clip
+//     vi = _mm256_min_epi32(vt, vi) ;                 // "infinity" clip
     vi = _mm256_sllv_epi32(vi, vs) ;                // shift
+    vi = _mm256_min_epi32(vt, vi) ;                 // "infinity" clip
     vi = _mm256_or_si256(v1, vi) ;                  // restore sign
     vi  = _mm256_srli_epi32(vi,16) ;                // shift right by 16 bits
     v16a = _mm256_extracti128_si256(vi, 0) ;
@@ -156,32 +172,37 @@ void fp32_nf16(void *f32, uint32_t *u16, int32_t n, int32_t nexp){
     v16a = _mm_shuffle_epi8(v16a, vx) ;
     v16b = _mm_shuffle_epi8(v16b, vx) ;
     v16c = _mm_unpacklo_epi64(v16a, v16b) ;
-    _mm_storeu_si128((__m128i *) (u16+4), v16c) ;
-//     _mm_storeu_si128((__m128i*) (u16+4), _mm_packus_epi32(v16a, v16b)) ;
+    _mm_storeu_si128((__m128i *) (u16+4), v16c) ;   // store next 4 words
     u32 += 16 ;
     u16 +=  8 ;
   }
 #endif
   // process leftovers
+// printf("fp32_nf16, fac = %g, round = %8.8x, s8 = %d", nfac.f, round, s8) ;
+// int clip = 0;
   for(    ; i < n-1 ; i += 2){
     z.f = u32[0].f ;
     sign = z.u & 0x80000000u ;           // keep sign
     z.u &= 0x7FFFFFFFu ;                 // absolute value
     z.f *= nfac.f ;                      // normalize
     z.u += round ;                       // add rounding
-    z.u = (z.u > top) ? top : z.u ;      // "infinity" clip
+//     z.u = (z.u > top) ? top : z.u ;      // "infinity" clip
     z.u <<= s8 ;                         // shift
+    z.u = (z.u > top) ? top : z.u ;      // "infinity" clip
     z.u |= sign ;                        // restore sign
-    u16[0]  =  z.u & 0xFFFF0000u ;       // upper 16 bits to upper 16 bits of u16
+    u16[0]  =  z.u & top ;               // upper 16 bits to upper 16 bits of u16
+
     z.f = u32[1].f ;
     sign = z.u & 0x80000000u ;           // keep sign
     z.u &= 0x7FFFFFFFu ;                 // absolute value
     z.f *= nfac.f ;                      // normalize
     z.u += round ;                       // add rounding
-    z.u = (z.u > top) ? top : z.u ;      // "infinity" clip
+//     z.u = (z.u > top) ? top : z.u ;      // "infinity" clip
     z.u <<= s8 ;                         // shift
+    z.u = (z.u > top) ? top : z.u ;      // "infinity" clip
     z.u |= sign ;                        // restore sign
     u16[0] |= (z.u >> 16) ;              // upper 16 bits to lower 16 bits of u16
+
     u32 += 2 ;
     u16++ ;
   }
@@ -191,11 +212,13 @@ void fp32_nf16(void *f32, uint32_t *u16, int32_t n, int32_t nexp){
     z.u &= 0x7FFFFFFFu ;                 // absolute value
     z.f *= nfac.f ;                      // normalize
     z.u += round ;                       // add rounding
-    z.u = (z.u > top) ? top : z.u ;      // "infinity" clip
+//     z.u = (z.u > top) ? top : z.u ;      // "infinity" clip
     z.u <<= s8 ;                         // shift
+    z.u = (z.u > top) ? top : z.u ;      // "infinity" clip
     z.u |= sign ;                        // restore sign
     u16[0]  =  z.u & 0xFFFF0000u ;       // upper 16 bits to upper 16 bits of u16
   }
+// printf("clip = %d\n            ", clip) ;
 }
 
 // pack upper 24 bits from 4 32 bit words into 3 32 bit unsigned integers
@@ -356,6 +379,7 @@ void bf16_fp32(void *f32, uint32_t *u16, int32_t n){
 
 // restore the upper 16 bits of 4 32 bit words from 16 bit tokens in 2 32 bit words
 // normally used to restore floats with a variable exponent width
+// NOTE: may want to add infinity option, and decode 7FFF as infinity
 void nf16_fp32(void *f32, uint32_t *u16, int32_t n, int nexp){
   int32_t i ;
   FloatUint *u32 = f32 ;
@@ -372,6 +396,7 @@ void nf16_fp32(void *f32, uint32_t *u16, int32_t n, int nexp){
   i = 0 ;
   s8 = (8 - nexp) ;                           // shift count for exp / mantissa
   fexp = (0x7F >> s8) ;                       // new offset for exponent
+  fexp = 254 - fexp ;                         // new exponent for normalisation factor
   nfac.u = (fexp  << 23) ;                    // normalisation factor
 //   top = nfac.u | 0x7FFFFF ;                   // maximum allowable value after normalisation
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
@@ -380,18 +405,23 @@ void nf16_fp32(void *f32, uint32_t *u16, int32_t n, int nexp){
   vn = _mm256_set1_epi32(nfac.u) ;
   vm = _mm256_set1_epi32(0x80000000u) ;    // sign mask
   for(    ; i < n-7 ; i += 8){
-    v16 = _mm_loadu_si128((__m128i *) u16) ;
-    v32 = _mm256_cvtepu16_epi32(v16) ;
-    v32 = _mm256_slli_epi32(v32, 16) ;
-    v32 = _mm256_shuffle_epi32(v32, 0xB1) ;
-    v32 = _mm256_srlv_epi32(v32, vs) ;
-    vf  = _mm256_mul_ps((__m256) v32, (__m256) vn) ;
-    _mm256_storeu_ps((float *) u32, vf) ;
+    v16 = _mm_loadu_si128((__m128i *) u16) ;         // get 4 words of packed floats
+    v32 = _mm256_cvtepu16_epi32(v16) ;               // expand to 8 words
+    v32 = _mm256_slli_epi32(v32, 16) ;               // shift left 16 positions
+    v1  = _mm256_and_si256(vm, v32) ;                // get sign
+    v32 = _mm256_andnot_si256(vm, v32) ;             // absolute value
+    v32 = _mm256_shuffle_epi32(v32, 0xB1) ;          // shuffle to proper position (undo cvtepu16 LE swap)
+    v32 = _mm256_srlv_epi32(v32, vs) ;               // shift to proper position
+    v32 = _mm256_or_si256(v1, v32) ;                 // restore sign
+    vf  = _mm256_mul_ps((__m256) v32, (__m256) vn) ; // apply normalization factor
+    _mm256_storeu_ps((float *) u32, vf) ;            // store 8 floats
+
     u32 +=  8 ;
     u16 +=  4 ;
   }
 #endif
   // process leftovers
+// printf("nf16_fp32, fac = %g", nfac.f) ;
   for(    ; i < n-1 ; i += 2){
     z.u = u16[0] & 0xFFFF0000u ;     // upper 16 bits of u16
     sign = z.u & 0x80000000u ;       // get sign
@@ -406,6 +436,7 @@ void nf16_fp32(void *f32, uint32_t *u16, int32_t n, int nexp){
     z.u >>= s8 ;                     // shift back to proper position
     z.u |= sign ;                    // re apply sign
     u32[1].f = z.f * nfac.f ;        // normalize
+// if(i==0) printf(", u16 = %8.8x, f32 = %g %g", u16[0], u32[0].f, u32[1].f);
     u32 += 2 ;
     u16 ++ ;
   }
@@ -417,6 +448,7 @@ void nf16_fp32(void *f32, uint32_t *u16, int32_t n, int nexp){
     z.u |= sign ;                    // re apply sign
     u32[0].f = z.f * nfac.f ;        // normalize
   }
+// printf("\n            ") ;
 }
 
 // restore the upper 24 bits of 4 32 bit words from 4 24 bit tokens in 3 32 bit words

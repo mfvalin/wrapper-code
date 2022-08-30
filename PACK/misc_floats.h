@@ -15,6 +15,8 @@
 //     M. Valin,   Recherche en Prevision Numerique, august 2022
 //
 
+float nf16_floatmax(int nexp) ;
+
 void fp32_bf16(void *f32, uint32_t *u16, int32_t n) ;
 void bf16_fp32(void *f32, uint32_t *u16, int32_t n) ;
 
