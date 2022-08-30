@@ -1,5 +1,5 @@
 /*
- * Hopefully useful code for C
+ * Hopefully useful code for C or Fortran
  * Copyright (C) 2022  Recherche en Prevision Numerique
  *
  * This code is free software; you can redistribute it and/or
