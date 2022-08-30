@@ -536,8 +536,8 @@ void u24i32(int32_t *i32, uint32_t *u24, int32_t n){
     v24b = _mm_loadu_si128((__m128i*) (u24+3)) ;
     v32a = _mm_shuffle_epi8(v24a, vx) ;
     v32b = _mm_shuffle_epi8(v24b, vx) ;
-    v32a = _mm_srai_epi32(v32a, 8) ;    // right shift by 8 positions
-    v32b = _mm_srai_epi32(v32b, 8) ;    // right shift by 8 positions
+    v32a = _mm_srai_epi32(v32a, 8) ;    // arithmetic right shift by 8 positions
+    v32b = _mm_srai_epi32(v32b, 8) ;    // arithmetic right shift by 8 positions
     _mm_storeu_si128((__m128i*)  i32,    v32a) ;
     _mm_storeu_si128((__m128i*) (i32+4), v32b) ;
     i32 += 8 ;
@@ -546,7 +546,7 @@ void u24i32(int32_t *i32, uint32_t *u24, int32_t n){
   if(i < n-3) {
     v24a = _mm_loadu_si128((__m128i*) u24) ;
     v32a = _mm_shuffle_epi8(v24a, vx) ;
-    v32a = _mm_srai_epi32(v32a, 8) ;    // right shift by 8 positions
+    v32a = _mm_srai_epi32(v32a, 8) ;    // arithmetic right shift by 8 positions
     _mm_storeu_si128((__m128i*) i32, v32a) ;
     i32 += 4 ;
     u24 += 3 ;
@@ -561,7 +561,8 @@ void u24i32(int32_t *i32, uint32_t *u24, int32_t n){
     i32[2]  = u24[1] << 16 ;                // upper 16 bits from lower 16 bits of u24[1]
     i32[2] |= (u24[2] >> 16) & 0xFF00 ;     // next 8 bits from upper 8 bits of u24[2]
     i32[2] >>= 8 ;
-    i32[3]  = (u24[2] << 8) >> 8 ;          // lower 24 bits of u24[2]
+    i32[3]  = (u24[2] << 8)      ;          // lower 24 bits of u24[2]
+    i32[3] >>= 8 ;
     i32 += 4 ;
     u24 += 3 ;
   }
