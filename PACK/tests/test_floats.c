@@ -313,7 +313,7 @@ return 0 ;
   printf("i24       : ");
   for(i=0 ; i<8 ; i++) printf("%8.8x ",uf24[i]) ; printf("\n") ;
   memset(fp32b, 0xFF, sizeof(fp32b));
-  i24i32((int32_t *) fp32b, uf24, n) ;
+  u24i32((int32_t *) fp32b, uf24, n) ;
 //   errors = verify_lower((uint32_t *) fp32, (uint32_t *) fp32b, n) ;
   errors = verify_masked((uint32_t *) fp32, (uint32_t *) fp32b, 0xFFFFFF,  n) ;
   printf("restored  : ");
@@ -321,7 +321,7 @@ return 0 ;
   tmin = 1000000000 ;  nt = 0 ; tavg = 0.0f ; tmax = 0 ;
   for(j=0 ; j < NTIMES ; j++) {
     t0 = elapsed_cycles() ;
-    i24i32((int32_t *) lfp32b, luf24, NPTS) ;
+    u24i32((int32_t *) lfp32b, luf24, NPTS) ;
     t1 = elapsed_cycles() ;
     t[j] = t1 - t0 ;
     tmin = (t[j] < tmin) ? t[j] : tmin ;
