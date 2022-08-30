@@ -10,7 +10,7 @@ DEF =
 
 OBJECTS = lorenzo_f.o lorenzo_c.o cdf97.o cdf53.o average_by_2_4_8.o analyze_8x8.o \
           misc_timers.o quantize.o float_info.o misc_swizzle.o misc_endian.o \
-          ieee_quantize.o
+          ieee_quantize.o misc_floats.o verify.o
 
 .F90.o:
 	(module load $(MOD)$(EXT) >/dev/null ; mkdir -p obj_$(MOD) include_$(MOD) ; \
@@ -107,8 +107,14 @@ test_endian_f.$(MOD).exe : tests/test_endian_f.F90 libmisc_$(MOD).a
 	(module load $(MOD)$(EXT) >/dev/null ; \
 	$$FTN $(OPT) $(DEF) -DCDF53 -I. $^ -L. -lmisc_$(MOD) -o $@ )
 
+test_floats : test_floats.$(MOD).exe
+	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
+test_floats.$(MOD).exe : tests/test_floats.c libmisc_$(MOD).a
+	(module load $(MOD)$(EXT) >/dev/null ; \
+	$$CC $(OPT) $(DEF) -DCDF53 -I. $^ -L. -lmisc_$(MOD) -o $@ )
+
 clean:
-	rm -f *.o *.mod a*.out *.Abs *.exe *.s
+	rm -f *.o *.mod a*.out *.Abs *.exe *.s *.ll
 veryclean: clean
 	rm -f libmisc*.a include*/*.mod obj*/*.o
 
