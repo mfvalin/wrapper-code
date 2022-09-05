@@ -104,12 +104,7 @@ void  LeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n);
 void  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n);
 void  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n);
 
-STATIC inline uint32_t MaskNbits1(uint32_t nbits){
-  uint32_t mask = ~0 ;
-  return ~(mask << nbits) ;
-}
-
-STATIC inline uint32_t MaskNbits2(uint32_t nbits){
+STATIC inline uint32_t MaskNbits(uint32_t nbits){
   uint32_t mask = ~0 ;
   return  ( mask >> (32 - nbits)) ;
 }

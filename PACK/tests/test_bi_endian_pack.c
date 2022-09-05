@@ -79,7 +79,7 @@ int main(int argc, char **argv){
     LeStreamXtract(&ple, restored, nbits, NPTS) ;
 //     printf("restoredle: ") ;
 //     for(i=0 ; i<8 ; i++) printf("%8.8x ", restored[i]); printf("\n") ;
-    mask = MaskNbits1(nbits) ;
+    mask = MaskNbits(nbits) ;
     errors = 0 ;
     for(i=0 ; i<NPTS ; i++){
       if((restored[i] & mask) != (unpacked[i] & mask) ) {
@@ -105,7 +105,7 @@ int main(int argc, char **argv){
     BeStreamXtract(&pbe, restored, nbits, NPTS) ;
 //     printf("restoredbe: ") ;
 //     for(i=0 ; i<8 ; i++) printf("%8.8x ", restored[i]); printf("\n") ;
-    mask = MaskNbits1(nbits) ;
+    mask = MaskNbits(nbits) ;
     errors = 0 ;
     for(i=0 ; i<NPTS ; i++){
       if((restored[i] & mask) != (unpacked[i] & mask) ) {
