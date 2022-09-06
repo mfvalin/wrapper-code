@@ -39,6 +39,29 @@ interface
 end interface
 #else
 
+// tmin, tmax, tavg can be floats or doubles, niter is expected to be an integer
+//
+// timing loop top part
+#define TIME_LOOP_TOP(tmin, tmax, tavg, niter) \
+{ uint64_t t ; \
+  tmin = 1000000000.0 ; tmax = 0.0 ; tavg = 0.0 ; \
+  for(j=0 ; j < niter ; j++) { t = elapsed_cycles() ;
+//
+// code to be timed in a loop goes between TIME_LOOP_TOP and TIME_LOOP_BOT
+//
+// timing loop bottom part
+#define TIME_LOOP_BOT(tmin, tmax, tavg, niter) \
+    t = elapsed_cycles() -t ; \
+    tavg += t ; tmin = (t < tmin) ? t : tmin ; tmax = (t > tmax) ? t : tmax ; \
+  } tavg /= niter ; \
+}
+
+// time a piece of code in a loop, get min, max, average time
+#define TIME_LOOP(tmin, tmax, tavg, niter, TimedCode) \
+  TIME_LOOP_TOP(tmin, tmax, tavg, niter) ; \
+  TimedCode ; \
+  TIME_LOOP_BOT(tmin, tmax, tavg, niter)
+
 #if ! defined(MISC_TIMERS)
 #define MISC_TIMERS
 
