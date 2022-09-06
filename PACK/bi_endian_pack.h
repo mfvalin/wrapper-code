@@ -24,8 +24,8 @@ typedef struct{
   uint64_t  accum ;   // 64 bit unsigned bit accumulator
   uint32_t *start ;   // pointer to start of stream data storage
   uint32_t *stream ;  // pointer into packed stream
-  uint32_t  insert ;  // insertion point into accumulator (number of bits already in accumulator)
-  uint32_t  xtract ;  // extraction point from accumulator (number of bits available in accumulator)
+  uint32_t  insert ;  // number of bits already filled in accumulator
+  uint32_t  xtract ;  // number of bits available for extraction in accumulator
 } bitstream ;
 //
 // little endian style (right to left) bit stream packing
@@ -104,9 +104,14 @@ void  LeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n);
 void  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n);
 void  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n);
 
-STATIC inline uint32_t MaskNbits(uint32_t nbits){
+STATIC inline uint32_t RMask(uint32_t nbits){
   uint32_t mask = ~0 ;
   return  ( mask >> (32 - nbits)) ;
+}
+
+STATIC inline uint32_t LMask(uint32_t nbits){
+  uint32_t mask = ~0 ;
+  return  ( mask << (32 - nbits)) ;
 }
 
 STATIC inline void  BeStreamReset(bitstream *p, uint32_t *buffer){
