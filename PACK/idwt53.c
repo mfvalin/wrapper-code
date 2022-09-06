@@ -214,34 +214,35 @@ extern inline void IDWT53i_1D_inplace_split_full(int32_t *x, uint32_t n){
   IDWT53i_1D_split_full(x, te, x+neven, n) ;
 }
 
+// analyze the four quadrants for min and max values
 static void quadrants(int32_t *z, int ni, int lni, int nj, int32_t *min, int32_t *max){
   int i, j, pts[4] ; ;
 for (i=0;i<4;i++) pts[i] = 0 ;
   min[0] = min[1] = min[2] = min[3] =  9999999 ;
   max[0] = max[1] = max[2] = max[3] = -9999999 ;
   for (j=0;j<(nj+1)/2;j++) {
-    for (i=0;i<(ni+1)/2;i++) {          // LL quadrant, level 1
+    for (i=0;i<(ni+1)/2;i++) {          // LL quadrant
       min[0] = (z[i+lni*j] < min[0]) ? z[i+lni*j] : min[0] ;
       max[0] = (z[i+lni*j] > max[0]) ? z[i+lni*j] : max[0] ;
       pts[0]++ ;
     }
   }
   for (j=0;j<(nj+1)/2;j++) {
-    for (i=(ni+1)/2;i<ni;i++) {       // HL quadrant, level 1
+    for (i=(ni+1)/2;i<ni;i++) {       // HL quadrant
       min[1] = (z[i+lni*j] < min[1]) ? z[i+lni*j] : min[1] ;
       max[1] = (z[i+lni*j] > max[1]) ? z[i+lni*j] : max[1] ;
       pts[1]++ ;
     }
   }
   for (j=(nj+1)/2;j<nj;j++) {
-    for (i=0;i<(ni+1)/2;i++) {          // LH quadrant, level 1
+    for (i=0;i<(ni+1)/2;i++) {          // LH quadrant
       min[2] = (z[i+lni*j] < min[2]) ? z[i+lni*j] : min[2] ;
       max[2] = (z[i+lni*j] > max[2]) ? z[i+lni*j] : max[2] ;
       pts[2]++ ;
     }
   }
   for (j=(nj+1)/2;j<nj;j++) {
-    for (i=(ni+1)/2;i<ni;i++) {       // HH quadrant, level 1
+    for (i=(ni+1)/2;i<ni;i++) {       // HH quadrant
       min[3] = (z[i+lni*j] < min[3]) ? z[i+lni*j] : min[3] ;
       max[3] = (z[i+lni*j] > max[3]) ? z[i+lni*j] : max[3] ;
       pts[3]++ ;
@@ -310,6 +311,8 @@ void FDWT53i_2D_split_inplace(int32_t *x, int ni, int lni, int nj){
   }
 }
 
+// multi level forward transform
+// next level applied to LL (even-even) quadrant
 void FDWT53i_2D_split_inplace_n(int32_t *x, int ni, int lni, int nj, int levels){
   int min[4], max[4] ;
   FDWT53i_2D_split_inplace(x, ni, lni, nj) ;
@@ -391,6 +394,8 @@ void IDWT53i_2D_split_inplace(int32_t *x, int ni, int lni, int nj){
   }
 }
 
+// multi level inverse transform
+// next level applied to LL (even-even) quadrant
 void IDWT53i_2D_split_inplace_n(int32_t *x, int ni, int lni, int nj, int levels){
   if(levels > 1){
     IDWT53i_2D_split_inplace_n(x, (ni+1)/2, lni, (nj+1)/2, levels-1) ;
