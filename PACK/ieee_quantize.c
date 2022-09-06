@@ -27,6 +27,10 @@
 
 #include <ieee_quantize.h>
 
+#if ! defined(STATIC)
+#define STATIC static
+#endif
+
 // largest exponent as a function of exponent bit field width
 static int32_t e[] = {0, 1, 3, 7, 15, 31, 63, 127, 255} ;
 
@@ -76,14 +80,14 @@ void quantize_setup(float *z,            // array to be quantized (IEEE 754 32 b
   h->sbit = (h->fmax * h->fmin < 0) ? 1 : 0 ;  // a sign bit is needed, there are positive and negative numbers
   h->negative = ((h->fmax * h->fmin >= 0) && (h->fmin < 0)) ? 1 : 0 ;  // all values are negative
   rng.f = h->fmax - h->fmin ;                     // signed range
-  rng.i = ((rng.i >> 23) + 1) << 23 ;             // next power of 2 > rng.f
+  rng.u = ((rng.u >> 23) + 1) << 23 ;             // next power of 2 > rng.f
   h->rng = rng.f ;                                // signed range
   maxabs = h->fmax >= 0 ? h->fmax : -h->fmax ;    // |maxval|
   minabs = h->fmin >= 0 ? h->fmin : -h->fmin ;    // |minval|
   maxabs = maxabs > minabs ? maxabs : minabs ;    // max( |maxval| , |minval| )
   h->fmaxa = maxabs ;
   rng.f = maxabs - h->amin ;
-  rng.i = ((rng.i >> 23) + 1) << 23 ;             // next power of 2 > rng.f
+  rng.u = ((rng.u >> 23) + 1) << 23 ;             // next power of 2 > rng.f
   h->rnga = rng.f ;                               // range of absolute values
 }
 
@@ -114,20 +118,20 @@ void ieee_clip(void *f, int n, int nbits){
 // the absolute value of the input float is converted to a new floating format
 // with a reduced size exponent and a reduced size mantissa (nm bits)
 // this new "reduced size float" is treated as an integer when restoring sign if needed
-static inline int32_t ieee_f_to_q(float f, int32_t e0, int32_t round, float t0, int nm, int32_t limit, int32_t sbit){
+STATIC inline int32_t ieee_f_to_q(float f, int32_t e0, int32_t round, float t0, int nm, int32_t limit, int32_t sbit){
   FloatUint z, x1, y ;
   int sign, ex ;
   int q ;                       // final result
   z.f = f ;                     // float will be mostly manipulated as an unsigned integer
-  sign = z.i >> 31 ;            // get sign bit (most significant bit)
+  sign = z.u >> 31 ;            // get sign bit (most significant bit)
   sign = sign & sbit ;          // possibly ignore sign bit
-  z.i &= 0x7FFFFFFF ;           // suppress FP sign bit
-  z.i += round ;                // apply mantissa rounding (may cause an exponent increase by 1)
-  ex = (z.i >> 23) ;            // get exponent (including IEEE bias of 127)
-  x1.i = ((ex - e0) << 23) |    // alter exponent (largest value becomes 127), keep mantissa intact
-         (z.i & 0x7FFFFF) ;     // (equivalent to dividing by 2**e0)
+  z.u &= 0x7FFFFFFF ;           // suppress FP sign bit
+  z.u += round ;                // apply mantissa rounding (may cause an exponent increase by 1)
+  ex = (z.u >> 23) ;            // get exponent (including IEEE bias of 127)
+  x1.u = ((ex - e0) << 23) |    // alter exponent (largest value becomes 127), keep mantissa intact
+         (z.u & 0x7FFFFF) ;     // (equivalent to dividing by 2**e0)
   y.f = x1.f * t0 ;             // apply scaling (may produce a denormalized float)
-  q = y.i >> (23 - nm) ;        // get rid of unused rightmost mantissa bits
+  q = y.u >> (23 - nm) ;        // get rid of unused rightmost mantissa bits
   q = q > limit ? limit : q ;   // limit is expected to have the nbits rightmost bits set
   q = sign ? -q : q ;           // restore sign by negating integer quantized value if necessary
   return q ;
@@ -143,28 +147,28 @@ static inline int32_t ieee_f_to_q(float f, int32_t e0, int32_t round, float t0, 
 //
 // return restored float value
 // t1 * t2 might generate an overflow, which is why they MUST be applied separately using 2 multiplies
-static inline float ieee_q_to_f_2(int32_t q, float t1, float t2, int nm, int32_t sbit, int32_t neg){
+STATIC inline float ieee_q_to_f_2(int32_t q, float t1, float t2, int nm, int32_t sbit, int32_t neg){
   int sign ;
   FloatUint q1 ;
   float f ;                     // final result
   sign = (q < 0) ? 1 : 0 ;      // get sign
   sign = sign & sbit ;          // possibly unsigned quantized value
-  q1.i = sign ? -q : q ;        // get absolute value if signed
-  q1.i = q1.i << (23 - nm) ;    // shift left into proper place
+  q1.u = sign ? -q : q ;        // get absolute value if signed
+  q1.u = q1.u << (23 - nm) ;    // shift left into proper place
   f = (q1.f * t1) * t2 ;        // apply the 2 scaling factors
   sign = sign | neg ;
   f = sign ? -f : f ;           // restore sign if negative
   return f ;
 }
 // single factor version if t1 * t2 are known not to create an overflow
-static inline float ieee_q_to_f_1(int32_t q, float t1t2, int nm, int32_t sbit, int32_t neg){
+STATIC inline float ieee_q_to_f_1(int32_t q, float t1t2, int nm, int32_t sbit, int32_t neg){
   int sign ;
   FloatUint q1 ;
   float f ;                     // final result
   sign = (q < 0) ? 1 : 0 ;      // get sign
   sign = sign & sbit ;          // possibly unsigned quantized value
-  q1.i = sign ? -q : q ;        // get absolute value if signed
-  q1.i = q1.i << (23 - nm) ;    // shift left into proper place
+  q1.u = sign ? -q : q ;        // get absolute value if signed
+  q1.u = q1.u << (23 - nm) ;    // shift left into proper place
   f = q1.f * t1t2 ;             // apply the combined scaling factor
   sign = sign | neg ;
   f = sign ? -f : f ;           // restore sign if negative
@@ -189,7 +193,7 @@ int32_t ieee_quantize(float *f,        // array to quantize (IEEE 754 32 bit flo
                       int n,           // number of data elements (INPUT)
                       int nexp,        // number of bits for the exponent part of quantized data (INPUT)
                       int nbits,       // number of bits in quantized data (INPUT)
-                      qhead *h)        // quantization control information (INPUT+OUTPUT)
+                      qhead *h)        // quantization setup information (INPUT+OUTPUT)
 {
   int i, e0, nm ;
   FloatUint z0, t0 ;
@@ -208,8 +212,8 @@ int32_t ieee_quantize(float *f,        // array to quantize (IEEE 754 32 bit flo
   if(nm < 1 || nm >23) return e0 ;           // too few or too many mantissa bits
 
   z0.f = fmaxa ;
-  e0 = (z0.i >> 23) - 127 ;                  // true exponent of largest absolute value
-  t0.i = e[nexp] << 23 ;                     // final scaling factor
+  e0 = (z0.u >> 23) - 127 ;                  // true exponent of largest absolute value
+  t0.u = e[nexp] << 23 ;                     // final scaling factor : (1 << nexp) - 1
   round = (1 << (23 + nexp - nbits -1)) ;    // rounding term
 
   min = INT_MAX ; max = INT_MIN ;
@@ -222,13 +226,13 @@ int32_t ieee_quantize(float *f,        // array to quantize (IEEE 754 32 bit flo
     h->e0 = e0 ;             // true exponent of largest absolute value float
     h->nbits = nbits ;       // number of bits per token
     h->nexp = nexp ;         // number of exponent bits
-//     h->min = min ;           // lowest quantized signed value
-//     h->max = max ;           // largest quantized signed value
-    h->max = ieee_f_to_q(h->fmax, e0, round, t0.f, nm, limit, sbit) ;
-    h->min = ieee_f_to_q(h->fmin, e0, round, t0.f, nm, limit, sbit) ;
+//     h->min = min ;
+//     h->max = max ;
+    h->max = ieee_f_to_q(h->fmax, e0, round, t0.f, nm, limit, sbit) ;  // largest quantized signed value
+    h->min = ieee_f_to_q(h->fmin, e0, round, t0.f, nm, limit, sbit) ;  // lowest quantized signed value
     h->limit = limit ;       // keep limit mask
   }
-  return e0 ;
+  return e0 ;  // retourner e0/nbits/nexp/sbit/negative ?  8/8/8/4/4 bits ?
 }
 
 // vector version of above
@@ -257,8 +261,8 @@ int32_t ieee_quantize_v4(float *f,        // array to quantize (IEEE 754 32 bit 
   if(nm < 1 || nm >23) return e0 ;           // too few or too many mantissa bits
 
   z0.f = fmaxa ;
-  e0 = (z0.i >> 23) - 127 ;                  // true exponent of largest absolute value
-  t0.i = e[nexp] << 23 ;                     // final scaling factor
+  e0 = (z0.u >> 23) - 127 ;                  // true exponent of largest absolute value
+  t0.u = e[nexp] << 23 ;                     // final scaling factor
   round = (1 << (23 + nexp - nbits -1)) ;
 
   vl = (n & 3) ; vl = (vl == 0) ? 4 : vl ;
@@ -281,6 +285,7 @@ int32_t ieee_quantize_v4(float *f,        // array to quantize (IEEE 754 32 bit 
 }
 
 // restore float values from quantized (ieee style) values
+// utiliser un composite e0/nbits/nexp/sbit/negative  ( 8/8/8/4/4 bits ) plutot que h ?
 int32_t ieee_unquantize(float *f,      // restored array (IEEE 754 32 bit float) (OUTPUT)
                         int32_t *q,    // quantized array (INPUT)
                         int n,         // number of data elements (INPUT)
@@ -306,14 +311,14 @@ int32_t ieee_unquantize(float *f,      // restored array (IEEE 754 32 bit float)
   neg  = h->negative ;
   if(e0 > e[nexp]) {                         // must use 2 factors if e0 > e[nexp]
 fprintf(stdout,"BEEP\n");
-    t1.i = ((254 - e[nexp]) << 23) ;
-    t2.i = ((127 + e0)      << 23) ;         // t1.f * t2.f would be too large ( > 2**128 )
+    t1.u = ((254 - e[nexp]) << 23) ;
+    t2.u = ((127 + e0)      << 23) ;         // t1.f * t2.f would be too large ( > 2**128 )
     for(i = 0 ; i < n ; i++) {
       f[i] = ieee_q_to_f_2(q[i], t1.f, t2.f, nm, sbit, neg) ;
     }
   }else{                                     // can use 1 factor if e0 <= e[nexp]
 fprintf(stdout,"BOP\n");
-    t1.i = ((254 - e[nexp] + e0) << 23) ;
+    t1.u = ((254 - e[nexp] + e0) << 23) ;
     for(i = 0 ; i < n ; i++) {
       f[i] = ieee_q_to_f_1(q[i], t1.f, nm, sbit, neg) ;
     }
@@ -323,21 +328,21 @@ fprintf(stdout,"BOP\n");
 
 // IEEE 32 bit floating point to half precision (16 bit) IEEE floating point
 // any number >= 65520 will be coded as infinity in FP16
-static inline uint16_t ieee_fp32_to_fp16(float f){
+STATIC inline uint16_t ieee_fp32_to_fp16(float f){
   FloatUint z, y ;
   uint32_t sign ;
   uint32_t round = 0x1000 ;
   uint32_t limit = ((127+16) << 23) | 0x7FFFFF ; // largest representable FP16
   z.f = f ;                     // float will be mostly manipulated as an integer
-  sign = (z.i >> 16) & 0x8000 ; // position of FP16 sign bit
-  z.i &= 0x7FFFFFFF ;           // suppress FP sign bit
-  z.i += round ;                // apply mantissa rounding
-  z.i = (z.i > limit) ? limit : z.i ;
-  y.i = 15 << 23 ;              // scale by 2 ** (15 -127)
+  sign = (z.u >> 16) & 0x8000 ; // position of FP16 sign bit
+  z.u &= 0x7FFFFFFF ;           // suppress FP sign bit
+  z.u += round ;                // apply mantissa rounding
+  z.u = (z.u > limit) ? limit : z.u ;
+  y.u = 15 << 23 ;              // scale by 2 ** (15 -127)
   y.f *= z.f ;
-  y.i = (y.i >> 13) & 0xFFFF ;  // suppress lower 16 bits of mantissa & reduce exp + mantissa to 15 bits
-  y.i |= sign ;                 // apply sign
-  return y.i ;
+  y.u = (y.u >> 13) & 0xFFFF ;  // suppress lower 16 bits of mantissa & reduce exp + mantissa to 15 bits
+  y.u |= sign ;                 // apply sign
+  return y.u ;
 }
 
 // IEEE 32 bit floating point to half precision (16 bit) IEEE floating point
@@ -346,10 +351,59 @@ void fp32_to_fp16(float *f, uint16_t *q, int n){
   for(i = 0 ; i < n ; i++) q[i] = ieee_fp32_to_fp16(f[i]) ;
 }
 
+STATIC inline uint32_t ieee_fp32_to_fp24(float f){
+  FloatUint z ;
+  uint32_t mant, exp, sign ;
+  uint32_t round = 1 << 7 ;
+  z.f = f ;
+  z.u += round ;
+  sign = z.u >> 31 ;                      // sign bit
+  exp = ((z.u >> 23) & 0xFF) -127 + 63 ;  // exponent now biased by 63 instead of 127
+  if(exp <= 0) exp = 0 ;
+  if(exp > 127) exp = 127 ;
+  mant = (z.u >> 8) & 0xFFFFFF ;          // 16 bit mantissa
+  return (sign << 23) | (exp << 16) | mant ;
+}
+
+// IEEE 32 bit floating point to 3/4 precision (24 bit) IEEE style floating point
+// 24 bit format : 1/7/16  sign/exp/mantissa
+// 3 entries in q for each group of 4 f values
+void fp32_to_fp24(float *f, uint32_t *q, int n){
+  int i0, i, mant, exp, sign ;
+  uint32_t t[4] ;
+  FloatUint z ;
+  uint32_t round = 1 << 7 ;
+  for(i0=0 ; i0<n-3 ; i0+=4){
+    for(i=0 ; i<4 ; i++){
+      t[i] = ieee_fp32_to_fp24(f[i0+i]) ;
+    }
+    // pack tokens big endian style
+    q[0] = (t[0] <<  8) | (t[1] >> 16) ;  // t0 , upper 8 bits of t1
+    q[1] = (t[1] << 16) | (t[2] >>  8) ;  // lower 16 bits of t1, upper 16 bits fo t2
+    q[2] = (t[2] << 24) | (t[3]) ;        // lower 8 bits of t2, t3
+    q += 3 ;
+  }
+  for(i=0 ; i<4 ; i++) t[i] = 0 ;
+  for(i=0 ; i0<n ; i0++, i++){
+    t[i] = ieee_fp32_to_fp24(f[i0]) ;
+  }
+  if(i>0) q[0] = (t[0] <<  8) | (t[1] >> 16) ;  // t0 , upper 8 bits of t1
+  if(i>1) q[1] = (t[1] << 16) | (t[2] >>  8) ;  // lower 16 bits of t1, upper 16 bits fo t2
+  if(i>2) q[2] = (t[2] << 24) | (t[3]) ;        // lower 8 bits of t2, t3
+//   for(i = 0 ; i < n ; i++) q[i] = ieee_fp32_to_fp16(f[i]) ;
+}
+
 // scaled IEEE 32 bit floating point to half precision (16 bit) IEEE floating point
 void fp32_to_fp16_scaled(float *f, uint16_t *q, int n, float scale){
   int i ;
   for(i = 0 ; i < n ; i++) q[i] = ieee_fp32_to_fp16(f[i]*scale) ;
+}
+
+// scaled IEEE 32 bit floating point to 3/4 precision (24 bit) IEEE style floating point
+// 4 values in f for each group of 4 q values
+void fp32_to_fp24_scaled(float *f, uint32_t *q, int n, float scale){
+  int i ;
+//   for(i = 0 ; i < n ; i++) q[i] = ieee_fp32_to_fp16(f[i]*scale) ;
 }
 
 // IEEE 32 bit floating point to brain float (16 bit)
@@ -362,31 +416,31 @@ void fp32_to_bf16(float *f, uint16_t *q, int n){
   int i ;
   for(i = 0 ; i < n ; i++) {
     z.f = f[i] ;
-//     sign = z.i & (~0x7FFFFFFF) ;
-//     z.i &= 0x7FFFFFFF ;
-    z.i += round ;
-//     z.i &= 0x7FFFFFFF ;
-//     z.i |= sign ;
-    q[i] = z.i >> 16 ;
+//     sign = z.u & (~0x7FFFFFFF) ;
+//     z.u &= 0x7FFFFFFF ;
+    z.u += round ;
+//     z.u &= 0x7FFFFFFF ;
+//     z.u |= sign ;
+    q[i] = z.u >> 16 ;
   }
 }
 
 // half precision (16 bit) IEEE floating point to IEEE 32 bit floating point
 // the infinity argment value is used as a result if the FP16 exponent is 31
 // (the sign of the FP16 value will be preserved)
-static inline float ieee_fp16_to_fp32(uint16_t q, uint32_t infinity){
+STATIC inline float ieee_fp16_to_fp32(uint16_t q, uint32_t infinity){
   FloatUint z, y ;
   int sign ;
   int e0;
   sign = q & 0x8000 ;    // position of FP16 sign bit
   sign <<= 16 ;          // position of FP32 sign bit
-  z.i = q & 0x7FFF ;     // suppress FP16 sign bit
-  e0 = z.i >> 10 ;       // FP16 exponent (with bias 15)
-  z.i <<= 13 ;
-  y.i = (254 - 15) << 23 ;       // scale by 2 ** (127 - 15)
+  z.u = q & 0x7FFF ;     // suppress FP16 sign bit
+  e0 = z.u >> 10 ;       // FP16 exponent (with bias 15)
+  z.u <<= 13 ;
+  y.u = (254 - 15) << 23 ;       // scale by 2 ** (127 - 15)
   z.f *= y.f ;
-  z.i = (e0 == 31) ? infinity : z.i ;  // infinity if biased FP16 exponent == 31
-  z.i |= sign ;
+  z.u = (e0 == 31) ? infinity : z.u ;  // infinity if biased FP16 exponent == 31
+  z.u |= sign ;
   return z.f ;
 }
 
@@ -403,6 +457,19 @@ void fp16_to_fp32(float *f, void *f16, int n, void *inf){
   Inf = inf ? *(uint32_t *)inf : Inf ;
   for(i = 0 ; i < n ; i++) f[i] = ieee_fp16_to_fp32(q[i], Inf) ;
 }
+
+void fp24_to_fp32(float *f, void *f24, int n, void *inf){
+  int i0, i, mant, exp, sign ;
+  uint32_t *q = f24 ;
+  FloatUint z[4] ;
+  uint32_t Inf = 0X7F800000 ; //  IEEE Infinity
+
+  for(i0=0 ; i0<n-3 ; i0+=4){
+    for(i=0 ; i<4 ; i++){
+    }
+  }
+}
+
 
 #if defined(__clang__) || defined(__ICC) || defined(__PGIC__) || defined(VANILLA)
 #else
@@ -432,7 +499,7 @@ void fp16_to_fp32_scaled(float *f, void *f16, int n, void *inf, float scale){
   Inf = inf ? *((uint32_t *)inf) : 0X7F800000 ;    // IEEE infinity
 #else
   rscale = (*FudgeFloatReciprocal)(scale) ;  // NOTE: defeat some overzealous at O2 and above
-//   Inf = (*FudgedWordFetch)(inf) ;  // NOTE: defeat some overzealous at O2 and above
+//   Inf = (*FudgedWordFetch)(inf) ;         // NOTE: defeat some overzealous at O2 and above
   Inf = inf ? *((uint32_t *)inf) : 0X7F800000 ;    // IEEE infinity
 #endif
   for(i = 0 ; i < n ; i++) f[i] = rscale * ieee_fp16_to_fp32(q[i], Inf) ;
@@ -443,8 +510,8 @@ void bf16_to_fp32(float *f, uint16_t *q, int n){
   FloatUint z ;
   int i ;
   for(i = 0 ; i < n ; i++){
-    z.i = q[i] ;
-    z.i <<= 16 ;   // shift to upper 16 bits
+    z.u = q[i] ;
+    z.u <<= 16 ;   // shift to upper 16 bits
     q[i] = z.f ;
   }
 }
