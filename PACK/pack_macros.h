@@ -21,6 +21,7 @@
 #include <stdint.h>
 
 // macros to insert into, extract from a stream of 32 bit elements
+// (Big Endian style, filling from the left, most significant end)
 
 // acc   : 64 bit integer accumulator (uint64_t)
 // sp    : pointer into uint32_t array (the packed stream)
