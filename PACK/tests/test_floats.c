@@ -73,7 +73,7 @@ int main(int argc, char **argv){
   printf("restored  : ");
   for(i=0 ; i<8 ; i++) printf("%8.8x ",fp32b[i]) ; printf(" errors = %d\n", errors) ;
 
-  printf(">bf24     : ");
+  printf("fp32>bf24 : ");
   tmin = 1000000000 ;  nt = 0 ; tavg = 0.0f ; tmax = 0 ;
   for(j=0 ; j < NTIMES ; j++) {
     t0 = elapsed_cycles() ;
@@ -83,16 +83,16 @@ int main(int argc, char **argv){
     tmin = (t[j] < tmin) ? t[j] : tmin ;
   }
   for(j=0 ; j < NTIMES ; j++) {
-    if(t[j] < 3*tmin) {
+    if(t[j] < 1.25*tmin) {
       tavg = tavg + t[j] ;
       tmax = (t[j] > tmax) ? t[j] : tmax ;
       nt++ ;
     }
   }
-  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f\n",
+  printf("NPTS = %d, ns = %6.1f ->%8.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f\n",
          NPTS, tmin*nano, tmax*nano, tavg/nt*nano, tavg/nt*nano/NPTS, nt, nano) ;
 
-  printf(">fp32     : ");
+  printf("bf24>fp32 : ");
   tmin = 1000000000 ;  nt = 0 ; tavg = 0.0f ; tmax = 0 ;
   for(j=0 ; j < NTIMES ; j++) {
     t0 = elapsed_cycles() ;
@@ -102,7 +102,7 @@ int main(int argc, char **argv){
     tmin = (t[j] < tmin) ? t[j] : tmin ;
   }
   for(j=0 ; j < NTIMES ; j++) {
-    if(t[j] < 3*tmin) {
+    if(t[j] < 1.25*tmin) {
       tavg = tavg + t[j] ;
       tmax = (t[j] > tmax) ? t[j] : tmax ;
       nt++ ;
@@ -111,7 +111,7 @@ int main(int argc, char **argv){
 //   errors = verify_upper((uint32_t *) float32, (uint32_t *) float32b, NPTS) ;
   apply_round(float32, float32m, 0x80, NPTS);
   errors = verify_masked((uint32_t *) float32m, (uint32_t *) float32b, 0xFFFFFF00u,  NPTS) ;
-  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f, errors = %d\n",
+  printf("NPTS = %d, ns = %6.1f ->%8.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f, errors = %d\n",
          NPTS, tmin*nano, tmax*nano, tavg/nt*nano, tavg/nt*nano/NPTS, nt, nano, errors) ;
   bias = 0.0 ; avg = 0.0 ;
   for(i=0 ; i<NPTS ; i++) {bias += (float32[i] - float32b[i]) ; avg += float32[i] ; }
@@ -136,7 +136,7 @@ int main(int argc, char **argv){
   printf("restored  : ");
   for(i=0 ; i<8 ; i++) printf("%8.8x ",fp32b[i]) ; printf(" errors = %d\n", errors) ;
 
-  printf(">bf16     : ");
+  printf("fp32      : ");
   tmin = 1000000000 ;  nt = 0 ; tavg = 0.0f ; tmax = 0 ;
   for(j=0 ; j < NTIMES ; j++) {
     t0 = elapsed_cycles() ;
@@ -146,7 +146,7 @@ int main(int argc, char **argv){
     tmin = (t[j] < tmin) ? t[j] : tmin ;
   }
   for(j=0 ; j < NTIMES ; j++) {
-    if(t[j] < 3*tmin) {
+    if(t[j] < 1.25*tmin) {
       tavg = tavg + t[j] ;
       tmax = (t[j] > tmax) ? t[j] : tmax ;
       nt++ ;
@@ -159,11 +159,14 @@ int main(int argc, char **argv){
 //   fp32_nf16((void *) float32, luf24, NPTS, 8) ;
 //   printf("luf16b    : ");
 //   for(i=0 ; i<8 ; i++) printf("%8.8x          ",luf24[i])     ; printf("\n") ;
-  printf("fp32      : ");
-  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f\n",
+  printf("fp32>bf16 : ");
+  printf("NPTS = %d, ns = %6.1f ->%8.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f\n",
          NPTS, tmin*nano, tmax*nano, tavg/nt*nano, tavg/nt*nano/NPTS, nt, nano) ;
 
-  printf(">fp32     : ");
+  printf("bf16>fp32 : ");
+  bf16_fp32(float32b, luf24, NPTS) ;
+  for(i=0 ; i<16 ; i++) printf("%8.8x ",ifloat32b[i]) ; printf("\n") ;
+  printf("bf16>fp32 : ");
   tmin = 1000000000 ;  nt = 0 ; tavg = 0.0f ; tmax = 0 ;
   for(j=0 ; j < NTIMES ; j++) {
     t0 = elapsed_cycles() ;
@@ -173,7 +176,7 @@ int main(int argc, char **argv){
     tmin = (t[j] < tmin) ? t[j] : tmin ;
   }
   for(j=0 ; j < NTIMES ; j++) {
-    if(t[j] < 3*tmin) {
+    if(t[j] < 1.25*tmin) {
       tavg = tavg + t[j] ;
       tmax = (t[j] > tmax) ? t[j] : tmax ;
       nt++ ;
@@ -184,7 +187,7 @@ int main(int argc, char **argv){
   apply_round(float32, float32m, 0x8000, NPTS);
   errors = verify_masked((uint32_t *) float32m, (uint32_t *) float32b, 0xFFFF0000u,  NPTS) ;
 //   printf(">fp32     : ");
-  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f, errors = %d\n",
+  printf("NPTS = %d, ns = %6.1f ->%8.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f, errors = %d\n",
          NPTS, tmin*nano, tmax*nano, tavg/nt*nano, tavg/nt*nano/NPTS, nt, nano, errors) ;
   bias = 0.0 ; avg = 0.0 ;
   for(i=0 ; i<NPTS ; i++) {bias += (float32[i] - float32b[i]) ; avg += float32[i] ; }
@@ -193,7 +196,7 @@ int main(int argc, char **argv){
          float32[NPTS/2], float32b[NPTS/2], (float32[NPTS/2]-float32b[NPTS/2])/float32[NPTS/2], avg, bias) ;
 
 // ========================== test float 16 variants ==========================
-  for(nexpbits = 8 ; nexpbits > 1 ; nexpbits--){
+  for(nexpbits = 8 ; nexpbits > 3 ; nexpbits--){
   printf("===============================================================\n") ;
   printf(">nf16-%d   : ", nexpbits);
   tmin = 1000000000 ;  nt = 0 ; tavg = 0.0f ; tmax = 0 ;
@@ -205,7 +208,7 @@ int main(int argc, char **argv){
     tmin = (t[j] < tmin) ? t[j] : tmin ;
   }
   for(j=0 ; j < NTIMES ; j++) {
-    if(t[j] < 3*tmin) {
+    if(t[j] < 1.25*tmin) {
       tavg = tavg + t[j] ;
       tmax = (t[j] > tmax) ? t[j] : tmax ;
       nt++ ;
@@ -218,11 +221,11 @@ int main(int argc, char **argv){
 //   fp32_nf16((void *) float32, luf24, NPTS, nexpbits) ;
 //   printf("luf16b    : ");
 //   for(i=0 ; i<8 ; i++) printf("%8.8x          ",luf24[i])     ; printf("\n") ;
-  printf("fp32      : ");
-  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f\n",
+  printf("fp32>f16-%d: ", nexpbits);
+  printf("NPTS = %d, ns = %6.1f ->%8.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f\n",
          NPTS, tmin*nano, tmax*nano, tavg/nt*nano, tavg/nt*nano/NPTS, nt, nano) ;
 
-  printf(">fp32     : ");
+  printf("f16-%d>fp32: ", nexpbits);
   tmin = 1000000000 ;  nt = 0 ; tavg = 0.0f ; tmax = 0 ;
   for(j=0 ; j < NTIMES ; j++) {
     t0 = elapsed_cycles() ;
@@ -241,7 +244,7 @@ int main(int argc, char **argv){
 //   errors = verify_upper((uint32_t *) float32, (uint32_t *) float32b, NPTS) ;
   apply_round(float32, float32m, 0x8000, NPTS);
   errors = verify_masked((uint32_t *) float32m, (uint32_t *) float32b, 0xFFFF0000u,  NPTS) ;
-  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f\n",
+  printf("NPTS = %d, ns = %6.1f ->%8.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f\n",
          NPTS, tmin*nano, tmax*nano, tavg/nt*nano, tavg/nt*nano/NPTS, nt, nano) ;
   bias = 0.0 ; avg = 0.0 ;
   for(i=0 ; i<NPTS ; i++) {bias += (float32[i] - float32b[i]) ; avg += float32[i] ; }
@@ -268,13 +271,13 @@ return 0 ;
     tmin = (t[j] < tmin) ? t[j] : tmin ;
   }
   for(j=0 ; j < NTIMES ; j++) {
-    if(t[j] < 3*tmin) {
+    if(t[j] < 1.25*tmin) {
       tavg = tavg + t[j] ;
       tmax = (t[j] > tmax) ? t[j] : tmax ;
       nt++ ;
     }
   }
-  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f\n",
+  printf("NPTS = %d, ns = %6.1f ->%8.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f\n",
          NPTS, tmin*nano, tmax*nano, tavg/nt*nano, tavg/nt*nano/NPTS, nt, nano) ;
 
   printf("u24       : ");
@@ -294,7 +297,7 @@ return 0 ;
     tmin = (t[j] < tmin) ? t[j] : tmin ;
   }
   for(j=0 ; j < NTIMES ; j++) {
-    if(t[j] < 3*tmin) {
+    if(t[j] < 1.25*tmin) {
       tavg = tavg + t[j] ;
       tmax = (t[j] > tmax) ? t[j] : tmax ;
       nt++ ;
@@ -302,7 +305,7 @@ return 0 ;
   }
 //   errors = verify_lower((uint32_t *) lfp32, (uint32_t *) lfp32b, NPTS) ;
   errors = verify_masked((uint32_t *) lfp32, (uint32_t *) lfp32b, 0xFFFFFF, NPTS) ;
-  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f, errors = %d\n",
+  printf("NPTS = %d, ns = %6.1f ->%8.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f, errors = %d\n",
          NPTS, tmin*nano, tmax*nano, tavg/nt*nano, tavg/nt*nano/NPTS, nt, nano, errors) ;
 
 // ========================== test signed 24 bit integers ==========================
@@ -321,13 +324,13 @@ return 0 ;
     tmin = (t[j] < tmin) ? t[j] : tmin ;
   }
   for(j=0 ; j < NTIMES ; j++) {
-    if(t[j] < 3*tmin) {
+    if(t[j] < 1.25*tmin) {
       tavg = tavg + t[j] ;
       tmax = (t[j] > tmax) ? t[j] : tmax ;
       nt++ ;
     }
   }
-  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f\n",
+  printf("NPTS = %d, ns = %6.1f ->%8.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f\n",
          NPTS, tmin*nano, tmax*nano, tavg/nt*nano, tavg/nt*nano/NPTS, nt, nano) ;
 
   printf("u24       : ");
@@ -347,7 +350,7 @@ return 0 ;
     tmin = (t[j] < tmin) ? t[j] : tmin ;
   }
   for(j=0 ; j < NTIMES ; j++) {
-    if(t[j] < 3*tmin) {
+    if(t[j] < 1.25*tmin) {
       tavg = tavg + t[j] ;
       tmax = (t[j] > tmax) ? t[j] : tmax ;
       nt++ ;
@@ -355,7 +358,7 @@ return 0 ;
   }
 //   errors = verify_lower((uint32_t *) lfp32, (uint32_t *) lfp32b, NPTS) ;
   errors = verify_masked((uint32_t *) lfp32, (uint32_t *) lfp32b, 0xFFFFFF,  NPTS) ;
-  printf("NPTS = %d, ns = %6.1f ->%6.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f, errors = %d\n",
+  printf("NPTS = %d, ns = %6.1f ->%8.1f [avg = %6.1f, %6.3f ns/pt] (%6d) %f, errors = %d\n",
          NPTS, tmin*nano, tmax*nano, tavg/nt*nano, tavg/nt*nano/NPTS, nt, nano, errors) ;
 
   printf("\n\n\n\n\n");
