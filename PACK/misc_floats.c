@@ -20,6 +20,10 @@
 #include <misc_types.h>
 #include <misc_floats.h>
 
+#if ! defined(STATIC)
+#define STATIC static
+#endif
+
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 #include <emmintrin.h>
 #include <immintrin.h>
@@ -44,6 +48,71 @@ static uint32_t mask24[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0 } ;
 
 #endif
 
+STATIC inline uint32_t f32_max_exp(void *f32, int32_t n){
+  int i, n15 ;
+  uint32_t sign, maxabs, tmp ;
+  uint32_t *u32 = f32 ;
+
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+  __m256i vsign, vfabs, vtemp, vmask ;
+  __m128i vsign0, vsign1, vfmax0, vfmax1 ;
+#endif
+  sign = 0 ;
+  maxabs = 0 ;
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+  n15 = (n & 15) ;
+  if(n15 == 0) n15 = 16 ;
+  vmask = _mm256_set1_epi32(0x7FFFFFFFu) ;        // mask out leading bit
+
+  vsign = _mm256_loadu_si256((__m256i *)  u32) ;
+  vfabs = _mm256_and_si256(vmask, vsign) ;
+  if(n15 > 7){
+    vtemp = _mm256_loadu_si256((__m256i *) (u32+8)) ;
+    vsign = _mm256_or_si256(vsign, vtemp) ;
+    vtemp = _mm256_and_si256(vmask, vtemp) ;
+    vfabs = _mm256_max_epu32(vfabs, vtemp) ;
+  }
+  u32 += n15 ;
+  for(i = n15; i < n-15 ; i += 16){
+    vtemp = _mm256_loadu_si256((__m256i *)  u32   ) ;    // fetch 8 floats
+    vsign = _mm256_or_si256(vsign, vtemp) ;              // OR with sign
+    vtemp = _mm256_and_si256(vmask, vtemp) ;             // absolute value
+    vfabs = _mm256_max_epu32(vfabs, vtemp) ;             // MAX absolute value
+
+    vtemp = _mm256_loadu_si256((__m256i *) (u32+8)) ;    // fetch next 8 floats
+    vsign = _mm256_or_si256(vsign, vtemp) ;              // OR with sign
+    vtemp = _mm256_and_si256(vmask, vtemp) ;             // absolute value
+    vfabs = _mm256_max_epu32(vfabs, vtemp) ;             // MAX absolute value
+    u32 += 16 ;
+  }
+  vsign0 = _mm256_extracti128_si256(vsign, 0) ;
+  vsign1 = _mm256_extracti128_si256(vsign, 1) ;
+  vfmax0 = _mm256_extracti128_si256(vfabs, 0) ;
+  vfmax1 = _mm256_extracti128_si256(vfabs, 1) ;
+  vsign0 = _mm_or_si128(vsign0, vsign1) ;
+  vfmax0 = _mm_max_epu32(vfmax0, vfmax1) ;
+  vsign1 = _mm_shuffle_epi32(vsign0, 0xF) ;       // bring words 2 and 3 into positions 0 and 1
+  vfmax1 = _mm_shuffle_epi32(vfmax0, 0xF) ;       // bring words 2 and 3 into positions 0 and 1
+  vsign0 = _mm_or_si128(vsign0, vsign1) ;
+  vfmax0 = _mm_max_epu32(vfmax0, vfmax1) ;
+  vsign1 = _mm_shuffle_epi32(vsign0, 1) ;       // bring words 1 into position 0
+  vfmax1 = _mm_shuffle_epi32(vfmax0, 1) ;       // bring words 1 into position 0
+  vsign0 = _mm_or_si128(vsign0, vsign1) ;
+  vfmax0 = _mm_max_epu32(vfmax0, vfmax1) ;
+  _mm_storeu_si32( (&sign),   vsign0) ;
+  _mm_storeu_si32( (&maxabs), vfmax0) ;
+#else
+  for(i = 0; i < n ; i ++){
+    tmp   = u32[i] ;
+    sign |= tmp ;
+    tmp  &= 0x7FFFFFFFu ;
+    maxabs = (tmp > maxabs) ? tmp : maxabs ;
+  }
+#endif
+  sign &= 0x80000000u ;
+  return sign | maxabs ;
+}
+
 // pack upper 16 bits from 4 32 bit words into 2 32 bit unsigned integers
 // normally used to pack floats 
 // sign / 8 bit exponent / 7 bit mantissa : 16 bit "brain float"
@@ -58,6 +127,8 @@ void fp32_bf16(void *f32, uint32_t *u16, int32_t n){
   vx = _mm_loadu_si128((__m128i*) _32_from_lower16) ;
 #endif
   i=0 ;
+//   int tmp = f32_max_exp(f32, n) ;
+//   if(tmp == 0) i = 1 ;
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   for(    ; i < n-15 ; i += 16){
     v32  = _mm256_loadu_si256((__m256i*)  u32) ;     // get 8 floats
@@ -122,6 +193,8 @@ void fp32_nf16(void *f32, uint32_t *u16, int32_t n, int32_t nexp){
   __m128i v16a, v16b, v16c, vx ;
 #endif
   i=0 ;
+//   int tmp = f32_max_exp(f32, n) ;
+//   if(tmp == 0) i = 1 ;
   s8 = (8 - nexp) ;                           // shift count for exp / mantissa
   round = (0x8000 >> s8) ;                    // rounding term to be added before clipping mantissa
   fexp = (0x7F >> s8) ;                       // new offset for exponent
@@ -347,22 +420,32 @@ void bf16_fp32(void *f32, uint32_t *u16, int32_t n){
   uint32_t *u32 = f32 ;
 
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-  __m256i v32 ;
+  __m256i v32, va, vb, vl, vh, vm ;
   __m128i v16 ;
 #endif
   i=0 ;
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+  vm = _mm256_set1_epi32(0xFFFF0000) ;
   for(    ; i < n-15 ; i += 16){
-    v16 = _mm_loadu_si128((__m128i *) u16) ;
-    v32 = _mm256_cvtepu16_epi32(v16) ;
-    v32 = _mm256_slli_epi32(v32, 16) ;
-    v32 = _mm256_shuffle_epi32(v32, 0xB1) ;
-    _mm256_storeu_si256((__m256i *) u32, v32) ;
-    v16 = _mm_loadu_si128((__m128i *) (u16+4)) ;
-    v32 = _mm256_cvtepu16_epi32(v16) ;
-    v32 = _mm256_slli_epi32(v32, 16) ;
-    v32 = _mm256_shuffle_epi32(v32, 0xB1) ;
-    _mm256_storeu_si256((__m256i *) (u32+8), v32) ;
+    v32 = _mm256_loadu_si256((__m256i *) u16) ;      // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, a, b c, d,e ,f
+    vl  = _mm256_and_si256(v32, vm) ;                // 0, 2, 4, 6, 8, a, c, e
+    vh  = _mm256_slli_epi32(v32, 16) ;               // 1, 3, 5, 7, 9, b, d, f
+    va  = _mm256_unpacklo_epi32(vl, vh) ;            // 0, 1, 2, 3, 8, 9, a, b
+    vb  = _mm256_unpackhi_epi32(vl, vh) ;            // 4, 5, 6, 7, c, d, e, f
+    vl  = _mm256_permute2x128_si256(va, vb, 32) ;    // 0, 1, 2, 3, 4, 5, 6, 7
+    vh  = _mm256_permute2x128_si256(va, vb, 49) ;    // 8, 9, a, b, c, d, e, f
+    _mm256_storeu_si256((__m256i *) (u32),   vl) ;
+    _mm256_storeu_si256((__m256i *) (u32+8), vh) ;
+//     v16 = _mm_loadu_si128((__m128i *) u16) ;
+//     v32 = _mm256_cvtepu16_epi32(v16) ;
+//     v32 = _mm256_slli_epi32(v32, 16) ;
+//     v32 = _mm256_shuffle_epi32(v32, 0xB1) ;
+//     _mm256_storeu_si256((__m256i *) u32, v32) ;
+//     v16 = _mm_loadu_si128((__m128i *) (u16+4)) ;
+//     v32 = _mm256_cvtepu16_epi32(v16) ;
+//     v32 = _mm256_slli_epi32(v32, 16) ;
+//     v32 = _mm256_shuffle_epi32(v32, 0xB1) ;
+//     _mm256_storeu_si256((__m256i *) (u32+8), v32) ;
     u32 += 16 ;
     u16 +=  8 ;
   }
@@ -389,8 +472,8 @@ void nf16_fp32(void *f32, uint32_t *u16, int32_t n, int nexp){
 //   bf16_fp32(f32, u16, n) ;
 //   return ;
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-  __m256i vi, v8, vs, vt, vn, v1, v32, vm ;
-  __m256  vf ;
+  __m256i vi, v8, vs, vt, vn, v1, v32, vm, vu, v1l, v1h, vl, vh, va,vb ;
+  __m256  vf, vfl, vfh ;
   __m128i v16 ;
 #endif
   i = 0 ;
@@ -401,24 +484,49 @@ void nf16_fp32(void *f32, uint32_t *u16, int32_t n, int nexp){
 //   top = nfac.u | 0x7FFFFF ;                   // maximum allowable value after normalisation
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   vs = _mm256_set1_epi32(s8) ;
+  vu = _mm256_set1_epi32(0xFFFF0000) ;
   vt = _mm256_set1_epi32(top) ;
   vn = _mm256_set1_epi32(nfac.u) ;
   vm = _mm256_set1_epi32(0x80000000u) ;    // sign mask
-  for(    ; i < n-7 ; i += 8){
-    v16 = _mm_loadu_si128((__m128i *) u16) ;         // get 4 words of packed floats
-    v32 = _mm256_cvtepu16_epi32(v16) ;               // expand to 8 words
-    v32 = _mm256_slli_epi32(v32, 16) ;               // shift left 16 positions
-    v1  = _mm256_and_si256(vm, v32) ;                // get sign
-    v32 = _mm256_andnot_si256(vm, v32) ;             // absolute value
-    v32 = _mm256_shuffle_epi32(v32, 0xB1) ;          // shuffle to proper position (undo cvtepu16 LE swap)
-    v32 = _mm256_srlv_epi32(v32, vs) ;               // shift to proper position
-    v32 = _mm256_or_si256(v1, v32) ;                 // restore sign
-    vf  = _mm256_mul_ps((__m256) v32, (__m256) vn) ; // apply normalization factor
-    _mm256_storeu_ps((float *) u32, vf) ;            // store 8 floats
+  for(    ; i < n-15 ; i += 16){
+    v32 = _mm256_loadu_si256((__m256i *) u16) ;      // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, a, b c, d,e ,f
+    vl  = _mm256_and_si256(v32, vu) ;                // 0, 2, 4, 6, 8, a, c, e  (lower portion)
+    vh  = _mm256_slli_epi32(v32, 16) ;               // 1, 3, 5, 7, 9, b, d, f  (upper portion)
+    va  = _mm256_unpacklo_epi32(vl, vh) ;            // 0, 1, 2, 3, 8, 9, a, b
+    vb  = _mm256_unpackhi_epi32(vl, vh) ;            // 4, 5, 6, 7, c, d, e, f
+    vl  = _mm256_permute2x128_si256(va, vb, 32) ;    // 0, 1, 2, 3, 4, 5, 6, 7
+    vh  = _mm256_permute2x128_si256(va, vb, 49) ;    // 8, 9, a, b, c, d, e, f
+    v1l = _mm256_and_si256(vm, vl) ;                 // get sign of vl
+    v1h = _mm256_and_si256(vm, vh) ;                 // get sign of vh
+    vl  = _mm256_andnot_si256(vm, vl) ;              // absolute value of vl
+    vh  = _mm256_andnot_si256(vm, vh) ;              // absolute value of vh
+    vl  = _mm256_srlv_epi32(vl, vs) ;                // shift vl to proper position
+    vh  = _mm256_srlv_epi32(vh, vs) ;                // shift vh to proper position
+    vl  = _mm256_or_si256(v1l, vl) ;                 // restore sign of vl
+    vh  = _mm256_or_si256(v1h, vh) ;                 // restore sign of vh
+    vfl = _mm256_mul_ps((__m256) vl, (__m256) vn) ;  // apply normalization factor to vl
+    vfh = _mm256_mul_ps((__m256) vh, (__m256) vn) ;  // apply normalization factor to vh
+    _mm256_storeu_ps((float *) (u32  ), vfl) ;       // store 8 floats from vfl
+    _mm256_storeu_ps((float *) (u32+8), vfh) ;       // store 8 floats from vfl
 
-    u32 +=  8 ;
-    u16 +=  4 ;
+    u32 +=  16 ;
+    u16 +=   8 ;
   }
+//   for(    ; i < n-7 ; i += 8){
+//     v16 = _mm_loadu_si128((__m128i *) u16) ;         // get 4 words of packed floats
+//     v32 = _mm256_cvtepu16_epi32(v16) ;               // expand to 8 words
+//     v32 = _mm256_slli_epi32(v32, 16) ;               // shift left 16 positions
+//     v1  = _mm256_and_si256(vm, v32) ;                // get sign
+//     v32 = _mm256_andnot_si256(vm, v32) ;             // absolute value
+//     v32 = _mm256_shuffle_epi32(v32, 0xB1) ;          // shuffle to proper position (undo cvtepu16 LE swap)
+//     v32 = _mm256_srlv_epi32(v32, vs) ;               // shift to proper position
+//     v32 = _mm256_or_si256(v1, v32) ;                 // restore sign
+//     vf  = _mm256_mul_ps((__m256) v32, (__m256) vn) ; // apply normalization factor
+//     _mm256_storeu_ps((float *) u32, vf) ;            // store 8 floats
+// 
+//     u32 +=  8 ;
+//     u16 +=  4 ;
+//   }
 #endif
   // process leftovers
 // printf("nf16_fp32, fac = %g", nfac.f) ;
