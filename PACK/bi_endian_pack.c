@@ -20,11 +20,20 @@
 #include <bi_endian_pack.h>
 
 void  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
-  int i, n = (nw < 0) ? -nw : nw ;
+  int i = 0, n = (nw < 0) ? -nw : nw ;
   uint64_t  accum = p->accum ;
   uint32_t  insert = p->insert ;
   uint32_t *stream = p->stream ;
-  for(i=0 ; i<n ; i++){
+  uint32_t mask = RMask(nbits) ;
+
+  if(nbits <= 16) {
+    uint32_t t, nb = nbits + nbits ;
+    for(    ; i<n-1 ; i+=2){
+      t  = (w32[i  ] & mask) | ((w32[i+1] & mask) << nbits) ;
+      LE64_PUT_NBITS(accum, insert, t, nb) ;
+    }
+  }
+  for(    ; i<n ; i++){
     LE64_PUT_NBITS(accum, insert, w32[i], nbits) ;
   }
   if(nw <= 0) LE64_INSERT_FINAL(accum, insert, stream) ;
@@ -34,14 +43,20 @@ void  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
 }
 
 void  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
-  int i, n = (nw < 0) ? -nw : nw ;
+  int i = 0, n = (nw < 0) ? -nw : nw ;
   uint64_t  accum = p->accum ;
   uint32_t  insert = p->insert ;
   uint32_t *stream = p->stream ;
-  for(i=0 ; i<n ; i++){
-//     printf("accum = %16.16lx, token = %8.8x", accum, w32[i]) ;
+
+  if(nbits <= 16) {
+    uint32_t t, mask = RMask(nbits), nb = nbits + nbits ;
+    for(    ; i<n-1 ; i+=2){
+      t  = (w32[i+1] & mask) | ((w32[i  ] & mask) << nbits) ;
+      BE64_PUT_NBITS(accum, insert, t, nb) ;
+    }
+  }
+  for(    ; i<n ; i++){
     BE64_PUT_NBITS(accum, insert, w32[i], nbits) ;
-//     printf(", insert = %3d, accum = %16.16lx, stream - start = %ld \n", insert, accum, stream - p->start) ;
   }
   if(nw <= 0) BE64_INSERT_FINAL(accum, insert, stream) ;
   p->accum = accum ;
@@ -50,11 +65,20 @@ void  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
 }
 
 void  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
-  int i ;
+  int i = 0 ;
   uint64_t  accum = p->accum ;
   uint32_t  xtract = p->xtract ;
   uint32_t *stream = p->stream ;
-  for(i=0 ; i<n ; i++){
+
+  if(nbits <= 16) {
+    uint32_t t, mask = RMask(nbits), nb = nbits + nbits ;
+    for(    ; i<n-1 ; i+=2){
+      LE64_GET_NBITS(accum, xtract, t, nb) ;
+      w32[i  ] = t & mask ;
+      w32[i+1] = t >> nbits ;
+    }
+  }
+  for(    ; i<n ; i++){
     LE64_GET_NBITS(accum, xtract, w32[i], nbits) ;
   }
   p->accum = accum ;
@@ -63,14 +87,13 @@ void  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
 }
 
 void  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
-  int i ;
+  int i = 0 ;
   uint64_t  accum = p->accum ;
   uint32_t  xtract = p->xtract ;
   uint32_t *stream = p->stream ;
-  for(i=0 ; i<n ; i++){
-//     printf("accum = %16.16lx, xtract = %2d, stream = %8.8x", accum, xtract, *stream) ;
+
+  for(    ; i<n ; i++){
     BE64_GET_NBITS(accum, xtract, w32[i], nbits) ;
-//     printf(", accum = %16.16lx, w32[i] = %8.8x, xtract = %d, stream = %8.8x\n", accum, w32[i], xtract, *stream) ;
   }
   p->accum = accum ;
   p->xtract = xtract ;
