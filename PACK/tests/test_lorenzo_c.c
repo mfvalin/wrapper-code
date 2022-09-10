@@ -24,6 +24,8 @@ int main(int argc, char **argv){
   uint64_t tmin, tmax, freq ;
   double nano, tavg ;
   int niter = NTIMES ;
+  char buf[1024] ;
+  size_t bufsiz = sizeof(buf) ;
 
   freq = cycles_counter_freq() ;
   nano = 1000000000.0 ;
@@ -65,15 +67,12 @@ int main(int argc, char **argv){
   }
   printf("LorenzoPredict2D_S  : errors = %d\n\n",errors);
 
-  printf("LorenzoPredict2D    :");
-  TIME_LOOP(tmin, tmax, tavg, NTIMES, (NPTS*NPTS), LorenzoPredict2D(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) )
-  printf("\n");
+  TIME_LOOP(tmin, tmax, tavg, NTIMES, (NPTS*NPTS), buf, bufsiz, LorenzoPredict2D(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) )
+  printf("LorenzoPredict2D    : %s\n",buf);
 
-  printf("LorenzoPredict2D_S  :");
-  TIME_LOOP(tmin, tmax, tavg, NTIMES, (NPTS*NPTS), LorenzoPredictShort(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) )
-  printf("\n");
+  TIME_LOOP(tmin, tmax, tavg, NTIMES, (NPTS*NPTS), buf, bufsiz, LorenzoPredictShort(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) )
+  printf("LorenzoPredict2D_S  : %s\n",buf);
 
-  printf("LorenzoUnpredict2D  :");
-  TIME_LOOP(tmin, tmax, tavg, NTIMES, (NPTS*NPTS), LorenzoUnpredict2D(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) )
-
+  TIME_LOOP(tmin, tmax, tavg, NTIMES, (NPTS*NPTS), buf, bufsiz, LorenzoUnpredict2D(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) )
+  printf("LorenzoUnpredict2D  : %s\n",buf);
 }
