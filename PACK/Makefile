@@ -114,7 +114,7 @@ test_floats.$(MOD).exe : tests/test_floats.c libmisc_$(MOD).a
 	$$CC $(OPT) $(DEF) -DCDF53 -I. $^ -L. -lmisc_$(MOD) -o $@ )
 
 clean:
-	rm -f *.o *.mod a*.out *.Abs *.exe *.s *.ll
+	rm -f *.o *.mod a*.out *.Abs *.exe *.s *.ll *.gch
 veryclean: clean
 	rm -f libmisc*.a include*/*.mod obj*/*.o
 
