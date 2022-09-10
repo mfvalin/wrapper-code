@@ -18,6 +18,119 @@
 #include <immintrin.h>
 #endif
 
+#if ! defined(STATIC)
+#define STATIC static
+#endif
+
+void LorenzoPredictShort(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj){
+  int i ;
+  diff[0] = orig[0] ;
+  for(i=1 ; i<ni ; i++) diff[i] = orig[i] - orig[i-1] ;
+  while(--nj > 0){
+    diff += lnid ; 
+    orig += lnio ;
+    diff[0] = orig[0] - orig[0-lnio] ;
+    for(i=1 ; i<ni ; i++) diff[i] = orig[i] - (orig[i-1] + orig[i-lnio] - orig[i-1-lnio]) ;
+  }
+}
+
+// target is AVX2 256 long SIMD
+// predict the bottom row (1D prediction)
+// row  : bottom row
+// diff : prediction for bottom row
+// n    : number of points in row
+STATIC inline void LorenzoPredictRow0(int32_t * restrict row, int32_t * restrict diff, int n){
+#if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
+    __m256i vi, vi1, vj1, vij1, t ;
+    int i0, ii0 ;
+#endif
+  int i ;
+  diff[0] = row[0] ;
+#if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
+  for(ii0 = 1 ; ii0 < n ; ii0 += 8) {
+    i0 = (ii0 > n-8) ? (n-8) : ii0 ;
+    vi   = _mm256_loadu_si256((__m256i *) (row+i0)  ) ;
+    vi1  = _mm256_loadu_si256((__m256i *) (row+i0-1)) ;
+    _mm256_storeu_si256( (__m256i *) (diff+i0), _mm256_sub_epi32( vi, vi1 ) ) ;
+  }
+#else
+  for(i=1 ; i<n ; i++) diff[i] = diff[i] = row[i] - row[i-1] ;
+#endif
+}
+
+// predict row j where j > 0 (2D prediction)
+// top  : row j
+// bot  : row j - 1
+// diff : prediction for row j
+// n    : number of points in row
+STATIC inline void LorenzoPredictRowJ(int32_t * restrict top, int32_t * restrict bot, int32_t * restrict diff, int n){
+#if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
+    __m256i vi, vi1, vj1, vij1, t ;
+    int i0, ii0 ;
+#endif
+  int i ;
+  diff[0] = top[0] - bot[0] ;         // first point in row, 1D prediction using row below
+#if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
+  for(ii0 = 1 ; ii0 < n ; ii0 += 8) {
+    i0 = (ii0 > n-8) ? (n-8) : ii0 ;
+    vi   = _mm256_loadu_si256((__m256i *) (top+i0)  ) ;
+    vi1  = _mm256_loadu_si256((__m256i *) (top+i0-1)) ;
+    vj1  = _mm256_loadu_si256((__m256i *) (bot+i0)  ) ;
+    vij1 = _mm256_loadu_si256((__m256i *) (bot+i0-1)) ;
+    _mm256_storeu_si256( (__m256i *) (diff+i0), _mm256_sub_epi32( vi, _mm256_sub_epi32( _mm256_add_epi32(vi1, vj1) , vij1 ) ) );
+  }
+#else
+  for(i=1 ; i<n ; i++) diff[i] = top[i] - ( top[i-1] + bot[i] - bot[i-1] ) ;
+#endif
+}
+
+// 2D lorenzo prediction (32 bit signed integers)
+// orig : input : original values (32 bit signed integers)
+// diff : output : original value - predicted value (using 2D Lorenzo predictor) (32 bit signed integers)
+// ni   : number of useful points in row
+// lnio : row storage dimension for orig
+// lnid : row storage dimension for diff
+// nj   : number of rows
+// the SIMD version tends to be 1.5-4 times faster then the non SIMD version
+void LorenzoPredict2D(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj){
+  if(ni < 9){             // less than 9 points, SIMD version will not give correct results
+    LorenzoPredictShort(orig, diff, ni, lnio, lnid, nj) ;
+    return ;
+  }
+  LorenzoPredictRow0(orig, diff, ni) ;                // bottom row
+  while(--nj > 0){
+    diff += lnid ; 
+    orig += lnio ;
+    LorenzoPredictRowJ(orig, orig-lnio, diff, ni) ;   // all other rows
+  }
+}
+void LorenzoPredict2D_IJ(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj);
+#pragma weak LorenzoPredict2D_IJ=LorenzoPredict2D
+
+// restore ogiginal from 2D lorenzo prediction (32 bit signed integers)
+// diff : input : original value - predicted value (32 bit signed integers)
+// orig : output : restored original values from predicted differences
+// ni   : number of useful points in row
+// lnio : row storage dimension for orig
+// lnid : row storage dimension for diff
+// nj   : number of rows
+// NOTE : no SIMD version exists, as the process is fully recursive
+void LorenzoUnpredict2D(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj){
+  int i ;
+
+  orig[0] = diff[0] ;                                    // restore first point of bottom row
+  for(i=1 ; i<ni ; i++) orig[i] = diff[i] + orig[i-1] ;  // restore bottom row
+
+  while(--nj > 0){
+    orig += lnio ; 
+    diff += lnid ;
+    orig[0] = diff[0] + orig[0-lnio] ;                   // first point in row (1D prediction)
+    // (original - predicted) + predicted
+    for(i=1 ; i<ni ; i++) orig[i] = diff[i] + (orig[i-1] + orig[i-lnio] - orig[i-1-lnio]) ;
+  }
+}
+
+#if 0
 // target is AVX2 256 long SIMD
 #define VL 8
 
@@ -29,74 +142,58 @@
 // lnid : row storage dimension for diff
 // nj   : number of rows
 // the SIMD version is 2-4x faster then the non SIMD version
-void LorenzoPredict2D(int32_t *orig, int32_t *diff, int ni, int lnio, int lnid, int nj){
+void LorenzoPredict2D_IJ(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj){
   int i, i0, ii0 ;
 #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
-    __m256i vi, vi1, vj1, vij1, t ;
+    __m256i vi, vi1, vj1, vij1, t, u ;
 #endif
-    int tmp[VL], j ;
+    if(ni < 9){
+//       LorenzoPredict2D_short(orig, diff, ni, lnio, lnid, nj) ;
+      return ;
+    }
 
   diff[0] = orig[0] ;  // first point is left untouched
   // predicted value = orig(i-1,1) (lower row)
-  if(ni < 9) {
-    for(i=1 ; i<ni ; i++) diff[i] = orig[i] - orig[i-1] ;
-  }else{
+//   if(ni < 9) {
+//     for(i=1 ; i<ni ; i++) diff[i] = orig[i] - orig[i-1] ;
+//   }else{
     for(ii0 = 1 ; ii0 < ni ; ii0 += VL){
       i0 = (ii0 > ni-VL) ? (ni-VL) : ii0 ;
 #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
-      vi   = (__m256i) _mm256_loadu_ps((float *) orig+i0) ;
-      vi1  = (__m256i) _mm256_loadu_ps((float *) orig+i0-1) ;
+      vi   = _mm256_loadu_si256((__m256i *) (orig+i0)  ) ;
+      vi1  = _mm256_loadu_si256((__m256i *) (orig+i0-1)) ;
       t    = _mm256_sub_epi32(vi, vi1) ;
-      _mm256_storeu_ps( (float *) diff+i0,  (__m256) t ) ;
+      _mm256_storeu_si256( (__m256i *) (diff+i0), t ) ;
 #else
       for(i=0 ; i<VL ; i++) diff[i0+i] = orig[i0+i] - orig[i0+i-1] ;
 #endif
     }
-  }
+//   }
 
   while(--nj > 0){
     diff += lnid ; 
     orig += lnio ;
     diff[0] = orig[0] - orig[0-lnio] ;    // first point in row, predicted value = orig(i,j-1)
     // predicted value = orig(i,j) + orig(i,j-1) - orig(i-1,j-1)
-    if(ni < 9) {
-      for(i=1 ; i<ni ; i++) diff[i] = orig[i] - (orig[i-1] + orig[i-lnio] - orig[i-1-lnio]) ;
-    }else{
+//     if(ni < 9) {
+//       for(i=1 ; i<ni ; i++) diff[i] = orig[i] - (orig[i-1] + orig[i-lnio] - orig[i-1-lnio]) ;
+//     }else{
       for(ii0 = 1 ; ii0 < ni ; ii0 += VL){
         i0 = (ii0 > ni-VL) ? (ni-VL) : ii0 ;
 #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
-        vi   = (__m256i) _mm256_loadu_ps((float *) orig+i0) ;
-        vi1  = (__m256i) _mm256_loadu_ps((float *) orig+i0-1) ;
-        vj1  = (__m256i) _mm256_loadu_ps((float *) orig+i0-lnio) ;
-        vij1 = (__m256i) _mm256_loadu_ps((float *) orig+i0-lnio-1) ;
-        _mm256_storeu_ps( (float *) diff+i0, (__m256) _mm256_sub_epi32( vi, _mm256_sub_epi32( _mm256_add_epi32(vi1, vj1) , vij1 ) ) );
+        vi   = _mm256_loadu_si256((__m256i *) (orig+i0)       ) ;
+        vi1  = _mm256_loadu_si256((__m256i *) (orig+i0-1)     ) ;
+        vj1  = _mm256_loadu_si256((__m256i *) (orig+i0-lnio)  ) ;
+        vij1 = _mm256_loadu_si256((__m256i *) (orig+i0-lnio-1)) ;
+        t    = _mm256_add_epi32(vi1, vj1) ;
+        u    = _mm256_sub_epi32( t, vij1 ) ;
+        t    = _mm256_sub_epi32( vi, u) ;
+        _mm256_storeu_si256( (__m256i *) (diff+i0), t);
 #else
         for(i=0 ; i<VL ; i++) diff[i0+i] = orig[i0+i] - (orig[i0+i-1] + orig[i0+i-lnio] - orig[i0+i-1-lnio]) ;
 #endif
       }
-    }
+//     }
   }
 }
-
-// restore ogiginal from 2D lorenzo prediction (32 bit signed integers)
-// diff : input : original value - predicted value (32 bit signed integers)
-// orig : output : restored original values from predicted differences
-// ni   : number of useful points in row
-// lnio : row storage dimension for orig
-// lnid : row storage dimension for diff
-// nj   : number of rows
-// NOTE : no SIMD version exists, as the process is fully recursive
-void LorenzoUnpredict2D(int32_t *orig, int32_t *diff, int ni, int lnio, int lnid, int nj){
-  int i, i0, ii0 ;
-
-  orig[0] = diff[0] ;                                    // restore first point
-  for(i=1 ; i<ni ; i++) orig[i] = diff[i] + orig[i-1] ;  // restore lower row
-
-  while(--nj > 0){
-    orig += lnio ; 
-    diff += lnid ;
-    orig[0] = diff[0] + orig[0-lnio] ;
-    // (original - predicted) + predicted
-    for(i=1 ; i<ni ; i++) orig[i] = diff[i] + (orig[i-1] + orig[i-lnio] - orig[i-1-lnio]) ;
-  }
-}
+#endif
