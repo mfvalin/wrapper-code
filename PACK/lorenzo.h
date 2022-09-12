@@ -14,34 +14,26 @@
 
 #if ! defined(IN_FORTRAN_CODE)
 
-void LorenzoPredict2D(int32_t *orig, int32_t *diff, int ni, int lnio, int lnid, int nj);
-void LorenzoUnpredict2D(int32_t *orig, int32_t *diff, int ni, int lnio, int lnid, int nj);
-void LorenzoPredictShort(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj);
+void LorenzoPredict_c(int32_t *orig, int32_t *diff, int ni, int lnio, int lnid, int nj);
+void LorenzoUnpredict_c(int32_t *orig, int32_t *diff, int ni, int lnio, int lnid, int nj);
 
 #else
 
 interface
-  subroutine lorenzopredict2d(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoPredict2D')
+  subroutine lorenzopredict(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoPredict_c')
     import :: C_INT32_T
     implicit none
     integer(C_INT32_T), intent(IN), value :: ni, lnio, lnid, nj
     integer(C_INT32_T), dimension(lnio,nj), intent(IN)  :: orig
     integer(C_INT32_T), dimension(lnid,nj), intent(OUT) :: diff
-  end subroutine lorenzopredict2d
-  subroutine lorenzopredictshort(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoPredictShort')
+  end subroutine lorenzopredict_c
+  subroutine lorenzounpredict(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoUnpredict_c')
     import :: C_INT32_T
     implicit none
     integer(C_INT32_T), intent(IN), value :: ni, lnio, lnid, nj
     integer(C_INT32_T), dimension(lnio,nj), intent(IN)  :: orig
     integer(C_INT32_T), dimension(lnid,nj), intent(OUT) :: diff
-  end subroutine lorenzopredictshort
-  subroutine lorenzounpredict2d(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoUnpredict2D')
-    import :: C_INT32_T
-    implicit none
-    integer(C_INT32_T), intent(IN), value :: ni, lnio, lnid, nj
-    integer(C_INT32_T), dimension(lnio,nj), intent(IN)  :: orig
-    integer(C_INT32_T), dimension(lnid,nj), intent(OUT) :: diff
-  end subroutine lorenzounpredict2d
+  end subroutine lorenzounpredict_c
 end interface
 
 #endif
