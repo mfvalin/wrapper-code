@@ -13,6 +13,12 @@
 //
 
 #if ! defined(MISC_OPERATORS)
+#include <stdint.h>
+
+#if ! defined(STATIC)
+#define STATIC static
+#endif
+
 #define MISC_OPERATORS
 
 #define MAX(a,b) ( ((a) > (b)) ? (a) : (b) )
@@ -34,5 +40,29 @@
 // 32 and 64 bit left aligned masks
 #define RMASK32(nbits)  (~((~0)  << nbits))
 #define RMASK64(nbits)  (~((~0l) << nbits))
+
+// number of bits needed to represent a 32 bit signed number
+STATIC inline uint32_t BitsNeeded(int32_t what){
+  int it ;
+  union{
+    double   f;
+    uint64_t u;
+  } t ;
+  if(what == 0) return 1 ;
+
+  t.f = what ;
+  it = ((t.u >> 52) & 0x7FF) - 1023 + 1 ; // exponent - bias + 1
+  it += (t.u >> 63) ;
+  return (it > 32) ? 32 : it ;
+}
+
+STATIC inline void BitPop(int32_t *what, uint32_t *pop, int n){
+  int i;
+  for(i=0 ; i<n ; i++) {
+    int nbits = BitsNeeded(what[i]) ;
+    pop[nbits]++ ;
+//     pop[0]++ ;
+  }
+}
 
 #endif
