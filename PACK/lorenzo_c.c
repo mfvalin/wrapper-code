@@ -14,6 +14,8 @@
  *
  */
 #include <stdint.h>
+#include <string.h>
+
 #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
 #include <immintrin.h>
 #endif
@@ -109,6 +111,20 @@ void LorenzoPredict_c(int32_t * restrict orig, int32_t * restrict diff, int ni, 
   }
 }
 
+// in place version of above
+// in order to operate in place, prediction is done backwards from top to bottom
+void LorenzoPredictInplace_c(int32_t * restrict orig, int ni, int lnio, int nj){
+  int32_t diff[ni] ;
+  orig += (lnio * (nj - 1)) ;
+  while(--nj > 0){
+    LorenzoPredictRowJ(orig, orig-lnio, diff, ni) ;   // all other rows
+    memcpy(orig, diff, sizeof(diff)) ;
+    orig -= lnio ;
+  }
+  LorenzoPredictRow0(orig, diff, ni) ;                // bottom row
+  memcpy(orig, diff, sizeof(diff)) ;
+}
+
 // restore ogiginal from 2D lorenzo prediction (32 bit signed integers)
 // diff : input : original value - predicted value (32 bit signed integers)
 // orig : output : restored original values from predicted differences
@@ -132,3 +148,17 @@ void LorenzoUnpredict_c(int32_t * restrict orig, int32_t * restrict diff, int ni
     for(i=1 ; i<ni ; i++) orig[i] = diff[i] + (orig[i-1] + orig[i-lnio] - orig[i-1-lnio]) ;
   }
 }
+
+void LorenzoUnpredictInplace_c(int32_t * restrict orig, int ni, int lnio, int nj){
+  int i ;
+
+  for(i=1 ; i<ni ; i++) orig[i] = orig[i] + orig[i-1] ;  // restore bottom row
+
+  while(--nj > 0){
+    orig += lnio ; 
+    orig[0] = orig[0] + orig[0-lnio] ;                   // first point in row (1D prediction)
+    // (original - predicted) + predicted
+    for(i=1 ; i<ni ; i++) orig[i] = orig[i] + (orig[i-1] + orig[i-lnio] - orig[i-1-lnio]) ;
+  }
+}
+

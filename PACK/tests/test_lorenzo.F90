@@ -44,20 +44,51 @@ program lorenzo_test
     enddo
   endif
 
+  print 2,"=== predicted in place ==="
+
   do k = 1, NTIMES
     f = fr
     t(k) = elapsed_cycles()
-    call lorenzopredict_inplace(f, ni, lnio, nj)
+    call lorenzopredictinplace(f, ni, lnio, nj)
     t(k) = elapsed_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
-  print 2,"=== pred in place ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
+  print 2,"=== generic ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
   if(ni < 18 .and. nj < 10) then
     do j = nj, 1, -1
       print 1, j, f(1:lnio,j)
     enddo
   endif
 
+  do k = 1, NTIMES
+    f = fr
+    t(k) = elapsed_cycles()
+    call lorenzopredictinplace_f(f, ni, lnio, nj)
+    t(k) = elapsed_cycles() - t(k)
+  enddo
+  avg = SUM(t*ns)/NTIMES
+  print 2,"=== Fortran ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
+  if(ni < 18 .and. nj < 10) then
+    do j = nj, 1, -1
+      print 1, j, f(1:lnio,j)
+    enddo
+  endif
+
+  do k = 1, NTIMES
+    f = fr
+    t(k) = elapsed_cycles()
+    call lorenzopredictinplace_c(f, ni, lnio, nj)
+    t(k) = elapsed_cycles() - t(k)
+  enddo
+  avg = SUM(t*ns)/NTIMES
+  print 2,"=== C       ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
+  if(ni < 18 .and. nj < 10) then
+    do j = nj, 1, -1
+      print 1, j, f(1:lnio,j)
+    enddo
+  endif
+
+  print 2,"=== predicted not in place ==="
   f = fr
   do k = 1, NTIMES
     t(k) = elapsed_cycles()
@@ -65,7 +96,7 @@ program lorenzo_test
     t(k) = elapsed_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
-  print 2,"=== generic       ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
+  print 2,"=== generic ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
   if(ni < 18 .and. nj < 10) then
     do j = nj, 1, -1
       print 1, j, pred(1:lnid,j)
@@ -79,7 +110,7 @@ program lorenzo_test
     t(k) = elapsed_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
-  print 2,"=== predicted F90 ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
+  print 2,"=== Fortran ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
   if(ni < 18 .and. nj < 10) then
     do j = nj, 1, -1
       print 1, j, pred(1:lnid,j)
@@ -93,22 +124,24 @@ program lorenzo_test
     t(k) = elapsed_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
-  print 2,"=== predicted C   ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
+  print 2,"=== C       ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
   if(ni < 18 .and. nj < 10) then
     do j = nj, 1, -1
       print 1, j, pred(1:lnid,j)
     enddo
   endif
 
+  print 2,"=== restored in place ==="
+
   do k = 1, NTIMES
     fp = fr
-    call lorenzopredict_inplace(fp, ni, lnio, nj)
+    call lorenzopredictinplace(fp, ni, lnio, nj)
     t(k) = elapsed_cycles()
-    call lorenzounpredict_inplace(fp, ni, lnio, nj)
+    call lorenzounpredictinplace(fp, ni, lnio, nj)
     t(k) = elapsed_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
-  print 2,"=== in place F90  ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
+  print 2,"=== generic ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
   if(ni < 18 .and. nj < 10) then
     do j = nj, 1, -1
       print 1, j, fp(1:lnio,j)
@@ -122,6 +155,53 @@ program lorenzo_test
   enddo
   print *,'errors =',errors
 
+  do k = 1, NTIMES
+    fp = fr
+    call lorenzopredictinplace_f(fp, ni, lnio, nj)
+    t(k) = elapsed_cycles()
+    call lorenzounpredictinplace_f(fp, ni, lnio, nj)
+    t(k) = elapsed_cycles() - t(k)
+  enddo
+  avg = SUM(t*ns)/NTIMES
+  print 2,"=== Fortran ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
+  if(ni < 18 .and. nj < 10) then
+    do j = nj, 1, -1
+      print 1, j, fp(1:lnio,j)
+    enddo
+  endif
+  errors = 0
+  do j = 1, nj
+  do i = 1, ni
+    if( fp(i,j) .ne. fr(i,j) ) errors = errors + 1
+  enddo
+  enddo
+  print *,'errors =',errors
+
+  do k = 1, NTIMES
+    fp = fr
+    call lorenzopredictinplace_c(fp, ni, lnio, nj)
+    t(k) = elapsed_cycles()
+    call lorenzounpredictinplace_c(fp, ni, lnio, nj)
+    t(k) = elapsed_cycles() - t(k)
+  enddo
+  avg = SUM(t*ns)/NTIMES
+  print 2,"=== C       ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
+  if(ni < 18 .and. nj < 10) then
+    do j = nj, 1, -1
+      print 1, j, fp(1:lnio,j)
+    enddo
+  endif
+  errors = 0
+  do j = 1, nj
+  do i = 1, ni
+    if( fp(i,j) .ne. fr(i,j) ) errors = errors + 1
+  enddo
+  enddo
+  print *,'errors =',errors
+
+  print 2,"=== restored not in place ==="
+
+  call lorenzopredict(fr, pred, ni, lnio, lnid, nj)
   f = 999
   do k = 1, NTIMES
     t(k) = elapsed_cycles()
@@ -129,7 +209,7 @@ program lorenzo_test
     t(k) = elapsed_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
-  print 2,"=== restored F90  ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
+  print 2,"=== generic ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
   if(ni < 18 .and. nj < 10) then
     do j = nj, 1, -1
       print 1, j, f(1:lnio,j)
@@ -143,6 +223,29 @@ program lorenzo_test
   enddo
   print *,'errors =',errors
 
+  call lorenzopredict(fr, pred, ni, lnio, lnid, nj)
+  f = 999
+  do k = 1, NTIMES
+    t(k) = elapsed_cycles()
+    call lorenzounpredict_f(f, pred, ni, lnio, lnid, nj)
+    t(k) = elapsed_cycles() - t(k)
+  enddo
+  avg = SUM(t*ns)/NTIMES
+  print 2,"=== Fortran ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
+  if(ni < 18 .and. nj < 10) then
+    do j = nj, 1, -1
+      print 1, j, f(1:lnio,j)
+    enddo
+  endif
+  errors = 0
+  do j = 1, nj
+  do i = 1, ni
+    if( f(i,j) .ne. fr(i,j) ) errors = errors + 1
+  enddo
+  enddo
+  print *,'errors =',errors
+
+  call lorenzopredict(fr, pred, ni, lnio, lnid, nj)
   f = 999
   do k = 1, NTIMES
     t(k) = elapsed_cycles()
@@ -150,7 +253,7 @@ program lorenzo_test
     t(k) = elapsed_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
-  print 2,"=== restored C    ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
+  print 2,"=== C       ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
   if(ni < 18 .and. nj < 10) then
     do j = nj, 1, -1
       print 1, j, f(1:lnio,j)
