@@ -8,6 +8,282 @@
 
 #define STATIC extern
 
+// divide a signed integer by 2 with rounding toward +-infinity
+#define IDIV2R(x) (( (x) + 1 + ((x)>>31) ) >> 1 )
+
+// divide a signed integer by 4 with rounding toward +-infinity
+#define IDIV4R(x) (( (x) + 2 + ((x)>>31) ) >> 2 )
+
+// divide a signed integer by 8 with rounding toward +-infinity
+#define IDIV8R(x) (( (x) + 4 + ((x)>>31) ) >> 3 )
+
+// 2x2 averaging of 8 points on 2 lines (averaging along line and across lines)
+// src1[8]   : first line
+// src2[8]   : second line
+// avg[4]    : result
+STATIC inline void average_2x2_8_I32(int32_t * restrict src1, int32_t * restrict src2, int32_t * restrict avg){
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+  __m128i vs0, vs1, va1, va2, vb1, vb2, vk2 ;
+  va1 = _mm_loadu_si128( (__m128i *)  src1   ) ;
+  va2 = _mm_loadu_si128( (__m128i *) (src1+4)) ;
+  vk2 = _mm_cmpeq_epi32(va1, va1) ;           // -1
+  vk2 = _mm_add_epi32(vk2, vk2) ;             // -2
+  vb1 = _mm_loadu_si128( (__m128i *)  src2   ) ;
+  vb2 = _mm_loadu_si128( (__m128i *) (src2+4)) ;
+  va1 = _mm_add_epi32(va1, vb1) ;             // add rows terms(0-3)
+  va2 = _mm_add_epi32(va2, vb2) ;             // add rows terms(4-7)
+  vs1 = _mm_hadd_epi32(va1,va2) ;            // add pairs of terms
+  vs0 = _mm_sub_epi32(vs1, vk2) ;             // add 2 (subtract -2)
+  vs1 = _mm_srai_epi32(vs1, 31) ;             // -1 or 0 according to sign
+  vs0 = _mm_add_epi32(vs1, vs0) ;             // add to vs0
+  vs0 = _mm_srai_epi32(vs0, 2) ;              // finalize divide by 4 with rounding
+  _mm_storeu_si128( (__m128i *) avg, vs0) ;   // store result
+#else
+  int i, ii ;
+  for(i=0, ii=0 ; ii<4 ; ii++, i+=2){
+    avg[ii]  = src1[i] + src1[i+1] ;
+    avg[ii] += src2[i] + src2[i+1] ;
+    avg[ii]  = IDIV4R(avg[ii]) ;
+  }
+#endif
+}
+
+// 2x2 averaging of 16 points on 2 lines (averaging along line and across lines)
+// src1[16]  : first line
+// src2[16]  : second line
+// avg[8]    : result
+STATIC inline void average_2x2_16_I32(int32_t * restrict src1, int32_t * restrict src2, int32_t * restrict avg){
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+  __m256i vs0, vs1, va1, va2, vb1, vb2, vk2 ;
+  va1 = _mm256_loadu_si256( (__m256i *)  src1   ) ;
+  vk2 = _mm256_cmpeq_epi32(va1, va1) ;           // -1
+  vk2 = _mm256_add_epi32(vk2, vk2) ;             // -2
+  va2 = _mm256_loadu_si256( (__m256i *) (src1+8)) ;
+  vb1 = _mm256_loadu_si256( (__m256i *)  src2   ) ;
+  vb2 = _mm256_loadu_si256( (__m256i *) (src2+8)) ;
+  va1 = _mm256_add_epi32(va1, vb1) ;             // add rows terms(0-7)
+  va2 = _mm256_add_epi32(va2, vb2) ;             // add rows terma(8-15)
+  vs1 = _mm256_hadd_epi32(va1, va2) ;            // add pairs of terms
+  vs1 = _mm256_permute4x64_epi64(vs1, 0b11011000) ;
+  vs0 = _mm256_sub_epi32(vs1, vk2) ;             // add 2 (subtract -2)
+  vs1 = _mm256_srai_epi32(vs1, 31) ;             // -1 or 0 according to sign
+  vs0 = _mm256_add_epi32(vs1, vs0) ;             // add to vs0
+  vs0 = _mm256_srai_epi32(vs0, 2) ;              // finalize divide by 4 with rounding
+  _mm256_storeu_si256( (__m256i *) avg, vs0) ;   // store result
+#else
+  int i, ii ;
+  for(i=0, ii=0 ; ii<8 ; ii++, i+=2){
+    avg[ii]  = src1[i] + src1[i+1] ;
+    avg[ii] += src2[i] + src2[i+1] ;
+    avg[ii]  = IDIV4R(avg[ii]) ;
+  }
+#endif
+}
+
+// 2x2 averaging of n points on 2 lines (averaging along line and across lines)
+// src1[n]      : first line
+// src2[n]      : second line
+// avg[(n+1)/2] : result
+// n            : number of points (may be odd)
+STATIC inline void average_2x2_I32(int32_t * restrict src1, int32_t * restrict src2, int32_t * restrict avg, uint32_t n){
+  int i, ii ;
+  int n2 = n>>1 ;
+  int n1 = (n2 & 7) ? (n2 & 7) : 8 ;
+
+  if(n1 <= 4) average_2x2_8_I32(src1, src2, avg) ;
+  else        average_2x2_16_I32(src1, src2, avg) ;
+  for(i=n1+n1, ii=n1 ; ii<n2 ; ii+=8, i+=16){
+    average_2x2_16_I32(src1+i, src2+i, avg+ii) ;
+  }
+  if(n & 1) {    // odd number of points in lines, 2 points are averaged instead of 4
+    avg[ii] = src1[i] + src2[i] ;
+    avg[ii] = IDIV2R(avg[ii]) ;
+  }
+}
+
+// average one row
+// src1[n]      : row to be averaged
+// avg[(n+1)/2] : result
+// n            : number of points (may be odd)
+// NOTE : average_2x2_I32 is used, simulating 2 identical rows
+STATIC inline void average_2x1_I32(int32_t * restrict src, int32_t * restrict avg, uint32_t n){
+  int i, ii ;
+  int n2 = n>>1 ;
+  average_2x2_I32(src, src, avg, n) ;
+}
+
+// 2x2 averaging of a 2 dimensional array
+// src[lni       *        nj] : source array
+// avg[((ni+1)/2)*((nj+1)/2)] : result
+// lni  : storage dimension of rows in src
+// ni   : number of points to be averaged in rows (may be odd)
+// nj   : number of rows to be averaged (may be odd)
+void average_2x2_2D_I32(int32_t * restrict src, int32_t * restrict avg, uint32_t ni, uint32_t lni, uint32_t nj){
+  int i, j ;
+  int ni2 = (ni+1)/2 ;
+  int lni2 = lni+lni ;
+  for(j=0 ; j<nj/2 ; j++){
+    average_2x2_I32(src, src+lni, avg, ni) ;
+    src += lni2 ;
+    avg += ni2 ;
+  }
+  if(nj & 1) average_2x2_I32(src, src, avg, ni) ;
+}
+
+// 2x2 average from src(ni,nj) -> avg((ni+1)/2,(nj+1)/2)
+// residual -> res(ni,nj)
+void average_2x2_2D_res_I32(int32_t * restrict src, int32_t * restrict avg, int32_t * restrict res, int ni, int lni, int nj){
+  int i, ii, j ;
+  for (j=0 ; j<nj-1 ; j+=2){
+    for(i=0, ii=0 ; i<ni-1 ; i+=2, ii++){
+      avg[ii] = (src[i] + src[i+1] + src[i+lni] +src[i+lni+1]) / 4 ;
+      res[i]       = src[i]       - avg[ii] ;
+      res[i+1]     = src[i+1]     - avg[ii] ;
+      res[i+lni]   = src[i+lni]   - avg[ii] ;
+      res[i+lni+1] = src[i+lni+1] - avg[ii] ;
+    }
+    if(i < ni) {   // odd number of points in row
+      avg[ii] = (src[i] + src[i+lni]) / 2 ;
+      res[i]       = src[i]       - avg[ii] ;
+      res[i+lni]   = src[i+lni]   - avg[ii] ;
+    }
+    src += lni ;
+    res += ni ;
+    avg += (ni+1)/2 ;
+  }
+  if(j < nj){   // odd number of rows
+    for(i=0, ii=0 ; i<ni-1 ; i+=2, ii++){
+      avg[ii] = (src[i] + src[i+1]) / 2 ;
+      res[i]       = src[i]       - avg[ii] ;
+      res[i+1]     = src[i+1]     - avg[ii] ;
+    }
+    if(i < ni) {   // odd number of points in last row
+      avg[ii] = src[i] ;
+      res[i]  = 0 ;
+    }
+  }
+}
+
+// restore along i
+STATIC void expand_2x2_row_along_i(int32_t * restrict dst, int32_t * restrict avg, int n){
+  int i, ii ;
+  int n2 = n>>1 ;
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+#endif
+
+  dst[0] = 5*avg[0] - avg[1] ; dst[0] = IDIV4R(dst[0]) ;
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+  int nm2 = n2-1, i2 = 1 ;
+  int n7 = (nm2 & 7) ? (nm2 & 7) : 8 ;
+  __m256i va1, va2, va3, vb1, vb2, vb3, v31, v13, q31, q13, vlo, vhi, vk2, v07, v8f ;
+  for(i=0 ; i<nm2 ; i+= n7, n7 = 8) {
+    va1 = _mm256_loadu_si256( (__m256i *) (avg + i   ) );
+    vb1 = _mm256_loadu_si256( (__m256i *) (avg + i +1) );
+    vk2 = _mm256_cmpeq_epi32(va1, va1) ;                // -1
+    vk2 = _mm256_add_epi32(vk2, vk2) ;                  // -2
+    va2 = _mm256_add_epi32(va1, va1) ;                  // va1 * 2
+    vb2 = _mm256_add_epi32(vb1, vb1) ;                  // vb1 * 2
+    va3 = _mm256_add_epi32(va2, va1) ;                  // va1 * 3
+    vb3 = _mm256_add_epi32(vb2, vb1) ;                  // vb1 * 3
+    v31 = _mm256_add_epi32(va3, vb1) ;                  // 3*row0[i] + 1*row1[i]
+    v13 = _mm256_add_epi32(va1, vb3) ;                  // 1*row0[i] + 3*row1[i]
+    q31 = _mm256_srai_epi32(v31, 31) ;                  // -1 or 0 according to sign
+    q13 = _mm256_srai_epi32(v13, 31) ;                  // -1 or 0 according to sign
+    q31 = _mm256_sub_epi32(q31, vk2) ;                  // q31 + 2
+    q13 = _mm256_sub_epi32(q13, vk2) ;                  // q13 + 2
+    q31 = _mm256_add_epi32(v31, q31) ;                  // + v31
+    q13 = _mm256_add_epi32(v13, q13) ;                  // + v13
+    q31 = _mm256_srai_epi32(q31, 2) ;                   // IDIV4R(v31)  (dst[1, 3, 5, ...])
+    q13 = _mm256_srai_epi32(q13, 2) ;                   // IDIV4R(v13)  (dst[2, 4, 6, ...])
+    vlo = _mm256_unpacklo_epi32(q31, q13) ;             // 0 1 2 3 8 9 A B
+    vhi = _mm256_unpackhi_epi32(q31, q13) ;             // 4 5 6 7 C D E F
+    v07 = _mm256_permute2x128_si256(vlo, vhi, 0x20) ;   // 0 1 2 3 4 5 6 7 (dst[1, 2, 3, ...])
+    v8f = _mm256_permute2x128_si256(vlo, vhi, 0x31) ;   // 8 9 A B C D E F (dst(9, A, B, ...])
+    _mm256_storeu_si256( (__m256i *) (dst + i2    ), v07 );
+    _mm256_storeu_si256( (__m256i *) (dst + i2 + 8), v8f );
+    i2 = i2 + n7 + n7 ;
+  }
+#else
+  int t1[n2], t2[n2] ;
+  for(ii=0 ; ii<n2-1 ; ii++) {
+    t1[ii] = 3*avg[ii] + 1*avg[ii+1] ;
+    t1[ii] = IDIV4R(t1[ii]) ;
+    t2[ii] = 1*avg[ii] + 3*avg[ii+1] ;
+    t2[ii] = IDIV4R(t2[ii]) ;
+  }
+  for(i=1, ii=0 ; i<n-2 ; i+=2, ii++){
+    dst[i  ] = t1[ii] ; dst[i+1] = t2[ii] ;
+  }
+#endif
+  dst[n2+n2-1] = 5*avg[n2-1] - avg[n2-2] ; dst[n2+n2-1] = IDIV4R(dst[n2+n2-1]) ;
+  if(n & 1) dst[n2+n2] = avg[n2] ;
+}
+
+// bottom row
+STATIC void expand_2x2_row_0(int32_t * restrict row0, int32_t * restrict row1, int32_t * src0, int n){
+  int i ;
+  int ni2 = (n+1)>>1 ;
+  int32_t a51[ni2] ;
+  for(i=0 ; i<ni2 ; i++) {
+    a51[i] = 5*row0[i] - 1*row1[i] ;  // unaverage along j to restore src0
+    a51[i] = IDIV4R(a51[i]) ;
+    expand_2x2_row_along_i(src0, a51, n) ;  // restore src0 along i
+  }
+}
+
+// pairs of middle rows
+STATIC void expand_2x2_2_rows(int32_t * restrict row0, int32_t * restrict row1, int32_t * src0, int32_t * src1, int n){
+  int i ;
+  int ni2 = (n+1)>>1 ;
+  int32_t a31[ni2], a13[ni2] ;
+
+  for(i=0 ; i<ni2 ; i++) {
+    a31[i] = 3*row0[i] + 1*row1[i] ;  // unaverage along j to restore src0
+    a31[i] = IDIV4R(a31[i]) ;
+    a13[i] = 1*row0[i] + 3*row1[i] ;  // unaverage along j to restore src1
+    a13[i] = IDIV4R(a13[i]) ;
+  }
+  expand_2x2_row_along_i(src0, a31, n) ;  // restore src0 along i
+  expand_2x2_row_along_i(src1, a13, n) ;  // restore src1 along i
+}
+
+// top row if even number of rows
+STATIC void expand_2x2_row_n(int32_t * restrict row0, int32_t * restrict row1, int32_t * src0, int n){
+  int i ;
+  int ni2 = (n+1)>>1 ;
+  int32_t a15[ni2] ;
+  for(i=0 ; i<ni2 ; i++) {
+    a15[i] = 5*row1[i] - 1*row0[i] ;  // unaverage along j to restore src0
+    a15[i] = IDIV4R(a15[i]) ;
+    expand_2x2_row_along_i(src0, a15, n) ;  // restore src0 along i
+  }
+}
+
+// restore a previously averaged array using linear interpolation/extrapolation
+// dst[lni       *        nj] : result
+// avg[((ni+1)/2)*((nj+1)/2)] : previously averaged array
+// lni  : storage dimension of rows in dst
+// ni   : number of averaged points in rows (may be odd)
+// nj   : number of averaged rows (may be odd)
+STATIC inline void expand_2x2_2D(int32_t * restrict dst, int32_t * restrict avg, uint32_t ni, uint32_t lni, uint32_t nj){
+  int i, j ;
+  int ni2 = (ni+1)/2 ;
+  int lni2 = lni+lni ;
+  int32_t t[ni] ;
+
+  // first row
+  expand_2x2_row_0(avg, avg+ni2, dst, ni) ;
+  dst += lni ;
+  for(j=1 ; j<nj/2 ; j++){        // pairs of rows
+    expand_2x2_2_rows(avg, avg+ni2, dst, dst+lni, ni) ;
+    avg += ni2 ;
+    dst += lni2 ;
+  }
+  // last row
+  expand_2x2_row_n(avg-ni2, avg, dst, ni) ;
+  if(nj & 1) expand_2x2_row_along_i(dst+lni, avg+ni2, ni) ;
+}
+
 // a[8] , b[8] -> c[4] , row length of a = 8
 STATIC inline void average_rows_8x2_8(float *a, float *c){
   int i, j ;
