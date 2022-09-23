@@ -78,8 +78,10 @@
 //                             even[-1] = even[0], even[neven] = even[neven-1]
 //                             odd[-1]  = odd[0],  odd[nodd]   = odd[nodd-1]
 
+#define STATIC extern
+
 // full transform, in place
-extern inline void FDWT53i_1D_inplace_full(int32_t *x, uint32_t n){
+STATIC inline void FDWT53i_1D_inplace_full(int32_t *x, uint32_t n){
   int32_t i, em, ep, om, op ;
 
   if(n<3) return ;           // no transform for 2 points
@@ -104,7 +106,7 @@ extern inline void FDWT53i_1D_inplace_full(int32_t *x, uint32_t n){
 }
 
 // full transform, split output
-extern inline void FDWT53i_1D_split_full(int32_t *x, int32_t *e, int32_t *o, uint32_t n){
+STATIC inline void FDWT53i_1D_split_full(int32_t *x, int32_t *e, int32_t *o, uint32_t n){
   int32_t i, em, ep, om, op ;
 
   if(n<3) {
@@ -133,7 +135,7 @@ extern inline void FDWT53i_1D_split_full(int32_t *x, int32_t *e, int32_t *o, uin
 }
 
 // full transform, in place, split
-extern inline void FDWT53i_1D_inplace_split_full(int32_t *x, uint32_t n){
+STATIC inline void FDWT53i_1D_inplace_split_full(int32_t *x, uint32_t n){
   int i ;
   int nodd  = n/2 ;
   int neven = (n+1)/2 ;
@@ -150,7 +152,7 @@ extern inline void FDWT53i_1D_inplace_split_full(int32_t *x, uint32_t n){
 // step 2 : unpredict odd points [+= (x[i-1] + x[i+1])/2]      [+= (even[i] + even[i+1])/2
 
 // full inverse transform, in place
-extern inline void IDWT53i_1D_inplace_full(int32_t *x, uint32_t n){
+STATIC inline void IDWT53i_1D_inplace_full(int32_t *x, uint32_t n){
   int32_t i, em, ep, om, op ;
 
   if(n<3) return ;           // no transform for 2 points
@@ -173,7 +175,7 @@ extern inline void IDWT53i_1D_inplace_full(int32_t *x, uint32_t n){
 }
 
 // full inverse transform, split input
-extern inline void IDWT53i_1D_split_full(int32_t *x, int32_t *e, int32_t *o, uint32_t n){
+STATIC inline void IDWT53i_1D_split_full(int32_t *x, int32_t *e, int32_t *o, uint32_t n){
   int32_t i, em, ep, om, op ;
 
   if(n<3) {
@@ -202,7 +204,7 @@ extern inline void IDWT53i_1D_split_full(int32_t *x, int32_t *e, int32_t *o, uin
 }
 
 // full inverse transform, in place, split
-extern inline void IDWT53i_1D_inplace_split_full(int32_t *x, uint32_t n){
+STATIC inline void IDWT53i_1D_inplace_split_full(int32_t *x, uint32_t n){
   int i ;
   int nodd  = n/2 ;
   int neven = (n+1)/2 ;
@@ -215,7 +217,7 @@ extern inline void IDWT53i_1D_inplace_split_full(int32_t *x, uint32_t n){
 }
 
 // analyze the four quadrants for min and max values
-static void quadrants(int32_t *z, int ni, int lni, int nj, int32_t *min, int32_t *max){
+void IDWT53i_quadrants(int32_t *z, int ni, int lni, int nj, int32_t *min, int32_t *max){
   int i, j, pts[4] ; ;
 for (i=0;i<4;i++) pts[i] = 0 ;
   min[0] = min[1] = min[2] = min[3] =  9999999 ;
@@ -316,17 +318,22 @@ void FDWT53i_2D_split_inplace(int32_t *x, int ni, int lni, int nj){
 void FDWT53i_2D_split_inplace_n(int32_t *x, int ni, int lni, int nj, int levels){
   int min[4], max[4] ;
   FDWT53i_2D_split_inplace(x, ni, lni, nj) ;
-  quadrants(x, ni, lni, nj, min, max) ;
-if(levels == 1)
-  printf("(%5d %5d) (%5d %5d)\n(%5d %5d) (%5d %5d)",min[2],max[2],min[3],max[3],min[0],max[0],min[1],max[1]) ;
-if(levels > 1)
-  printf("(%5d %5d) (%5d %5d)\n(           ) (%5d %5d)",min[2],max[2],min[3],max[3],min[1],max[1]) ;
-printf("  forward level %d done (%d x %d)\n", levels, ni, nj);
+//   IDWT53i_quadrants(x, ni, lni, nj, min, max) ;
+// if(levels == 1)
+//   printf("(%5d %5d) (%5d %5d)\n(%5d %5d) (%5d %5d)",min[2],max[2],min[3],max[3],min[0],max[0],min[1],max[1]) ;
+// if(levels > 1)
+//   printf("(%5d %5d) (%5d %5d)\n(           ) (%5d %5d)",min[2],max[2],min[3],max[3],min[1],max[1]) ;
+// printf("  forward level %d done (%d x %d)\n", levels, ni, nj);
   if(levels > 1){
     FDWT53i_2D_split_inplace_n(x, (ni+1)/2, lni, (nj+1)/2, levels-1) ;
   }
 }
 
+// integer inverse wavelet transform
+// x    : integer data to be restored from wavelet transform
+// ni   : useful row length
+// lni  : storage length of rows
+// nj   : number of rows
 void IDWT53i_2D_split_inplace(int32_t *x, int ni, int lni, int nj){
   int i, j ;
   int nieven = (ni+1) >> 1 ;  // number of even terms in row
@@ -403,159 +410,3 @@ void IDWT53i_2D_split_inplace_n(int32_t *x, int ni, int lni, int nj, int levels)
   IDWT53i_2D_split_inplace(x, ni, lni, nj) ;
 printf("inverse level %d done (%d x %d)\n", levels, ni, nj);
 }
-
-#if defined(SELF_TEST)
-
-
-// reference transform
-static void F_DWT53i_1D_inplace(int32_t *x, int32_t n){
-  int i ;
-
-  if(n<3) return ;           // no transform for 2 points
-
-  // predict odd points [-= (x[i-1] + x[i+1])/2]
-  // update even points [+= (2 + x[i-1] + x[i+1])/4]
-  if(n & 1){          // n is odd, last point is even
-    // predict odd points
-    for(i=1 ; i<n ; i+=2) x[i] = x[i] - (x[i-1] + x[i+1])/2 ;
-    // update even points
-    x[0] = x[0] + (2 + x[1] + x[1])/4 ;               // first even point
-    for(i=2 ; i<n-2 ; i+=2) x[i] = x[i] + (2 + x[i-1] + x[i+1])/4 ;
-    x[n-1] = x[n-1] + (2 + x[n-2] + x[n-2])/4 ;       // last even point
-  }else{              // n is even, last point is odd
-    // predict odd points (but last)
-    for(i=1 ; i<n-1 ; i+=2) x[i] = x[i] - (x[i-1] + x[i+1])/2 ;
-    x[n-1] = x[n-1] - (x[n-2] + x[n-2])/2 ;   // last odd point
-    // update even points
-    x[0] = x[0] + (2 + x[1] + x[1])/4 ;               // first even point
-    for(i=2 ; i<n-1 ; i+=2) x[i] = x[i] + (2 + x[i-1] + x[i+1])/4 ;
-  }
-}
-
-#include <math.h>
-
-#if ! defined(NPTS)
-#define NPTS 4
-#endif
-
-#if ! defined(LEVELS)
-#define LEVELS 1
-#endif
-
-#if defined(TEST2D)
-#define NI 2
-#else
-#define NI NPTS
-#endif
-
-#define LNI (NPTS+1)
-#define NJ NPTS
-
-int main(int argc, char **argv){
-  int32_t x[NPTS+1], e[NPTS+1], o[NPTS+1], r[NPTS+1] ;
-  int32_t x2d[NJ+1][LNI] ;
-  int32_t r2d[NJ+1][LNI] ;
-  int i, j, errors ;
-  int neven = (NPTS+1)/2 ;
-  int nodd = NPTS/2 ;
-
-  for(i=0 ; i<NPTS ; i++) {
-//     x[i] = i ;
-    x[i] =  2 * sqrtf( (i-NPTS/2.0f)*(i-NPTS/2.0f) ) ;
-    r[i] = x[i] ;
-  }
-  x[NPTS] = -1 ;
-  r[NPTS] = -1 ;
-  for(i=0 ; i<=NPTS ; i++) printf("%5d", x[i]) ;
-  printf(" 1D original\n\n") ;
-
-//   if(NI < 3) goto test2d ;
-  if(argc > 1) goto test2d ;
-
-  for(i=0 ; i<NPTS ; i++) x[i] = r[i] ; x[NPTS] = -1 ;
-  FDWT53i_1D_split_full(x, e, o, NPTS) ;
-  for(i=0 ; i<neven ; i++) printf("%5d", e[i]) ;
-  for(i=0 ; i<nodd  ; i++) printf("%5d", o[i]) ;
-  printf("%5d FDWT53i_1D_split_full (%d even, %d odd)\n",x[NPTS], neven, nodd) ;
-
-  for(i=0 ; i<=NPTS ; i++) x[i] = -1 ;
-  IDWT53i_1D_split_full(x, e, o, NPTS) ;
-  for(i=0 ; i<=NPTS ; i++) printf("%5d", r[i]-x[i]) ;
-  printf(" IDWT53i_1D_inplace_full (errors)\n") ;
-  for(i=0 ; i<=NPTS ; i++) printf("%5d", x[i]) ;
-  printf(" IDWT53i_1D_split_full (restored)\n\n") ;
-
-  for(i=0 ; i<NPTS ; i++) x[i] = r[i] ; x[NPTS] = -1 ;
-  FDWT53i_1D_inplace_split_full(x, NPTS) ;
-  for(i=0 ; i<NPTS ; i++) printf("%5d", x[i]) ;
-  printf("%5d FDWT53i_1D_inplace_split_full (%d even, %d odd)\n",x[NPTS], neven, nodd) ;
-
-  IDWT53i_1D_inplace_split_full(x, NPTS) ;
-  for(i=0 ; i<=NPTS ; i++) printf("%5d", r[i]-x[i]) ;
-  printf(" IDWT53i_1D_inplace_split_full (errors)\n") ;
-  for(i=0 ; i<=NPTS ; i++) printf("%5d", x[i]) ;
-  printf(" IDWT53i_1D_inplace_split_full (restored)\n\n") ;
-
-  for(i=0 ; i<NPTS ; i++) x[i] = r[i] ; x[NPTS] = -1 ;
-  F_DWT53i_1D_inplace(x, NPTS) ;
-  for(i=0 ; i<=NPTS ; i++) printf("%5d", x[i]) ;
-  printf(" F_DWT53i_1D_inplace\n") ;
-  for(i=0 ; i<neven ; i++) printf("%5d", x[i+i]) ;
-  for(i=0 ; i<nodd  ; i++) printf("%5d", x[i+i+1]) ;
-  printf("%5d F_DWT53i_1D_inplace (%d even, %d odd)\n\n",x[NPTS], neven, nodd) ;
-
-  for(i=0 ; i<=NPTS ; i++) x[i] = r[i] ;
-  FDWT53i_1D_inplace_full(x, NPTS) ;
-  for(i=0 ; i<=NPTS ; i++) printf("%5d", x[i]) ;
-  printf(" FDWT53i_1D_inplace_full\n") ;
-  for(i=0 ; i<neven ; i++) printf("%5d", x[i+i]) ;
-  for(i=0 ; i<nodd  ; i++) printf("%5d", x[i+i+1]) ;
-  printf("%5d FDWT53i_1D_inplace_full (%d even, %d odd)\n\n",x[NPTS], neven, nodd) ;
-
-  IDWT53i_1D_inplace_full(x, NPTS) ;
-  for(i=0 ; i<=NPTS ; i++) printf("%5d", r[i]-x[i]) ;
-  printf(" IDWT53i_1D_inplace_full (errors)\n") ;
-  for(i=0 ; i<=NPTS ; i++) printf("%5d", x[i]) ;
-  printf(" IDWT53i_1D_inplace_full (restored)\n\n") ;
-
-test2d:
-  for(j = NJ-1 ; j >= 0 ; j--){
-    for(i = 0 ; i < NI ; i++) {
-//       x2d[j][i] = j + i ;
-      x2d[j][i] =  2 * sqrtf( (j-NJ/2.0f)*(j-NJ/2.0f) + (i-NI/2.0f)*(i-NI/2.0f)) ;
-      if(NI <= 2) x2d[j][i] =  2 * sqrtf( (j-NJ/2.0f)*(j-NJ/2.0f) ) ;
-      r2d[j][i] = x2d[j][i] ;
-      printf("%5d", x2d[j][i]) ;
-    }
-    printf("\n");
-  }
-  printf(" 2D original data\n\n");
-  for(i = 0 ; i < NI ; i++) {
-    x2d[NJ][i] = -1 ;
-  }
-
-//   F_DWT53i_2D_split_inplace((int32_t *) x2d, NI, LNI, NJ) ;
-  FDWT53i_2D_split_inplace_n((int32_t *) x2d, NI, LNI, NJ, LEVELS) ;
-  for(j = NJ-1 ; j >= 0 ; j--){
-    for(i=0 ; i<NI ; i++) printf("%5d", x2d[j][i]) ;
-    printf("\n");
-  }
-  printf(" FDWT53i_2D_split_inplace\n\n");
-
-//   I_DWT53i_2D_split_inplace((int32_t *) x2d, NI, LNI, NJ) ;
-  IDWT53i_2D_split_inplace_n((int32_t *) x2d, NI, LNI, NJ, LEVELS) ;
-  errors = 0 ;
-  for(j=0 ; j<NJ ; j++){
-    for(i=0 ; i<NI ; i++){
-      if(x2d[j][i] != r2d[j][i]) errors++ ;
-    }
-  }
-//   for(j = NJ-1 ; j >= 0 ; j--){
-//     for(i=0 ; i<NI ; i++) printf("%5d", x2d[j][i]) ;
-//     printf("\n");
-//   }
-//   printf(" IDWT53i_2D_split_inplace\n");
-  printf("restore errors = %d\n", errors);
-
-}
-#endif
