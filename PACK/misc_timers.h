@@ -44,8 +44,8 @@ end interface
 // timing loop top part
 // niter : number of iterations
 #define TIME_LOOP_TOP(niter) \
-{ uint64_t t , mint = ~0, maxt = 0, avgt = 0.0 ; int iter = niter ; \
-  for(j=0 ; j < iter ; j++) { t = elapsed_cycles() ;
+{ uint64_t t, to , mint = ~0, maxt = 0, avgt = 0.0 ; int iter = niter ; \
+  for(j=0 ; j < iter ; j++) { to = elapsed_cycles() ; t = elapsed_cycles() ; to = t - to ;
 //
 // code to be timed in a loop goes between TIME_LOOP_TOP and TIME_LOOP_BOT
 //
@@ -57,7 +57,7 @@ end interface
 // buf   : buffer to receive diagnostic text
 // bufsiz: size of buf
 #define TIME_LOOP_BOT(tmin, tmax, tavg, npts, buf, bufsiz) \
-    t = elapsed_cycles() -t ; \
+    t = elapsed_cycles() -t -to ; \
     avgt += t ; mint = (t < mint) ? t : mint ; maxt = (t > maxt) ? t : maxt ; \
   } \
   tmin = mint ; tmax = maxt ; tavg = avgt/iter ; \
