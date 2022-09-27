@@ -1,0 +1,62 @@
+interface
+! void Swap_8_in_16(void *s, void *d, int n);   // bytes in halfwords
+  subroutine Swap_8_in_16(s, d, n) bind(C,name='Swap_8_in_16')
+    import :: C_INT32_T
+    implicit none
+#define IgnoreTypeKindRank s, d
+#define ExtraAttributes
+#include <IgnoreTypeKindRank.hf>
+    integer(C_INT32_T), intent(IN), value :: n
+  end subroutine
+
+! void Swap_8_in_32(void *s, void *d, int n);   // bytes in words
+  subroutine Swap_8_in_32(s, d, n) bind(C,name='Swap_8_in_32')
+    import :: C_INT32_T
+    implicit none
+#define IgnoreTypeKindRank s, d
+#define ExtraAttributes
+#include <IgnoreTypeKindRank.hf>
+    integer(C_INT32_T), intent(IN), value :: n
+  end subroutine
+
+! void Swap_16_in_32(void *s, void *d, int n);  // halfwords in words
+  subroutine Swap_16_in_32(s, d, n) bind(C,name='Swap_16_in_32')
+    import :: C_INT32_T
+    implicit none
+#define IgnoreTypeKindRank s, d
+#define ExtraAttributes
+#include <IgnoreTypeKindRank.hf>
+    integer(C_INT32_T), intent(IN), value :: n
+  end subroutine
+
+! void Swap_8_in_64(void *s, void *d, int n);   // bytes in doublewords
+  subroutine Swap_8_in_64(s, d, n) bind(C,name='Swap_8_in_64')
+    import :: C_INT32_T
+    implicit none
+#define IgnoreTypeKindRank s, d
+#define ExtraAttributes
+#include <IgnoreTypeKindRank.hf>
+    integer(C_INT32_T), intent(IN), value :: n
+  end subroutine
+
+! void Swap_16_in_64(void *s, void *d, int n);  // halfwords in doublewords
+  subroutine Swap_16_in_64(s, d, n) bind(C,name='Swap_16_in_64')
+    import :: C_INT32_T
+    implicit none
+#define IgnoreTypeKindRank s, d
+#define ExtraAttributes
+#include <IgnoreTypeKindRank.hf>
+    integer(C_INT32_T), intent(IN), value :: n
+  end subroutine
+
+! void Swap_32_in_64(void *s, void *d, int n);  // words in doublewords
+  subroutine Swap_32_in_64(s, d, n) bind(C,name='Swap_32_in_64')
+    import :: C_INT32_T
+    implicit none
+#define IgnoreTypeKindRank s, d
+#define ExtraAttributes
+#include <IgnoreTypeKindRank.hf>
+    integer(C_INT32_T), intent(IN), value :: n
+  end subroutine
+
+end interface
