@@ -12,7 +12,7 @@
 // Library General Public License for more details.
 //
 
-#define STATIC extern
+#define STATIC static
 #include <misc_operators.h>
 
 #include <math.h>

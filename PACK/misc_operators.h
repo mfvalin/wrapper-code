@@ -1,5 +1,5 @@
 /*
-Hopefully useful code for C
+Hopefully useful code for C and Fortran
 Copyright (C) 2022  Recherche en Prevision Numerique
 
 This code is free software; you can redistribute it and/or
@@ -22,6 +22,15 @@ Library General Public License for more details.
 #endif
 
 #define MISC_OPERATORS
+
+// divide a signed integer by 2 with rounding toward +-infinity
+#define IDIV2R(x) (( (x) + 1 + ((x)>>31) ) >> 1 )
+
+// divide a signed integer by 4 with rounding toward +-infinity
+#define IDIV4R(x) (( (x) + 2 + ((x)>>31) ) >> 2 )
+
+// divide a signed integer by 8 with rounding toward +-infinity
+#define IDIV8R(x) (( (x) + 4 + ((x)>>31) ) >> 3 )
 
 #define MAX(a,b) ( ((a) > (b)) ? (a) : (b) )
 #define MIN(a,b) ( ((a) < (b)) ? (a) : (b) )
