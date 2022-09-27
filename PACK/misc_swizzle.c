@@ -13,5 +13,10 @@
  * Library General Public License for more details.
  *
  */
+
+#if defined(__clang__)
+#pragma clang diagnostic ignored "-Wstatic-in-inline"
+#endif
+
 #define STATIC extern
 #include <misc_swizzle.h>
