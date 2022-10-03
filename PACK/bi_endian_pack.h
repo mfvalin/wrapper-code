@@ -112,6 +112,7 @@ void  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n);
 void  LeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n);
 
 void  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n);
+void  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n);
 void  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n);
 
 STATIC inline uint32_t RMask(uint32_t nbits){

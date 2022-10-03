@@ -110,6 +110,29 @@ void  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   p->stream = stream ;
 }
 
+void  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
+  int i = 0 ;
+  int64_t  accum = (int64_t)p->accum ;
+  uint32_t  xtract = p->xtract ;
+  uint32_t *stream = p->stream ;
+
+  if(nbits <= 16) {
+    int32_t t, mask = RMask(nbits), nb = nbits + nbits ;
+    for(    ; i<n-1 ; i+=2){
+      BE64_GET_NBITS(accum, xtract, t, nb) ;
+      w32[i  ] = t >> nbits ;    // big endian means upper part first
+//       w32[i+1] = t & mask ;      // then lower part
+      w32[i+1] = (t << (32-nbits)) >> (32-nbits) ;      // then lower part
+    }
+  }
+  for(    ; i<n ; i++){
+    BE64_GET_NBITS(accum, xtract, w32[i], nbits) ;
+  }
+  p->accum = (uint64_t)accum ;
+  p->xtract = xtract ;
+  p->stream = stream ;
+}
+
 void  LeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   int i ;
   uint64_t  accum = p->accum ;
