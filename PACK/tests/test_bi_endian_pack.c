@@ -29,6 +29,8 @@ int main(int argc, char **argv){
   uint64_t t0, t1, tmin, tmax, tavg, freq ;
   double nano ;
   uint64_t t[NTIMES] ;
+  char buf[1024] ;
+  size_t bufsiz = sizeof(buf) ;
 
   freq = cycles_counter_freq() ;
   nano = 1000000000 ;
@@ -57,13 +59,13 @@ int main(int argc, char **argv){
   printf("restoredbe %2d: ", nbits) ; for(i=0 ; i<8 ; i++) printf("%8.8x ", restored[i]); printf("\n") ;
   printf("\n") ;
 
-  for(nbits = 1 ; nbits <= 16 ; nbits += 1){
-    TIME_LOOP(tmin, tmax, tavg, NTIMES, LeStreamInit(&ple, packedle) ; LeStreamInsert(&ple, unpacked, nbits, -NPTS) ) ;
+  for(nbits = 1 ; nbits <= 32 ; nbits += 1){
+    TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, LeStreamInit(&ple, packedle) ; LeStreamInsert(&ple, unpacked, nbits, -NPTS) ) ;
     printf("nbits = %2d, ns(le) = %6.0f (%6.0f), %6.2f ns/pt", nbits, tmin*nano, tavg*nano, tavg*nano/NPTS);
   //     printf("packedle  : ") ;
   //     for(i=7 ; i>=0 ; i--) printf("%8.8x ", packedle[i]); printf("\n") ;
 
-    TIME_LOOP(tmin, tmax, tavg, NTIMES, LeStreamInit(&pbe, packedbe) ; BeStreamInsert(&pbe, unpacked, nbits, -NPTS) ) ;
+    TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, LeStreamInit(&pbe, packedbe) ; BeStreamInsert(&pbe, unpacked, nbits, -NPTS) ) ;
     printf(", ns(be) = %6.0f (%6.0f), %6.2f ns/pt", tmin*nano, tavg*nano, tavg*nano/NPTS);
   //     printf("packedbe  : ") ;
   //     for(i=0 ; i<8 ; i++) printf("%8.8x ", packedbe[i]); printf("\n") ;
@@ -83,7 +85,7 @@ int main(int argc, char **argv){
       }
     }
     printf(", errors (le) = %d / %d", errors, NPTS) ;
-    TIME_LOOP(tmin, tmax, tavg, NTIMES, LeStreamInit(&ple, packedle) ; LeStreamXtract(&ple, restored, nbits, NPTS) ) ;
+    TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, LeStreamInit(&ple, packedle) ; LeStreamXtract(&ple, restored, nbits, NPTS) ) ;
     printf(", ns(le) = %6.1f (%6.0f), %6.2f ns/pt", tmin*nano, tavg*nano, tavg*nano/NPTS);
 
     BeStreamInit(&pbe, packedbe) ;
@@ -101,7 +103,7 @@ int main(int argc, char **argv){
       }
     }
     printf(", errors (be) = %d / %d", errors, NPTS) ;
-    TIME_LOOP(tmin, tmax, tavg, NTIMES, BeStreamInit(&pbe, packedbe) ; BeStreamXtract(&pbe, restored, nbits, NPTS) ) ;
+    TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, BeStreamInit(&pbe, packedbe) ; BeStreamXtract(&pbe, restored, nbits, NPTS) ) ;
     printf(", ns(be) = %6.0f (%6.0f), %6.2f ns/pt\n", tmin*nano, tavg*nano, tavg*nano/NPTS);
   }
 }

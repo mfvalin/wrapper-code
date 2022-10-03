@@ -92,6 +92,14 @@ void  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   uint32_t  xtract = p->xtract ;
   uint32_t *stream = p->stream ;
 
+  if(nbits <= 16) {
+    uint32_t t, mask = RMask(nbits), nb = nbits + nbits ;
+    for(    ; i<n-1 ; i+=2){
+      BE64_GET_NBITS(accum, xtract, t, nb) ;
+      w32[i+1] = t & mask ;
+      w32[i  ] = t >> nbits ;
+    }
+  }
   for(    ; i<n ; i++){
     BE64_GET_NBITS(accum, xtract, w32[i], nbits) ;
   }

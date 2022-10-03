@@ -27,6 +27,12 @@ typedef struct{
   uint32_t  insert ;  // number of bits already filled in accumulator
   uint32_t  xtract ;  // number of bits available for extraction in accumulator
 } bitstream ;
+
+// for this macro to produce meaningful results, w32 MUST BE int32_t
+#define MAKE_SIGNED_32(w32, nbits) { w32 <<= (32 - (nbits)) ; w32 >>= (32 - (nbits)) ; }
+// for this macro to produce meaningful results, w32 MUST BE int64_t
+#define MAKE_SIGNED_64(w64, nbits) { w64 <<= (64 - (nbits)) ; w64 >>= (64 - (nbits)) ; }
+
 //
 // little endian style (right to left) bit stream packing
 //
@@ -41,6 +47,8 @@ typedef struct{
 #define LE64_PUT_NBITS(accum, insert, w32, nbits) \
         { LE64_INSERT_CHECK(accum, insert, stream) ; LE64_INSERT_NBITS(accum, insert, w32, nbits) ; }
 
+// the extract process produces an "unsigned" result
+// a " signed" extract would need << (32-nbits) followed by >> (32-nbits)
 #define LE64_XTRACT_BEGIN(accum, xtract, stream) \
         { accum = 0 ; xtract = 0 ; }
 #define LE64_XTRACT_NBITS(accum, xtract, w32, nbits) \
@@ -65,6 +73,8 @@ typedef struct{
 #define BE64_PUT_NBITS(accum, insert, w32, nbits) \
         { BE64_INSERT_CHECK(accum, insert, stream) ; BE64_INSERT_NBITS(accum, insert, w32, nbits) ; }
 
+// NOTE : if w32 is a signed variable, the extract will produce a "signed" result
+//        if w32 is an unsigned variable, the extract will produce an "unsigned" result
 #define BE64_XTRACT_BEGIN(accum, xtract, stream) \
         { accum = 0 ; xtract = 0 ; }
 #define BE64_XTRACT_NBITS(accum, xtract, w32, nbits) \
