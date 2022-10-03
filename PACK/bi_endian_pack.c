@@ -29,6 +29,7 @@ void  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
   if(nbits <= 16) {
     uint32_t t, nb = nbits + nbits ;
     for(    ; i<n-1 ; i+=2){
+      // little endian => upper part [i+1] | lower part [i]
       t  = (w32[i  ] & mask) | ((w32[i+1] & mask) << nbits) ;
       LE64_PUT_NBITS(accum, insert, t, nb) ;
     }
@@ -51,6 +52,7 @@ void  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
   if(nbits <= 16) {
     uint32_t t, mask = RMask(nbits), nb = nbits + nbits ;
     for(    ; i<n-1 ; i+=2){
+      // big endian => upper part [i] | lower part [i+1]
       t  = (w32[i+1] & mask) | ((w32[i  ] & mask) << nbits) ;
       BE64_PUT_NBITS(accum, insert, t, nb) ;
     }
@@ -74,8 +76,8 @@ void  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
     uint32_t t, mask = RMask(nbits), nb = nbits + nbits ;
     for(    ; i<n-1 ; i+=2){
       LE64_GET_NBITS(accum, xtract, t, nb) ;
-      w32[i  ] = t & mask ;
-      w32[i+1] = t >> nbits ;
+      w32[i  ] = t & mask ;    // little endian means lower part first
+      w32[i+1] = t >> nbits ;  // then upper part
     }
   }
   for(    ; i<n ; i++){
@@ -96,8 +98,8 @@ void  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
     uint32_t t, mask = RMask(nbits), nb = nbits + nbits ;
     for(    ; i<n-1 ; i+=2){
       BE64_GET_NBITS(accum, xtract, t, nb) ;
-      w32[i+1] = t & mask ;
-      w32[i  ] = t >> nbits ;
+      w32[i  ] = t >> nbits ;    // big endian means upper part first
+      w32[i+1] = t & mask ;      // then lower part
     }
   }
   for(    ; i<n ; i++){
