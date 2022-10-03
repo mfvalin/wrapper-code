@@ -63,7 +63,7 @@ end interface
   tmin = mint ; tmax = maxt ; tavg = avgt/iter ; \
   if(npts > 0 && buf != NULL) \
     snprintf(buf, (size_t)bufsiz, " npts = %d, niter = %d,  ns= %6.0f (%6.0f), %6.2f ns/pt\n", \
-             npts, niter, tmin*nano, tavg*nano, tavg*nano/npts) ; \
+             npts, iter, tmin*nano, tavg*nano, tavg*nano/npts) ; \
 }
 
 // time a piece of code in a loop, get min, max, average time
