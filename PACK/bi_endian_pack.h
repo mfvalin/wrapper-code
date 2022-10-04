@@ -35,6 +35,7 @@ typedef struct{
 
 //
 // little endian style (right to left) bit stream packing
+// insertion at top, most significant part
 //
 #define LE64_INSERT_BEGIN(accum, insert) \
         { accum = 0 ; insert = 0 ; }
@@ -61,6 +62,7 @@ typedef struct{
         { LE64_XTRACT_CHECK(accum, xtract, stream) ; LE64_XTRACT_NBITS(accum, xtract, w32, nbits) ; }
 //
 // big endian style (left to right) bit stream packing
+// insertion at bottom, least significant part
 //
 #define BE64_INSERT_BEGIN(accum, insert) \
         { accum = 0 ; insert = 0 ; }
