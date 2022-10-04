@@ -13,7 +13,7 @@
  * Library General Public License for more details.
  *
  */
-#if defined(IN_FORTRAN_CODE)
+#if defined(IN_FORTRAN_CODE) || defined(__GFORTRAN__)
 
 interface
 ! void SplitEvenOdd_8(void *pa, void *pe, void *po)
@@ -21,7 +21,7 @@ interface
     implicit none
 #define IgnoreTypeKindRank a, e, o
 #define ExtraAttributes
-#include <IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTypeKindRank.hf>
   end subroutine
 
 ! void SplitEvenOdd_16(void *pa, void *pe, void *po)
@@ -29,7 +29,7 @@ interface
     implicit none
 #define IgnoreTypeKindRank a, e, o
 #define ExtraAttributes
-#include <IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTypeKindRank.hf>
   end subroutine
 
 ! void SplitEvenOdd_32(void *pa, void *pe, void *po)
@@ -37,7 +37,7 @@ interface
     implicit none
 #define IgnoreTypeKindRank a, e, o
 #define ExtraAttributes
-#include <IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTypeKindRank.hf>
   end subroutine
 
 ! void SplitEvenOdd_64(void *pa, void *pe, void *po)
@@ -45,7 +45,7 @@ interface
     implicit none
 #define IgnoreTypeKindRank a, e, o
 #define ExtraAttributes
-#include <IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTypeKindRank.hf>
   end subroutine
 
 ! void SplitEvenOdd_n(void *pa, void *pe, void *po, int n)
@@ -53,7 +53,7 @@ interface
     implicit none
 #define IgnoreTypeKindRank a, e, o
 #define ExtraAttributes
-#include <IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTypeKindRank.hf>
   end subroutine
 
 ! void ShuffleEvenOdd_8(void *pa, void *pe, void *po)
@@ -61,7 +61,7 @@ interface
     implicit none
 #define IgnoreTypeKindRank a, e, o
 #define ExtraAttributes
-#include <IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTypeKindRank.hf>
   end subroutine
 
 ! void ShuffleEvenOdd_16(void *pa, void *pe, void *po)
@@ -69,7 +69,7 @@ interface
     implicit none
 #define IgnoreTypeKindRank a, e, o
 #define ExtraAttributes
-#include <IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTypeKindRank.hf>
   end subroutine
 
 ! void ShuffleEvenOdd_32(void *pa, void *pe, void *po)
@@ -77,7 +77,7 @@ interface
     implicit none
 #define IgnoreTypeKindRank a, e, o
 #define ExtraAttributes
-#include <IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTypeKindRank.hf>
   end subroutine
 
 ! void ShuffleEvenOdd_64(void *pa, void *pe, void *po)
@@ -85,7 +85,7 @@ interface
     implicit none
 #define IgnoreTypeKindRank a, e, o
 #define ExtraAttributes
-#include <IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTypeKindRank.hf>
   end subroutine
 
 ! void ShuffleEvenOdd_n(void *pa, void *pe, void *po, int n)
@@ -93,7 +93,7 @@ interface
     implicit none
 #define IgnoreTypeKindRank a, e, o
 #define ExtraAttributes
-#include <IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTypeKindRank.hf>
   end subroutine
 end interface
 

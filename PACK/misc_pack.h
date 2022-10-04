@@ -15,7 +15,7 @@
  * set of functions to handle insertion/extraction of 1-32 bit tokens into/from a stream of 32 bit unsigned integers
  * should a token be langer thatn 32 bits, it must be split into smaller tokens before insertion/extraction
  */
-#if defined(IN_FORTRAN_CODE)
+#if defined(IN_FORTRAN_CODE) || defined(__GFORTRAN__)
 
 type, bind(C) :: PackHeader
   integer(C_INT) :: offset = 0
@@ -61,7 +61,7 @@ interface float_info  ! generic interface for both missing and no missing cases
     implicit none
 #define IgnoreTypeKindRank zz
 #define ExtraAttributes 
-#include <IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTypeKindRank.hf>
     integer(C_INT), intent(IN), value :: ni, lni, nj
 !   real(C_FLOAT), dimension(lni,nj)), intent(IN) :: zz
     real(C_FLOAT), intent(OUT) :: maxval, minval, minabs
@@ -73,7 +73,7 @@ interface float_info  ! generic interface for both missing and no missing cases
     implicit none
 #define IgnoreTypeKindRank zz
 #define ExtraAttributes 
-#include <IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTypeKindRank.hf>
     integer(C_INT), intent(IN), value :: ni, lni, nj, spmask
 !   real(C_FLOAT), dimension(lni,nj), intent(IN) :: zz
     real(C_FLOAT), intent(OUT) :: maxval, minval, minabs, spval
