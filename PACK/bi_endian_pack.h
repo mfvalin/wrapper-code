@@ -73,8 +73,8 @@ typedef struct{
 #define BE64_PUT_NBITS(accum, insert, w32, nbits) \
         { BE64_INSERT_CHECK(accum, insert, stream) ; BE64_INSERT_NBITS(accum, insert, w32, nbits) ; }
 
-// NOTE : if w32 is a signed variable, the extract will produce a "signed" result
-//        if w32 is an unsigned variable, the extract will produce an "unsigned" result
+// NOTE : if w32 and accum are signed variables, the extract will produce a "signed" result
+//        if w32 and accum are unsigned variables, the extract will produce an "unsigned" result
 #define BE64_XTRACT_BEGIN(accum, xtract, stream) \
         { accum = 0 ; xtract = 0 ; }
 #define BE64_XTRACT_NBITS(accum, xtract, w32, nbits) \
