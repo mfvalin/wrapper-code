@@ -10,7 +10,7 @@ DEF =
 
 OBJECTS = lorenzo_f.o lorenzo_c.o cdf97.o cdf53.o idwt53.o analyze_8x8.o \
 	  average_by_2_4_8.o average_2x2.o smooth124.o bi_endian_pack.o \
-          misc_timers.o quantize.o float_info.o misc_swizzle.o misc_endian.o \
+          misc_timers.o misc_pack.o float_info.o misc_swizzle.o misc_endian.o \
           ieee_quantize.o misc_floats.o verify.o misc_operators.o
 
 .F90.o:
