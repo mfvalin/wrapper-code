@@ -21,12 +21,13 @@
 #include <stdint.h>
 
 // macros to insert into, extract from a stream of 32 bit elements
-// (Big Endian style, filling from the left, most significant end)
+// (32 bit Big Endian stream, filling from the bottom, least significant end)
+// extracting from the upper part (most significant end)
 
-// acc   : 64 bit integer accumulator (uint64_t)
+// acc   : 64 bit integer accumulator (uint64_t or int64_t)
 // sp    : pointer into uint32_t array (the packed stream)
 // count : numbre of available/free bits in accumulator
-// token : 32/64 bit unsigned integer (uint32_t/uint64_t) inserted into / extracted from stream
+// token : 32/64 bit (un)signed integer ((u)int32_t/(u)int64_t) inserted into / extracted from stream
 // nbits : token length (the token is ASSUMED to only have 1s in the rightmost nbits bits) in insert mode
 
 // =============================== token insertion ===============================
@@ -65,6 +66,7 @@
 #define PACK32_GET_INIT(sp,acc,count) { acc = *sp ; sp++ ; count = 32 ; acc <<= 32 ;}
 
 // UNCHECKED extraction
+// if acc and token are signed extraction is signed, if acc and token are unsigned extraction is unsigned
 #define PACK32_GET_FAST(acc,count,token,nbits) { token = (acc >> (64-nbits)) ; acc <<= (nbits) ; count -= (nbits) ; }
 
 // CHECK to make sure that at least 32 bits are available for extraction
