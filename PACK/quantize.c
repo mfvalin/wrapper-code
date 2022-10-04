@@ -1,12 +1,12 @@
 /* Hopefully useful routines for C and FORTRAN
  * Copyright (C) 2020  Recherche en Prevision Numerique
  *
- * This library is free software; you can redistribute it and/or
+ * This is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation,
  * version 2.1 of the License.
  *
- * This library is distributed in the hope that it will be useful,
+ * This software is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Library General Public License for more details.
@@ -23,12 +23,12 @@
 #include <misc_pack.h>
 
 // pre-quantizer, prepare the packing header that will be used by the next stages
-// p       : packing header to be initialized
-// nbits   : quantize using at most nbits bits (assumed to be <= 24)
-// maxval  : highest value in array  to be quantized
-// minval  : lowest value in array  to be quantized
-// quantum : if nonzero and positive, use inverse of quantum as the quantization factor
-//           nbits will be recomputed from maxval and minval
+// p       : packing header to be initialized                         [OUT]
+// nbits   : quantize using at most nbits bits (assumed to be <= 24)  [IN]
+// maxval  : highest value in array  to be quantized                  [IN]
+// minval  : lowest value in array  to be quantized                   [IN]
+// quantum : if nonzero and positive, use inverse of quantum as the quantization factor [IN]
+//           nbits will be recomputed internally from quantum if appropriate
 void float_quantize_prep(int nbits, QuantizeHeader *p, float maxval, float minval, float quantum) {
   FloatInt   m1, m2, m3;  // access as float or 32 bit int
   DoubleLong m0 ;         // access as double or 64 bit long
@@ -89,8 +89,15 @@ void float_quantize_prep(int nbits, QuantizeHeader *p, float maxval, float minva
   p->o = offset ;                            // truncated minimum value
 }
 
-// quantizer for 32 bit floats producing a stream of unsigned 32 bit integers
+// "linear" quantizer for 32 bit floats producing a stream of unsigned 32 bit integers
 // nbits is assumed to be <= 24 and taken from the packing header
+// iz      : quantized stream (32 bit elements)  [OUT]
+// z       : float array to be quantized         [IN]
+// ni      : number of useful points in rows     [IN]
+// lni     : storage size of rows in array z     [IN]
+// lniz    : storage size of rows in array iz    [IN]
+// nj      : number of rows in z and iz          [IN]
+// p       : packing header as initialized by float_quantize_prep  [IN]
 void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, QuantizeHeader *p ) {
   int i, j, it;
   int offset = p->o ;   // offset reflecting minimum value
@@ -143,6 +150,13 @@ void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, Quant
 
 // inverse quantizer for 32 bit floats producing a stream of unsigned 32 bit integers
 // nbits is taken from the packing header
+// iz      : quantized stream (32 bit elements)  [IN]
+// z       : float array to be quantized         [OUT]
+// ni      : number of useful points in rows     [IN]
+// lni     : storage size of rows in array z     [IN]
+// lniz    : storage size of rows in array iz    [IN]
+// nj      : number of rows in z and iz          [IN]
+// p       : packing header as initialized by float_quantize_prep     [IN]
 void float_unquantize(void *iz, float *z, int ni, int lni, int lniz, int nj, QuantizeHeader *p) {
   int i, j, t;
   unsigned int   *izw = (unsigned int   *) iz;
