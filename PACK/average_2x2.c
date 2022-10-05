@@ -65,6 +65,32 @@ static inline void average_2x2_16_I32(int32_t * restrict src1, int32_t * restric
   }
 }
 
+static inline void average_2x2_16_F32(float * restrict src1, float * restrict src2, float * restrict avg, int n){
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+  if(n == 8){
+    __m256 vs0, vs1, va1, va2, vb1, vb2, vk2 ;
+    vk2 = _mm256_set1_ps(.25f) ;
+    va1 = _mm256_loadu_ps(  src1   ) ;
+    va2 = _mm256_loadu_ps( (src1+8)) ;
+    vb1 = _mm256_loadu_ps(  src2   ) ;
+    vb2 = _mm256_loadu_ps( (src2+8)) ;
+    va1 = _mm256_add_ps(va1, vb1) ;             // add rows terms(0-7)
+    va2 = _mm256_add_ps(va2, vb2) ;             // add rows terma(8-15)
+    vs1 = _mm256_hadd_ps(va1, va2) ;            // add pairs of terms
+    vs1 = (__m256) _mm256_permute4x64_epi64((__m256i) vs1, 0b11011000) ;
+    vs0 = _mm256_mul_ps(vs0, vk2) ;            // divide by 4
+    _mm256_storeu_ps(avg, vs0) ;                // store result
+    return ;
+  }
+#endif
+  int i, ii ;
+  for(i=0, ii=0 ; ii<n ; ii++, i+=2){
+    avg[ii]  = src1[i] + src1[i+1] ;
+    avg[ii] += src2[i] + src2[i+1] ;
+    avg[ii] *= .25f ;
+  }
+}
+
 // 2x2 averaging of n points on 2 lines (averaging along line and across lines)
 // src1[n]      : first line
 // src2[n]      : second line
@@ -89,6 +115,25 @@ STATIC inline void average_2x2_I32(int32_t * restrict src1, int32_t * restrict s
   }
 }
 
+STATIC inline void average_2x2_F32(float * restrict src1, float * restrict src2, float * restrict avg, uint32_t n){
+  int i, ii ;
+  int n2 = n >> 1 ;                         // number of averaged pairs
+  int n1 = (n2 & 7) ? (n2 & 7) : 8 ;        // size of first chunk
+  int n8 = (n>16) ? 8 : n1 ;                // 8 if more than 16 points
+
+//   if(n1 <= 4) average_2x2_8_I32(src1, src2, avg, n) ;
+//   else        average_2x2_16_I32(src1, src2, avg, 8) ;
+  average_2x2_16_F32(src1, src2, avg, n8) ;          // first chunk
+
+  for(i=n1+n1, ii=n1 ; ii<n2 ; ii+=8, i+=16){        // 16x2 -> 8x1
+    average_2x2_16_F32(src1+i, src2+i, avg+ii, 8) ;  // next chunks (8 pairs)
+  }
+  if(n & 1) {    // odd number of points in lines, 2 points are averaged instead of 4
+    avg[ii]  = src1[i] + src2[i] ;
+    avg[ii] *= .5f ;
+  }
+}
+
 // average one row
 // src1[n]      : row to be averaged
 // avg[(n+1)/2] : result
@@ -98,6 +143,12 @@ STATIC inline void average_2x1_I32(int32_t * restrict src, int32_t * restrict av
   int i, ii ;
   int n2 = n>>1 ;
   average_2x2_I32(src, src, avg, n) ;
+}
+
+STATIC inline void average_2x1_F32(float * restrict src, float * restrict avg, uint32_t n){
+  int i, ii ;
+  int n2 = n>>1 ;
+  average_2x2_F32(src, src, avg, n) ;
 }
 
 // 2x2 averaging of a 2 dimensional array
@@ -116,6 +167,18 @@ void average_2x2_2D_I32(int32_t * restrict src, int32_t * restrict avg, uint32_t
     avg += ni2 ;
   }
   if(nj & 1) average_2x2_I32(src, src, avg, ni) ;
+}
+
+void average_2x2_2D_F32(float * restrict src, float * restrict avg, uint32_t ni, uint32_t lni, uint32_t nj){
+  int i, j ;
+  int ni2 = (ni+1)/2 ;
+  int lni2 = lni+lni ;
+  for(j=0 ; j<nj/2 ; j++){
+    average_2x2_F32(src, src+lni, avg, ni) ;
+    src += lni2 ;
+    avg += ni2 ;
+  }
+  if(nj & 1) average_2x2_F32(src, src, avg, ni) ;
 }
 
 // compute half resolution average and full resolution average error
