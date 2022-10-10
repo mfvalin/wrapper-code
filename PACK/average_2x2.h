@@ -14,13 +14,20 @@ Library General Public License for more details.
 #if ! defined(IN_FORTRAN_CODE) && ! defined(__GFORTRAN__)
 
 void average_2x1_I32(int32_t * restrict src,                           int32_t * restrict avg, uint32_t n) ;
+void average_2x1_F32(float   * restrict src,                           float   * restrict avg, uint32_t n) ;
 void average_2x2_I32(int32_t * restrict src1, int32_t * restrict src2, int32_t * restrict avg, uint32_t n) ;
+void average_2x2_F32(float   * restrict src1, float   * restrict src2, float   * restrict avg, uint32_t n) ;
 void average_2x2_2D_I32(int32_t * restrict src, int32_t * restrict avg, uint32_t ni, uint32_t lni, uint32_t nj) ;
+void average_2x2_2D_F32(float   * restrict src, float   * restrict avg, uint32_t ni, uint32_t lni, uint32_t nj) ;
+
 void avgres_2x2_2D_I32(int32_t * restrict src, int32_t * restrict avg, int32_t * restrict res, int ni, int lni, int nj) ;
 
-void expand_2x1_row_along_i(int32_t * restrict dst, int32_t * restrict avg, int n) ;
-void expand_2x2_2_rows(int32_t * restrict row0, int32_t * restrict row1, int32_t * src0, int32_t * src1, int n) ;
+void expand_2x1_row_along_x_I32(int32_t * restrict dst, int32_t * restrict avg, int n) ;
+void expand_2x1_row_along_x_F32(float   * restrict dst, float   * restrict avg, int n) ;
+void expand_2x2_2_rows_I32(int32_t * restrict row0, int32_t * restrict row1, int32_t * src0, int32_t * src1, int n) ;
+void expand_2x2_2_rows_F32(float   * restrict row0, float   * restrict row1, float   * src0, float   * src1, int n) ;
 void expand_2x2_2D_I32(int32_t * restrict dst, int32_t * restrict avg, uint32_t ni, uint32_t lni, uint32_t nj) ;
+void expand_2x2_2D_F32(float   * restrict dst, float   * restrict avg, uint32_t ni, uint32_t lni, uint32_t nj) ;
 
 #else
   interface
