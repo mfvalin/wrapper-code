@@ -62,7 +62,7 @@ end interface
   } \
   tmin = mint ; tmax = maxt ; tavg = avgt/iter ; \
   if(npts > 0 && buf != NULL) \
-    snprintf(buf, (size_t)bufsiz, " npts = %d, niter = %d,  ns= %6.0f (%6.0f), %6.2f ns/pt\n", \
+    snprintf(buf, (size_t)bufsiz, " npts = %d, niter = %d,  ns= %6.0f (%6.0f), %6.2f ns/pt", \
              npts, iter, tmin*nano, tavg*nano, tavg*nano/npts) ; \
 }
 
