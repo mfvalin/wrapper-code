@@ -94,6 +94,20 @@ STATIC inline void BitPop(int32_t *what, uint32_t *pop, int n){
   }
 }
 
+// nearest integer, .5 goes up, -.5 goes down
+STATIC inline int Nint(float what){
+  union{
+    float f;
+    int i;
+  } a, b ;
+  int i ;
+  a.f = .5 ;
+  b.f = what ;
+  a.i = a.i | (b.i & 0x80000000) ;  // transfer sign of what to .5
+  i = a.f + b.f ;                   // C conversion
+  return i ;
+}
+
 #endif
 
 #else
