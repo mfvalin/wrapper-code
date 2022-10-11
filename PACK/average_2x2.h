@@ -38,6 +38,13 @@ void expand_2x2_2D_F32(float   * restrict dst, float   * restrict avg, uint32_t 
       integer(C_INT32_T), dimension(lni,nj), intent(IN) :: src
       integer(C_INT32_T), dimension(ni,nj), intent(OUT) :: avg
     end subroutine average_2x2_2D_I32
+    subroutine average_2x2_2D_F32(src, avg, ni, lni, nj) bind(C,name='average_2x2_2D_F32')
+      import :: C_INT32_T, C_FLOAT
+      implicit none
+      integer(C_INT32_T), intent(IN), value :: ni, lni, nj
+      real(C_FLOAT), dimension(lni,nj), intent(IN) :: src
+      real(C_FLOAT), dimension(ni,nj), intent(OUT) :: avg
+    end subroutine average_2x2_2D_F32
     subroutine avgres_2x2_2D_I32(src, avg, res, ni, lni, nj) bind(C,name='avgres_2x2_2D_I32')
       import :: C_INT32_T
       implicit none
@@ -46,6 +53,14 @@ void expand_2x2_2D_F32(float   * restrict dst, float   * restrict avg, uint32_t 
       integer(C_INT32_T), dimension((ni+1)/2,(nj+1)/2), intent(OUT) :: avg
       integer(C_INT32_T), dimension(lni,nj), intent(OUT) :: res
     end subroutine avgres_2x2_2D_I32
+    subroutine avgres_2x2_2D_F32(src, avg, res, ni, lni, nj) bind(C,name='avgres_2x2_2D_F32')
+      import :: C_INT32_T, C_FLOAT
+      implicit none
+      integer(C_INT32_T), intent(IN), value :: ni, lni, nj
+      real(C_FLOAT), dimension(lni,nj), intent(IN) :: src
+      real(C_FLOAT), dimension((ni+1)/2,(nj+1)/2), intent(OUT) :: avg
+      real(C_FLOAT), dimension(lni,nj), intent(OUT) :: res
+    end subroutine avgres_2x2_2D_F32
     subroutine expand_2x2_2D_I32(dst, avg, ni, lni, nj) bind(C,name='expand_2x2_2D_I32')
       import :: C_INT32_T
       implicit none
@@ -53,5 +68,12 @@ void expand_2x2_2D_F32(float   * restrict dst, float   * restrict avg, uint32_t 
       integer(C_INT32_T), dimension(lni,nj), intent(OUT) :: dst
       integer(C_INT32_T), dimension(ni,nj), intent(IN) :: avg
     end subroutine expand_2x2_2D_I32
+    subroutine expand_2x2_2D_F32(dst, avg, ni, lni, nj) bind(C,name='expand_2x2_2D_F32')
+      import :: C_INT32_T, C_FLOAT
+      implicit none
+      integer(C_INT32_T), intent(IN), value :: ni, lni, nj
+      real(C_FLOAT), dimension(lni,nj), intent(OUT) :: dst
+      real(C_FLOAT), dimension(ni,nj), intent(IN) :: avg
+    end subroutine expand_2x2_2D_F32
   end interface
 #endif
