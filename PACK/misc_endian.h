@@ -46,6 +46,7 @@ void Swap_32_in_64(void *s, void *d, int n);  // words in doublewords
 // STATIC may be defined as extern, to generate real entry points
 #if ! defined(STATIC)
 #define STATIC static
+#define STATIC_DEFINED_HERE
 #endif
 
 #if defined(__AVX2__) && defined(WITH_SIMD)
@@ -428,6 +429,11 @@ STATIC void Swap_32_in_64(void *s, void *d, int n){
 }
 
 // PROTOTYPES_ONLY
+#endif
+
+#if defined(STATIC_DEFINED_HERE)
+#undef STATIC
+#undef STATIC_DEFINED_HERE
 #endif
 
 // FAST_ENDIAN
