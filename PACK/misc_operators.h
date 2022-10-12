@@ -15,10 +15,12 @@ Library General Public License for more details.
 #if ! defined(IN_FORTRAN_CODE) && ! defined(__GFORTRAN__)
 
 #if ! defined(MISC_OPERATORS)
+
 #include <stdint.h>
 
 #if ! defined(STATIC)
 #define STATIC static
+#define STATIC_DEFINED_HERE
 #endif
 
 #define MISC_OPERATORS
@@ -94,7 +96,7 @@ STATIC inline void BitPop(int32_t *what, uint32_t *pop, int n){
   }
 }
 
-// nearest integer, .5 goes up, -.5 goes down
+// nearest integer, .5 goes toward +infinity, -.5 goes toward -infinity
 STATIC inline int Nint(float what){
   union{
     float f;
@@ -107,6 +109,11 @@ STATIC inline int Nint(float what){
   i = a.f + b.f ;                   // C conversion
   return i ;
 }
+
+#if defined(STATIC_DEFINED_HERE)
+#undef STATIC
+#undef STATIC_DEFINED_HERE
+#endif
 
 #endif
 
