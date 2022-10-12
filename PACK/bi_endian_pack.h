@@ -16,8 +16,11 @@
 //
 #include <stdint.h>
 
+#if ! defined(MAKE_SIGNED_32)
+
 #if ! defined(STATIC)
 #define STATIC static
+#define STATIC_DEFINED_HERE
 #endif
 
 typedef struct{
@@ -133,3 +136,10 @@ STATIC inline void  BeStreamReset(bitstream *p, uint32_t *buffer){
   p->stream = buffer ;
   p->start  = buffer ;
 }
+
+#if defined(STATIC_DEFINED_HERE)
+#undef STATIC
+#undef STATIC_DEFINED_HERE
+#endif
+
+#endif

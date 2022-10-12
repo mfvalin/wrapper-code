@@ -112,6 +112,7 @@ static int b_const = 0b01010101 ;
 
 #if ! defined(STATIC)
 #define STATIC static
+#define STATIC_DEFINED_HERE
 #endif
 
 static int index[8] = {0, 2, 4, 6, 1, 3, 5, 7 } ;
@@ -343,5 +344,10 @@ STATIC inline void ShuffleEvenOdd_n(void *pa, void *pe, void *po, int n){
   }
   if(n&1) a[i] = e[j] ;   // odd number of values, one extra even value
 }
+
+#if defined(STATIC_DEFINED_HERE)
+#undef STATIC
+#undef STATIC_DEFINED_HERE
+#endif
 
 #endif
