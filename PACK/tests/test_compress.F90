@@ -1,9 +1,195 @@
+#define IN_FORTRAN_CODE
+
 module globalstats
   implicit none
   integer, dimension(-1:4), save :: biases, nbiases
 end module globalstats
 
 #define NSCORES 16
+
+subroutine smooth124(s, d, ni, nj)
+  use ISO_C_BINDING
+  implicit none
+  integer, intent(IN) :: ni, nj
+  real, dimension(ni,nj), intent(IN)  :: s
+  real, dimension(ni,nj), intent(OUT)  :: d
+#define IN_FORTRAN_CODE
+#include <smooth124.h>
+  call Fsmooth_124_2D(s, d, ni, ni, ni, nj)
+  d = s - d
+end subroutine smooth124
+
+subroutine avg2f(p, q, r, r2, ni, nj)
+  use ISO_C_BINDING
+  implicit none
+#define IN_FORTRAN_CODE
+#include <average_2x2.h>
+  integer, intent(IN) :: ni, nj
+  real, dimension(ni,nj), intent(IN)  :: p
+  real, dimension(ni,nj), intent(OUT)  :: r, r2
+  real, dimension((ni+1)/2,(nj+1)/2), intent(OUT)  :: q
+  call average_2x2_2D_F32(p, q, ni, ni, nj)
+  call expand_2x2_2D_F32(r, q, ni, ni, nj)
+  r2 = r - p
+end subroutine avg2f
+
+subroutine avg2(p, q, r, r2, ni, nj)
+  use ISO_C_BINDING
+  implicit none
+#define IN_FORTRAN_CODE
+#include <average_2x2.h>
+  integer, intent(IN) :: ni, nj
+  real, dimension(ni,nj), intent(IN)  :: p
+  real, dimension(ni,nj), intent(OUT)  :: r, r2
+  real, dimension((ni+1)/2,(nj+1)/2), intent(OUT)  :: q
+  integer(C_INT32_t), dimension(ni,nj) :: ip
+  integer(C_INT32_t), dimension(ni,nj) :: ir, ir2
+  integer(C_INT32_t), dimension((ni+1)/2,(nj+1)/2) :: iq
+!   call quant16i(p, ip, ni, nj)
+  call quant12i(p, ip, ni, nj)
+  call avgres_2x2_2D_I32(ip, iq, ir2, ni, ni, nj)
+  call average_2x2_2D_I32(ip, iq, ni, ni, nj)
+  call expand_2x2_2D_I32(ir, iq, ni, ni, nj)
+  ir = ip - ir  ! residual after restore
+  call population(iq, ((ni+1)/2)*((nj+1)/2), 'avg   2x2 apres')
+  call population(ir, ni*nj, 'res   2x2 apres')
+  call population(ir2, ni*nj, 'avres 2x2 apres')
+  q = iq
+  r = ir
+  r2 = ir2
+end subroutine avg2
+
+subroutine quant12(p, q, ni, nj)
+  use ISO_C_BINDING
+  implicit none
+  integer, intent(IN) :: ni, nj
+  real, dimension(ni,nj), intent(IN)  :: p
+  real, dimension(ni,nj), intent(OUT) :: q
+  integer(C_INT32_t), dimension(ni,nj) :: iq
+  real :: pmax, pmin, fac
+  pmax = maxval(p)
+  pmin = minval(p)
+  fac = 1.0 / (pmax-pmin)
+  iq = (p - pmin) * fac * 4095 + .5
+  q = iq
+print *,'QUANT12, quantum =',(pmax-pmin)/4095.0
+end subroutine quant12
+
+subroutine quant16(p, q, ni, nj)
+  use ISO_C_BINDING
+  implicit none
+  integer, intent(IN) :: ni, nj
+  real, dimension(ni,nj), intent(IN)  :: p
+  real, dimension(ni,nj), intent(OUT) :: q
+  integer(C_INT32_t), dimension(ni,nj) :: iq
+  real :: pmax, pmin, fac
+  pmax = maxval(p)
+  pmin = minval(p)
+  fac = 1.0 / (pmax-pmin)
+  iq = (p - pmin) * fac * 65535 + .5
+  q = iq
+print *,'QUANT16, quantum =',(pmax-pmin)/65535.0
+end subroutine quant16
+
+subroutine quant12i(p, q, ni, nj)
+  use ISO_C_BINDING
+  implicit none
+  integer, intent(IN) :: ni, nj
+  real, dimension(ni,nj), intent(IN)  :: p
+  integer, dimension(ni,nj), intent(OUT) :: q
+  real :: pmax, pmin, fac
+  pmax = maxval(p)
+  pmin = minval(p)
+  fac = 1.0 / (pmax-pmin)
+  q = (p - pmin) * fac * 4095 + .5
+end subroutine quant12i
+
+subroutine quant16i(p, q, ni, nj)
+  use ISO_C_BINDING
+  implicit none
+  integer, intent(IN) :: ni, nj
+  real, dimension(ni,nj), intent(IN)  :: p
+  integer, dimension(ni,nj), intent(OUT) :: q
+  real :: pmax, pmin, fac
+  pmax = maxval(p)
+  pmin = minval(p)
+  fac = 1.0 / (pmax-pmin)
+  q = (p - pmin) * fac * 65535 + .5
+end subroutine quant16i
+
+subroutine tile(q, ni, nj, step)
+  use ISO_C_BINDING
+  implicit none
+  integer, dimension(ni,nj), intent(INOUT) :: q
+  integer(C_INT32_t), intent(IN) :: ni, nj, step
+  integer :: i0, j0, mini, maxi
+  do j0 = 1, nj-step, step
+  do i0 = 1, ni-step, step
+    mini = minval(q(i0:i0+step-1,j0:j0+step-1))
+    maxi = maxval(q(i0:i0+step-1,j0:j0+step-1))
+    q(i0:i0+step-1,j0:j0+step-1) = maxi - mini
+!     if(mini >= 0) q(i0:i0+step-1,j0:j0+step-1) = maxi
+!     if(maxi <  0) q(i0:i0+step-1,j0:j0+step-1) = mini
+  enddo
+  enddo
+end subroutine tile
+
+subroutine population(p, n, msg)
+  use ISO_C_BINDING
+  implicit none
+#include <misc_operators.h>
+  integer(C_INT32_t), intent(IN), dimension(n) :: p
+  integer(C_INT32_t), intent(IN) :: n
+  character(len=*) :: msg
+  integer(C_INT32_t), dimension(34) :: pop
+  integer :: i
+  pop = 0
+  call BitPop(p, pop, n)
+  print 1, trim(msg), pop(1:21),BitEntropy(p,n,18,0)
+  do i=2,34
+    pop(i) = pop(i) + pop(i-1)
+  enddo
+  print 1, 'cumul',pop(1:20),pop(34)
+1 format(A15,21I8,2X,F6.2)
+end subroutine population
+
+subroutine wavelet(p, q, ni, nj)
+  use ISO_C_BINDING
+  implicit none
+  integer, intent(IN) :: ni, nj
+  real, dimension(ni,nj), intent(IN)  :: p
+  real, dimension(ni,nj), intent(OUT) :: q
+#include <misc_operators.h>
+  interface
+    subroutine FDWT53i_2D_split_inplace_n(x, ni, lni, nj, levels) bind(C, name='FDWT53i_2D_split_inplace_n')
+      import :: C_INT32_T
+      implicit none
+      integer(C_INT32_t), intent(IN), value :: ni, lni, nj, levels
+      integer(C_INT32_t), dimension(lni,nj), intent(INOUT) :: x
+    end subroutine FDWT53i_2D_split_inplace_n
+  end interface
+  integer(C_INT32_t), dimension(ni,nj) :: iq
+  integer(C_INT32_t), dimension(34) :: pop
+  real :: pmax, pmin, fac
+  integer :: nz, i, j
+  call quant16i(p, iq, ni, nj)
+  pmax = maxval(p)
+  pmin = minval(p)
+  call population(iq, ni*nj, 'wavelet avant')
+!   print *,'entropy =',BitEntropy(iq, ni*nj, 16, 0)
+  call FDWT53i_2D_split_inplace_n(iq, ni, ni, nj, 3)
+  q = iq
+  call population(iq, ni*nj, 'wavelet apres')
+  call population(iq(1     :ni/2 ,1     :nj/2), ni*nj/4, 'wavelet corner')
+  call population(iq(ni/2+1:ni   ,1     :nj/2), ni*nj/4, 'wavelet corner')
+  call population(iq(1     :ni/2 ,nj/2+1:nj  ), ni*nj/4, 'wavelet corner')
+  call population(iq(ni/2+1:ni   ,nj/2+1:nj  ), ni*nj/4, 'wavelet corner')
+  call tile(iq, ni, nj, 4)
+  call population(iq, ni*nj, 'wavelet tiled')
+!   iq(1:(ni+7)/8 , 1:(nj+7)/8) = 0
+!   call population(iq, ni*nj, 'wavelet q0')
+!   q = iq
+end subroutine wavelet
 
 subroutine bilorentz(p, q, ni, nj) ! 2 level Lorenzo predictor
   implicit none
@@ -31,23 +217,72 @@ subroutine bilorentz(p, q, ni, nj) ! 2 level Lorenzo predictor
   q(1,1) = 0
 end
 
-subroutine lorenzo(p, q, ni, nj) ! Lorenzo predictor
+subroutine lorenzo12(p, q, ni, nj) ! Lorenzo predictor
+  use ISO_C_BINDING
   implicit none
   integer, intent(IN) :: ni, nj
   real, dimension(ni,nj), intent(IN)  :: p
   real, dimension(ni,nj), intent(OUT) :: q
   integer :: i, j
+  integer(C_INT32_t), dimension(34) :: pop
+  integer(C_INT32_t), dimension(ni,nj) :: iq
+#include <misc_operators.h>
+  call quant12i(p, iq, ni, nj)
+  call population(iq, ni*nj, 'lorenzo12 avant')
+!   print *,'entropy =',BitEntropy(iq, ni*nj, 16, 0)
   do j = nj, 2, -1
     do i = ni, 2, -1
-      q(i,j) = p(i,j) - (p(i-1,j) + p(i,j-1) - p(i-1,j-1))
+      q(i,j) = iq(i,j) - (iq(i-1,j) + iq(i,j-1) - iq(i-1,j-1))
     enddo
-    q(1,j) = p(1,j) - p(1,j-1)
+    q(1,j) = iq(1,j) - iq(1,j-1)
   enddo
   do i = ni, 2, -1                   ! row 1
-    q(i,1) = p(i,1) - p(i-1,1)
+    q(i,1) = iq(i,1) - iq(i-1,1)
   enddo
-  q(1,1) = p(1,1)
-  q(1,1) = 0
+  q(1,1) = iq(1,1)
+  iq = q
+  call population(iq, ni*nj, 'lorenzo12 apres')
+!   call population(iq(1     :ni/2 ,1     :nj/2), ni*nj/4, 'lorenzo corner')
+!   call population(iq(ni/2+1:ni   ,1     :nj/2), ni*nj/4, 'lorenzo corner')
+!   call population(iq(1     :ni/2 ,nj/2+1:nj  ), ni*nj/4, 'lorenzo corner')
+!   call population(iq(ni/2+1:ni   ,nj/2+1:nj  ), ni*nj/4, 'lorenzo corner')
+!   print *,'entropy =',BitEntropy(iq, ni*nj, 16, 0)
+  call tile(iq, ni, nj, 4)
+  call population(iq, ni*nj, 'lorenzo12 tiled')
+end
+
+subroutine lorenzo(p, q, ni, nj) ! Lorenzo predictor
+  use ISO_C_BINDING
+  implicit none
+  integer, intent(IN) :: ni, nj
+  real, dimension(ni,nj), intent(IN)  :: p
+  real, dimension(ni,nj), intent(OUT) :: q
+  integer :: i, j
+  integer(C_INT32_t), dimension(34) :: pop
+  integer(C_INT32_t), dimension(ni,nj) :: iq
+#include <misc_operators.h>
+  call quant16i(p, iq, ni, nj)
+  call population(iq, ni*nj, 'lorenzo avant')
+!   print *,'entropy =',BitEntropy(iq, ni*nj, 16, 0)
+  do j = nj, 2, -1
+    do i = ni, 2, -1
+      q(i,j) = iq(i,j) - (iq(i-1,j) + iq(i,j-1) - iq(i-1,j-1))
+    enddo
+    q(1,j) = iq(1,j) - iq(1,j-1)
+  enddo
+  do i = ni, 2, -1                   ! row 1
+    q(i,1) = iq(i,1) - iq(i-1,1)
+  enddo
+  q(1,1) = iq(1,1)
+  iq = q
+  call population(iq, ni*nj, 'lorenzo apres')
+!   call population(iq(1     :ni/2 ,1     :nj/2), ni*nj/4, 'lorenzo corner')
+!   call population(iq(ni/2+1:ni   ,1     :nj/2), ni*nj/4, 'lorenzo corner')
+!   call population(iq(1     :ni/2 ,nj/2+1:nj  ), ni*nj/4, 'lorenzo corner')
+!   call population(iq(ni/2+1:ni   ,nj/2+1:nj  ), ni*nj/4, 'lorenzo corner')
+!   print *,'entropy =',BitEntropy(iq, ni*nj, 16, 0)
+  call tile(iq, ni, nj, 4)
+  call population(iq, ni*nj, 'lorenzo tiled')
 end
 
 subroutine my_slope32(q, ni, nj)  ! replace values with 32x32 local average + x-y slope correction
@@ -163,6 +398,8 @@ program test_compress
   real, dimension(:,:), pointer :: y=>NULL()
   real, dimension(:), pointer :: p=>NULL()
   real, dimension(:), pointer :: q=>NULL()
+  real, dimension(:), pointer :: r=>NULL()
+  real, dimension(:), pointer :: r2=>NULL()
   integer :: sizep
   integer, dimension(:,:), pointer :: iz=>NULL()
   character (len=128) :: filename, varname, str_ip
@@ -219,9 +456,13 @@ program test_compress
       if(ni*nj*nk > sizep) then
         if(associated(p)) deallocate(p)
         if(associated(q)) deallocate(q)
+        if(associated(r)) deallocate(r)
+        if(associated(r2)) deallocate(r2)
         sizep = ni*nj*nk
         allocate(p(sizep))
         allocate(q(sizep))
+        allocate(r(sizep))
+        allocate(r2(sizep))
       endif
       call fstprm(key,date,deet,npas,ni,nj,nk,nbits,datyp,ip1,ip2,ip3,  &
                   typvar,nomvar,etiket,grtyp,ig1,ig2,ig3,ig4, &
@@ -270,14 +511,42 @@ program test_compress
         call my_slope32(q, ni, nj)
         call fstecr(p-q, q, -32, iunout, date,deet,npas,ni,nj,nk,ip1,ip2,ip3,  &
                     typvar,nomvar,'SLOPE32',grtyp,ig1,ig2,ig3,ig4, 5, .false. )
+        call lorenzo12(p, q, ni, nj)
+        q(1) = 0.0
+        call fstecr(q, q, -32, iunout, date,deet,npas,ni,nj,nk,ip1,ip2,ip3,  &
+                    typvar,nomvar,'LORENZO12',grtyp,ig1,ig2,ig3,ig4, 5, .false. )
         call lorenzo(p, q, ni, nj)
         q(1) = 0.0
         call fstecr(q, q, -32, iunout, date,deet,npas,ni,nj,nk,ip1,ip2,ip3,  &
                     typvar,nomvar,'LORENZO',grtyp,ig1,ig2,ig3,ig4, 5, .false. )
+        call smooth124(p, r2, ni, nj)
+        call fstecr(r2, r2, -32, iunout, date,deet,npas,ni,nj,nk,ip1,ip2,ip3,  &
+                    typvar,nomvar,'SMOOTH124',grtyp,ig1,ig2,ig3,ig4, 5, .false. )
         call bilorentz(p, q, ni, nj)
         q(1) = 0.0
         call fstecr(q, q, -32, iunout, date,deet,npas,ni,nj,nk,ip1,ip2,ip3,  &
                     typvar,nomvar,'BILORENTZ',grtyp,ig1,ig2,ig3,ig4, 5, .false. )
+        call wavelet(p, q, ni, nj)
+        call fstecr(q, q, -32, iunout, date,deet,npas,ni,nj,nk,ip1,ip2,ip3,  &
+                    typvar,nomvar,'WAVELET',grtyp,ig1,ig2,ig3,ig4, 5, .false. )
+        call quant12(p, q, ni, nj)
+        call fstecr(q, q, -32, iunout, date,deet,npas,ni,nj,nk,ip1,ip2,ip3,  &
+                    typvar,nomvar,'QUANT12',grtyp,ig1,ig2,ig3,ig4, 5, .false. )
+        call quant16(p, q, ni, nj)
+        call fstecr(q, q, -32, iunout, date,deet,npas,ni,nj,nk,ip1,ip2,ip3,  &
+                    typvar,nomvar,'QUANT16',grtyp,ig1,ig2,ig3,ig4, 5, .false. )
+        call avg2(p, q, r, r2, ni, nj)
+        call fstecr(q, q, -32, iunout, date,deet,npas,ni/2,nj/2,nk,ip1,ip2,ip3,  &
+                    typvar,nomvar,'AVG2x2','X',0,0,0,0, 5, .false. )
+        call fstecr(r, r, -32, iunout, date,deet,npas,ni,nj,nk,ip1,ip2,ip3,  &
+                    typvar,nomvar,'RES2X2',grtyp,ig1,ig2,ig3,ig4, 5, .false. )
+        call fstecr(r2, r2, -32, iunout, date,deet,npas,ni,nj,nk,ip1,ip2,ip3,  &
+                    typvar,nomvar,'AVGRES',grtyp,ig1,ig2,ig3,ig4, 5, .false. )
+        call avg2f(p, q, r, r2, ni, nj)
+        call fstecr(q, q, -32, iunout, date,deet,npas,ni/2,nj/2,nk,ip1,ip2,ip3,  &
+                    typvar,nomvar,'AVG2x2F','X',0,0,0,0, 5, .false. )
+        call fstecr(r2, r2, -32, iunout, date,deet,npas,ni,nj,nk,ip1,ip2,ip3,  &
+                    typvar,nomvar,'AVGRESF',grtyp,ig1,ig2,ig3,ig4, 5, .false. )
         z(1:ni,1:nj) => p(1:ni*nj)
         y(1:ni,1:nj) => q(1:ni*nj)
 !         y(1:ni,1:nj) => q(1:ni*nj)
