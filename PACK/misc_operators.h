@@ -92,11 +92,11 @@ STATIC inline void BitPop(int32_t *what, uint32_t *pop, int n){
   for(i=0 ; i<n ; i++) {
     int nbits = BitsNeeded(what[i]) ;  // number of bits needed for this signed integer
     pop[nbits]++ ;                     // bump count for this number of bits
-//     pop[0]++ ;
   }
 }
 
 // nearest integer, .5 goes toward +infinity, -.5 goes toward -infinity
+// should be equivalent to Fortran NINT intrinsic
 STATIC inline int Nint(float what){
   union{
     float f;
