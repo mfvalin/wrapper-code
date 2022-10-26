@@ -21,6 +21,9 @@
 #include <misc_types.h>
 #include <misc_operators.h>
 #include <misc_pack.h>
+#if ! defined(__INTEL_COMPILER_UPDATE)
+#pragma GCC optimize "tree-vectorize"
+#endif
 
 // pre-quantizer, prepare the packing header that will be used by the next stages
 // p       : packing header to be initialized                         [OUT]
@@ -46,7 +49,7 @@ void float_quantize_prep(int nbits, QuantizeHeader *p, float maxval, float minva
     m1.i &= (~0x7FFFFF) ;                    // first power of 2 <= quantum
     irange = (range / m1.f) ;
     NEEDBITS( irange, neededbits) ;
-// printf("new nbits = %d, quantum = %g (%8.8x) -> %g (%8.8x)\n", neededbits, quantum, m2.i, m1.f, m1.i) ;
+// printf("new nbits = %d, quantum = %g (%8.8x) -> %g (%8.8x), range = %g\n", neededbits, quantum, m2.i, m1.f, m1.i, range) ;
     nbits = neededbits ;
   }
 
@@ -103,6 +106,7 @@ void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, Quant
   int offset = p->o ;   // offset reflecting minimum value
   int expmax = p->e ;   // largest exponent in original float values (bias removed)
   int round = 0 ;
+  int roundp, roundm ;
   int *izw = (int   *) iz;
   int nbits = p->nbits ;
 
@@ -110,8 +114,9 @@ void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, Quant
   if(nbits > 24 ) nbits = 24 ;           // no more than 24 bits will be kept
   if(nbits < 24)                         // no rounding if nbits = 24
     round = 1 << (23 - nbits);           // rounding for quantized value
-  round = round - offset;                // combine round and offset
-  if(ni == lni && ni == lniz) {          // can we fuse loops
+  roundp = round - offset ;              // rounding for positive values combined with offset
+  roundm = (nbits < 24) ? roundp - 1 : roundp ;   // rounding for negative values combined with offset
+  if(ni == lni && ni == lniz) {          // can we fuse loops ?
     ni = ni * nj ;
     nj = 1 ;
   }
@@ -123,8 +128,18 @@ void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, Quant
     fac32 = m1.f ;
     for(j=0 ; j<nj ; j++){
       for (i=0 ; i<ni ; i++){
+        // vz = _mm256_loadu_ps(z)             // load z[i:i+7]
+        // t  = _mm256_mul_ps(vz , V(fac32))   // * fac32
+        // it = _mm356_cvtps_epi32(t)          // convert to integer
         it = z[i] * fac32;                 // "normalize" to largest exponent
+        // t  = _mm256_cmpgt_epi21(vz, V(0))   // where vz > 0 use roundp, else use roundm
+        // r  = _mm256_blendv_epi8(roundm, roundp, t)
+        round = (z[i] < 0) ? roundm : roundp ;   // different adjustment for positive and negative values
+        // it = _mm256_add_epi32(it, r)        // add adjustment term and shift
+        // it = _mm256_srlv_epi32(it, V(24-nbits))
         it = (it + round) >> (24-nbits);   // remove offset, add rounding term
+        // it = _mm256_max_epi32(it, V(0))     // make sure result is >= 0
+        // _mm256_storeu_si256(izw, it)        // store izw[i:i+7]
         izw[i] = (it < 0) ? 0 : it ;       // quantized result MUST be >= 0
       }
       z += lni ;
@@ -139,6 +154,7 @@ void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, Quant
     for(j=0 ; j<nj ; j++){
       for (i=0 ; i<ni ; i++){
         it = z[i] * fac64;                 // "normalize" to largest exponent
+        round = (z[i] < 0) ? roundm : roundp ;   // different adjustment for positive and negative values
         it = (it + round) >> (24-nbits);   // remove offset, add rounding term
         izw[i] = (it < 0) ? 0 : it ;       // quantized result MUST be >= 0
       }
