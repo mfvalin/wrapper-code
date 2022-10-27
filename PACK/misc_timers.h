@@ -46,6 +46,12 @@ end interface
 
 static double NaNoSeC = 0.0 ;
 
+#define TIME_LOOP_DATA \
+  uint64_t timer_min, timer_max ; \
+  double timer_avg ; \
+  char timer_msg[1024] ; \
+  size_t timer_msg_size = sizeof(timer_msg) ;
+
 // niter is expected to be an integer scalar variable
 //
 // TIME_LOOP_TOP : timing loop top part
@@ -63,56 +69,61 @@ static double NaNoSeC = 0.0 ;
   to = elapsed_cycles() ; t = elapsed_cycles() ; to = t - to ; to = to - (to >> 3) ;
 //
 // code to be timed in a loop goes between TIME_LOOP_TOP and TIME_LOOP_BOT
-// tmin, tmax, tavg can be floats or doubles (scalar variables)
+// timer_min, timer_max should be uint64_t
+// timer_avg can be float or double (scalar variable)
 //
 // TIME_LOOP_BOT : timing loop bottom part
-// tmin  : best timing in cycles
-// tmax  : worst timing in cycles
-// tavg  : average timing in cycles
-// npts  : number of points processed
-// buf   : buffer to receive diagnostic text
-// bufsiz: size of buf
+// timer_min  : best timing in cycles
+// timer_max  : worst timing in cycles
+// timer_avg  : average timing in cycles
+// npts       : number of points processed
+// timer_msg  : buffer to receive diagnostic text
+// timer_msg_size: size of timer_msg
 //
-// TIME_ONCE_BOT does not need tmin, tmax, tavg
-#define TIME_LOOP_BOT(tmin, tmax, tavg, npts, buf, bufsiz) \
+// TIME_ONCE_BOT does not need timer_min, timer_max, timer_avg
+#define TIME_LOOP_BOT(timer_min, timer_max, timer_avg, npts, timer_msg, timer_msg_size) \
     t = elapsed_cycles() -t -to ; \
     avgt += t ; mint = (t < mint) ? t : mint ; maxt = (t > maxt) ? t : maxt ; \
   } \
-  tmin = mint ; tmax = maxt ; tavg = avgt/iter ; \
-  if(npts > 0 && buf != NULL) \
-    snprintf(buf, (size_t)bufsiz, " npts = %d, niter = %d, ns = %6.0f (%6.0f), %6.2f ns/pt", \
-             npts, iter, tmin*NaNoSeC, tavg*NaNoSeC, tavg*NaNoSeC/npts) ; \
+  timer_min = mint ; timer_max = maxt ; timer_avg = avgt/iter ; \
+  if(npts > 0 && timer_msg != NULL) \
+    snprintf(timer_msg, (size_t)timer_msg_size, " npts = %d, niter = %d, ns = %6.0f (%6.0f), %6.2f ns/pt", \
+             npts, iter, timer_min*NaNoSeC, timer_avg*NaNoSeC, timer_avg*NaNoSeC/npts) ; \
 }
-#define TIME_ONCE_BOT(npts, buf, bufsiz) \
+#define TIME_LOOP_BOT_EZ(npts) TIME_LOOP_BOT(timer_min, timer_max, timer_avg, npts, timer_msg, timer_msg_size)
+#define TIME_ONCE_BOT(npts, timer_msg, timer_msg_size) \
     t = elapsed_cycles() -t -to ; \
-    if(npts > 0 && buf != NULL) \
-    snprintf(buf, (size_t)bufsiz, " npts = %d, ns = %6.0f, %6.2f ns/pt", \
+    if(npts > 0 && timer_msg != NULL) \
+    snprintf(timer_msg, (size_t)timer_msg_size, " npts = %d, ns = %6.0f, %6.2f ns/pt", \
              npts, t*NaNoSeC, t*NaNoSeC/npts) ; \
 }
+#define TIME_ONCE_BOT_EZ(npts) TIME_ONCE_BOT(npts, timer_msg, timer_msg_size)
 
-// tmin, tmax, tavg can be floats or doubles (scalar variables)
+// timer_min, timer_max should be uint64_t (64 bit scalar variable)
+// timer_avg can be float or double (scalar variable)
 // niter is expected to be an integer scalar variable
 //
 // TIME_LOOP : time a piece of code in a loop, get min, max, average time
-// tmin  : best timing in cycles
-// tmax  : worst timing in cycles
-// tavg  : average timing in cycles
-// niter : number of iterations
-// npts  : number of points processed
-// TimedCode : code to be timed n (>=1) statement(s)
-// buf   : buffer to receive diagnostic text
-// bufsiz: size of buf
+// timer_min  : best timing in cycles
+// timer_max  : worst timing in cycles
+// timer_avg  : average timing in cycles
+// niter      : number of iterations
+// npts       : number of points processed
+// TimedCode  : code to be timed n (>=1) statement(s)
+// timer_msg  : buffer to receive diagnostic text
+// timer_msg_size: size of timer_msg
 //
-// TIME_ONCE does not need tmin, tmax, tavg, niter
-#define TIME_LOOP(tmin, tmax, tavg, niter, npts, buf, bufsiz, TimedCode) \
+// TIME_ONCE does not need timer_min, timer_max, timer_avg, niter
+#define TIME_LOOP(timer_min, timer_max, timer_avg, niter, npts, timer_msg, timer_msg_size, TimedCode) \
   TIME_LOOP_TOP(niter) ; \
   TimedCode ; \
-  TIME_LOOP_BOT(tmin, tmax, tavg, npts, buf, bufsiz) ;
-#define TIME_ONCE(npts, buf, bufsiz, TimedCode) \
+  TIME_LOOP_BOT(timer_min, timer_max, timer_avg, npts, timer_msg, timer_msg_size) ;
+#define TIME_LOOP_EZ(niter, npts, TimedCode) TIME_LOOP(timer_min, timer_max, timer_avg, niter, npts, timer_msg, timer_msg_size, TimedCode)
+#define TIME_ONCE(npts, timer_msg, timer_msg_size, TimedCode) \
   TIME_ONCE_TOP ; \
   TimedCode ; \
-  TIME_ONCE_BOT(npts, buf, bufsiz) ;
-
+  TIME_ONCE_BOT(npts, timer_msg, timer_msg_size) ;
+#define TIME_ONCE_EZ(npts, TimedCode) TIME_ONCE(npts, timer_msg, timer_msg_size, TimedCode)
 #if ! defined(MISC_TIMERS)
 #define MISC_TIMERS
 
