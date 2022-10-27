@@ -28,10 +28,12 @@
 // pre-quantizer, prepare the packing header that will be used by the next stages
 // p       : packing header to be initialized                         [OUT]
 // nbits   : quantize using at most nbits bits (assumed to be <= 24)  [IN]
-// maxval  : highest value in array  to be quantized                  [IN]
-// minval  : lowest value in array  to be quantized                   [IN]
-// quantum : if nonzero and positive, use inverse of quantum as the quantization factor [IN]
-//           nbits will be recomputed internally from quantum if appropriate
+// maxval  : highest value in array  to be quantized (float)          [IN]
+// minval  : lowest value in array  to be quantized (float)           [IN]
+// quantum : if nonzero and positive,                                 [IN]
+//           use inverse of quantum as the quantization factor
+//           nbits will then be recomputed internally as a function of quantum
+//           quantum will be adjusted to the first power of 2 <= quantum
 void float_quantize_prep(int nbits, QuantizeHeader *p, float maxval, float minval, float quantum) {
   FloatInt   m1, m2, m3;  // access as float or 32 bit int
   DoubleLong m0 ;         // access as double or 64 bit long
@@ -42,7 +44,7 @@ void float_quantize_prep(int nbits, QuantizeHeader *p, float maxval, float minva
   int offset ;
   int64_t irange ;
 
-  range = maxval - minval;
+  range = maxval - minval;                   // range of floating point numbers
   if(quantum > 0.0) {
     int neededbits ;
     m1.f = m2.f = quantum ;
@@ -66,15 +68,15 @@ void float_quantize_prep(int nbits, QuantizeHeader *p, float maxval, float minva
   exp3 = 0xFF & (m3.i >> 23) ;
   exp1 = (exp2 > exp1) ? exp2 : exp1 ;       // largest exponent ( max, min ) (biased)
   exp1 = (exp3 > exp1) ? exp3 : exp1 ;       // largest exponent ( max, min, range ) (biased)
-  p->e = exp1 - 127 ;                        // largest exponent (with bias removed)
+  p->e = exp1 - 127 ;                        // largest exponent (with IEEE bias removed)
 
-  if(exp1 < 255 && exp1 > 0){                // O.K. for IEEE float 32
+  if(exp1 < 255 && exp1 > 0){                // O.K. for IEEE float 32 (most of the time)
     m1.i = (127 + (23 - (exp1 - 127))) ;     // factor to bring largest exponent to 23
     m1.i <<= 23 ;
     fac32 = m1.f;                            // normalizing multiplier
     offset = minval * fac32 ;                // quantized minimum value
 //     printf(" fac32 = %10.4g(%d) ", fac32, p->e);
-  }else{                                     // must use IEEE float 64
+  }else{                                     // must use IEEE float 64 (rare cases)
     m0.l = (1023 + (23 - (exp1 - 127)));     // factor to bring largest exponent to 23
     m0.l = m0.l << 52 ;
     fac64 = m0.d;                            // normalizing multiplier
@@ -83,7 +85,7 @@ void float_quantize_prep(int nbits, QuantizeHeader *p, float maxval, float minva
   }
 
   m3.i = (exp3 - nbits + 1) << 23 ;          // subtract nbits - 1 from range exponent (quick divide)
-  if( (exp3 - nbits + 1) < 0) {              // range too small, compute quantum the hard way
+  if( (exp3 - nbits + 1) < 0) {              // range is too small, compute quantum the hard way
     m3.i = exp3 << 23 ;                      // exp3 is IEEE exponent from range
     m3.f = m3.f / (1 << (nbits -1)) ;        // divide by 2**(nbits - 1)
   }
