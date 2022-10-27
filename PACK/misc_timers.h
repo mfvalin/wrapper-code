@@ -80,13 +80,13 @@ static double NaNoSeC = 0.0 ;
   } \
   tmin = mint ; tmax = maxt ; tavg = avgt/iter ; \
   if(npts > 0 && buf != NULL) \
-    snprintf(buf, (size_t)bufsiz, " npts = %d, niter = %d,  ns= %6.0f (%6.0f), %6.2f ns/pt", \
+    snprintf(buf, (size_t)bufsiz, " npts = %d, niter = %d, ns = %6.0f (%6.0f), %6.2f ns/pt", \
              npts, iter, tmin*NaNoSeC, tavg*NaNoSeC, tavg*NaNoSeC/npts) ; \
 }
 #define TIME_ONCE_BOT(npts, buf, bufsiz) \
     t = elapsed_cycles() -t -to ; \
     if(npts > 0 && buf != NULL) \
-    snprintf(buf, (size_t)bufsiz, " npts = %d,  ns= %6.0f, %6.2f ns/pt", \
+    snprintf(buf, (size_t)bufsiz, " npts = %d, ns = %6.0f, %6.2f ns/pt", \
              npts, t*NaNoSeC, t*NaNoSeC/npts) ; \
 }
 
