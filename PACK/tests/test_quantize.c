@@ -4,6 +4,7 @@
 #include <misc_pack.h>
 #include <misc_operators.h>
 #include <misc_timers.h>
+#include <misc_timers.h>
 
 // #define NPTS 32800
 
@@ -26,22 +27,18 @@ int main(int argc, char **argv){
   float eps_minus = 1.0f - epsilon ;
   int NPTS = 32800 ;
   int nloops = 1000 ;
-  uint64_t tmin, tmax, freq, tsingle ;
-  double nano, tavg ;
-  char buf[1024] ;
-  size_t bufsiz = sizeof(buf) ;
+  uint64_t freq ;
+  TIME_LOOP_DATA ;
 
   freq = cycles_counter_freq() ;
-  nano = 1000000000.0 ;
-//   printf("nano = %8.2G\n", nano) ;
-  nano = nano / freq ;
-  printf("timer clock : %6.2G ns / tick, %6.2G GHz\n", nano, freq/1000000000.0) ;
+//   nano = 1000000000.0 ;
+//   nano = nano / freq ;
+  printf("time base : %6.2G ns / tick, %6.2G GHz\n", 1.0E9/freq, freq/1.0E9) ;
 
   if(argc > 1){
     NPTS= atoi(argv[1]) ;
     if(NPTS<19) NPTS = 19 ;
   }
-  printf("NPTS = %d\n", NPTS) ;
   zi = (float *) malloc(NPTS*sizeof(float)) ;
   zo = (float *) malloc(NPTS*sizeof(float)) ;
   iw = (int *) malloc(NPTS*sizeof(float)) ;
@@ -82,21 +79,42 @@ int main(int argc, char **argv){
     avgi += zi[i] ;
   }
   avgi /= NPTS ;
-  printf("minval = %g, maxval = %g, range = %g, average = %g", minval, maxval, maxval - minval, avgi);
+  printf("npts = %d, minval = %g, maxval = %g, range = %g, average = %g", NPTS, minval, maxval, maxval - minval, avgi);
 
   quantum = 1.0f / 8.0f ;
   printf(", quantum = %g", quantum) ;
 
   float_quantize_prep(NBITS, &p, maxval, minval, quantum);
   printf(", nbits = %d\n", p.nbits) ;
+  TIME_ONCE_EZ(1, float_quantize_prep(NBITS, &p, maxval, minval, quantum) )
+  printf("float_quantize_prep : %s\n",timer_msg);
+
+  TIME_ONCE_TOP ;
+  float_quantize_prep(NBITS, &p, maxval, minval, quantum) ;
+  float_quantize_prep(NBITS, &p, maxval, minval, quantum) ;
+  float_quantize_prep(NBITS, &p, maxval, minval, quantum) ;
+  float_quantize_prep(NBITS, &p, maxval, minval, quantum) ;
+  float_quantize_prep(NBITS, &p, maxval, minval, quantum) ;
+  TIME_ONCE_BOT_EZ(5) ;
+  printf("float_quantize_prep : %s\n",timer_msg);
 
   float_quantize(iw, zi, NPTS/2, NPTS/2, NPTS/2, 2, &p ) ;
-  TIME_LOOP(tmin, tmax, tavg, nloops, NPTS, buf, bufsiz, float_quantize(iw, zi, NPTS/2, NPTS/2, NPTS/2, 2, &p ) )
-  printf("float_quantize    : %s\n",buf);
+  TIME_LOOP_EZ(nloops, NPTS, float_quantize(iw, zi, NPTS/2, NPTS/2, NPTS/2, 2, &p ) )
+  printf("float_quantize      : %s\n",timer_msg);
+
+  TIME_LOOP_TOP(nloops)
+  float_quantize(iw, zi, NPTS/2, NPTS/2, NPTS/2, 2, &p ) ;
+  TIME_LOOP_BOT_EZ(NPTS)
+  printf("float_quantize      : %s\n",timer_msg);
 
   float_unquantize(iw, zo, NPTS/2, NPTS/2, NPTS/2, 2, &p);
-  TIME_LOOP(tmin, tmax, tavg, nloops, NPTS, buf, bufsiz, float_unquantize(iw, zo, NPTS/2, NPTS/2, NPTS/2, 2, &p) )
-  printf("float_unquantize  : %s\n",buf);
+  TIME_LOOP_EZ(nloops, NPTS, float_unquantize(iw, zo, NPTS/2, NPTS/2, NPTS/2, 2, &p) )
+  printf("float_unquantize    : %s\n",timer_msg);
+
+  TIME_LOOP_TOP(nloops)
+  float_unquantize(iw, zo, NPTS/2, NPTS/2, NPTS/2, 2, &p) ;
+  TIME_LOOP_BOT_EZ(NPTS)
+  printf("float_unquantize    : %s\n",timer_msg);
 
   printf("\n") ;
   avgo = 0.0 ;
