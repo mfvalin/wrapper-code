@@ -17,11 +17,11 @@
  */
 #if defined(IN_FORTRAN_CODE) || defined(__GFORTRAN__)
 
-type, bind(C) :: PackHeader
-  integer(C_INT) :: offset = 0
-  integer(C_INT) :: exp = 0
-  integer(C_INT) :: nbits = 0
-  real(C_FLOAT)  :: quantum
+type, bind(C) :: PackHeader      ! structure describing quantization information for a set of values
+  integer(C_INT) :: offset = 0   ! integer offset reflecting minimum value of packed field
+  integer(C_INT) :: exp = 0      ! largest exponent (min, max, range) (with IEEE bias removed)
+  integer(C_INT) :: nbits = 0    ! number of useful bits in quantized token
+  real(C_FLOAT)  :: quantum      ! quantization interval. quantized value = (value/quantum) - offset
 end type
 
 interface
@@ -123,10 +123,10 @@ static inline uint32_t NeedBits(uint32_t x){
 
 // linear quantization header
 typedef struct {
-  int o ;      // quantization offset
-  int e ;      // largest exponent (min, max, range) (with bias removed)
+  int o ;      // integer offset reflecting minimum value of packed field
+  int e ;      // largest exponent (min, max, range) (with IEEE bias removed)
   int nbits ;  // number of useful bits in quantized token
-  float q ;    // quantization interval
+  float q ;    // quantization interval. quantized value = (value/quantum) - offset
 } QuantizeHeader;
 
 // linear quantization functions
