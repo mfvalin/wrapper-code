@@ -37,4 +37,12 @@ typedef union{
   double  d ;
 } DoubleLong;
 
+typedef struct{
+  int32_t t[2] ;
+} IntPair ;
+
+typedef struct{
+  float t[2] ;
+} FloatPair ;
+
 #endif
