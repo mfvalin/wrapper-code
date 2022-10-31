@@ -6,8 +6,6 @@
 #include <misc_timers.h>
 #include <misc_timers.h>
 
-// #define NPTS 32800
-
 int main(int argc, char **argv){
   float *zi ;
   float *zo ;
@@ -31,8 +29,6 @@ int main(int argc, char **argv){
   TIME_LOOP_DATA ;
 
   freq = cycles_counter_freq() ;
-//   nano = 1000000000.0 ;
-//   nano = nano / freq ;
   printf("time base : %6.2G ns / tick, %6.2G GHz\n", 1.0E9/freq, freq/1.0E9) ;
 
   if(argc > 1){
@@ -44,8 +40,9 @@ int main(int argc, char **argv){
   iw = (int *) malloc(NPTS*sizeof(float)) ;
 
   printf("=============== rounding test with 19 points =================\n");
-  quantum = .5f ;
-  printf("eps = %15.9f, eps_plus = %15.9f, eps_minus = %15.9f\n", epsilon, eps_plus, eps_minus) ;
+  quantum = .25f ;
+  printf("eps = %15.9f, eps_plus = %15.9f, eps_minus = %15.9f, quantum =%15.9f \n",
+         epsilon, eps_plus, eps_minus, quantum) ;
   printf("(i - 9) * .125f\n");
   for(i=0 ; i<19 ; i++){ zi[i] = (i - 9) * .125f ; /* zi[i] *= 8.0f */ ; printf("%8.3f", zi[i]) ; } printf("\n") ;
   printf("quantizing/restoring (i - 9) * .125f\n");
@@ -54,13 +51,6 @@ int main(int argc, char **argv){
   float_unquantize(iw, zo, 19, 19, 19, 1, &p ) ;
   for(i=0 ; i<19 ; i++) printf("%8.3f", zo[i]) ; printf("\n") ;
   for(i=0 ; i<19 ; i++) printf("%8d", iw[i]) ; printf("\n") ;
-
-//   printf("quantizing/restoring (i - 9) * .125f * (1 + epsilon)\n");
-//   for(i=0 ; i<19 ; i++){ zi[i] = (i - 9) * .125f ; zi[i] *= eps_plus ; }
-//   float_quantize_prep(NBITS, &p, 1.125f, -1.125f, quantum);
-//   float_quantize(iw, zi, 19, 19, 19, 1, &p ) ;
-//   float_unquantize(iw, zo, 19, 19, 19, 1, &p ) ;
-//   for(i=0 ; i<19 ; i++) printf("%8.3f", zo[i]) ; printf("\n") ;
 
   printf("quantizing/restoring (i - 9) * .125f * (1 - epsilon)\n");
   for(i=0 ; i<19 ; i++){ zi[i] = (i - 9) * .125f ; zi[i] *= eps_minus ; }
@@ -116,12 +106,12 @@ int main(int argc, char **argv){
   TIME_LOOP_BOT_EZ(NPTS)
   printf("float_unquantize    : %s\n",timer_msg);
 
-  printf("\n") ;
+  printf("\n=================================================\n") ;
   avgo = 0.0 ;
   for(i=0 ; i<NPTS ; i++) avgo += zi[i] ;
   avgo /= NPTS ;
-//   printf("\nmax/min/range/average: %9.5g/%9.5g/%9.5g/%9.5g\n\n", maxval, minval, maxval-minval, avgo);
-  for(j = 1 ; j < 25 ; j+=1) {
+
+  for(j = 2 ; j < 25 ; j+=2) {
     NBITS = j ;
     i = 1 << (NBITS);
     toler = zi[NPTS-1]; toler -= zi[0] ;
@@ -130,9 +120,7 @@ int main(int argc, char **argv){
 
     quantum = toler * 2.0 ;
     float_quantize_prep(NBITS, &p, maxval, minval, quantum);
-//     printf("offset = %10d, exp = %d, nbits = %d, \n", p.o, p.e, NBITS);
     if(p.e > -127 && p.e < 127){
-//       printf(" [32] ");
       float_quantize(iw, zi, NPTS/2, NPTS/2, NPTS/2, 2, &p ) ;
       float_unquantize(iw, zo, NPTS/2, NPTS/2, NPTS/2, 2, &p);
     }else{
@@ -147,7 +135,6 @@ int main(int argc, char **argv){
     printf("avgo(%9.4g), ", avgo) ;
     error = 0 ; maxdelta = 0.0 ; avgdelta = 0.0 ; avg = 0.0 ;
     for(i=0 ; i<NPTS ; i++) {
-//       delta = ABS(zo[i]-zi[i]) ;
       delta = zo[i] ; delta -= zi[i] ;
       avg += delta ;
       delta = ABS(delta) ;
@@ -156,13 +143,90 @@ int main(int argc, char **argv){
       if(delta > toler) error++;
     }
     avg /= NPTS;
-//     printf("%d points from %15.5f to %15.5f, maxdelta = %15.8f, avgdelta = %15.8f\n",
-//            NPTS, zi[0], zi[NPTS-1], maxdelta, avgdelta/NPTS);
-    printf("maxd= %9.4g (%9.4g), ",
-           maxdelta, avgdelta/NPTS);
-//     printf("bias= %10.4g, toler= %8.3g, bias/t = %8.2g, maxd/t = %6.4f, err=%d\n",
-//           avg, toler, avg/toler, maxdelta/toler, error);
-    printf("bias= %9.3g, toler= %8.3g, bias/avg = %8.2g, maxd/t = %6.4f, err=%d\n",
+    printf("maxd= %9.4g (%9.4g), ", maxdelta, avgdelta/NPTS);
+    printf("bias= %9.3g, toler= %8.3g, bias/avg = %8.2g, maxd/t = %6.4f, exceed=%d\n",
           avg, toler, avg/avgi, maxdelta/toler, error);
+  }
+
+  IntPair int_extrema ;
+  FloatPair float_extrema ;
+  int nbits ;
+  float factor ;
+
+  printf("\n===============       simple quantizer       =================\n");
+  printf("=============== rounding test with 19 points =================\n");
+  quantum = quantum_adjust(.35f) ;
+  printf("eps = %15.9f, eps_plus = %15.9f, eps_minus = %15.9f, quantum = %15.9f\n", 
+         epsilon, eps_plus, eps_minus, quantum) ;
+
+  printf("quantizing/restoring (9 - i) * .125f\n");
+  for(i=0 ; i<19 ; i++) zi[i] = (9 - i) * .125f ;
+  for(i=0 ; i<19 ; i++) printf("%8.3f ", zi[i]) ; printf("\n") ;
+  nbits   = float_quantize_simple(zi, iw, 19, quantum, &int_extrema) ;
+  float_unquantize_simple(zo, iw, 19, quantum, &float_extrema) ;
+  for(i=0 ; i<19 ; i++) printf("%8.3f ", zo[i]) ; printf("\n") ;
+  printf("float_extrema = %f %f\n", float_extrema.t[0], float_extrema.t[1]) ;
+  for(i=0 ; i<19 ; i++) printf("%8d ", iw[i]) ; printf("\n") ;
+  printf("int_extrema = %d (%d bits) %d (%d bits), nbits = %d\n",
+         int_extrema.t[0], NeedBits(int_extrema.t[0]), int_extrema.t[1], NeedBits(int_extrema.t[1]), nbits) ;
+
+  printf("quantizing/restoring (i - 9) * .125f * (1 - epsilon)\n");
+  for(i=0 ; i<19 ; i++){ zi[i] = (i - 9) * .125f ; zi[i] *= eps_minus ; }
+  nbits = float_quantize_simple(zi, iw, 19, quantum, &int_extrema) ;
+  float_unquantize_simple(zo, iw, 19, quantum, &float_extrema) ;
+  for(i=0 ; i<19 ; i++) printf("%8.3f ", zo[i]) ; printf("\n") ;
+  for(i=0 ; i<19 ; i++) printf("%8d ", iw[i]) ; printf("\n") ;
+  printf("int_extrema = %d (%d bits) %d (%d bits), nbits = %d\n",
+         int_extrema.t[0], NeedBits(int_extrema.t[0]), int_extrema.t[1], NeedBits(int_extrema.t[1]), nbits) ;
+
+  printf("\n=================================================\n") ;
+
+  for(factor = 4.0f ; factor <= 16384.0f ; factor *= 8.0f ){
+    for(i=0 ; i<NPTS ; i++) { zi[i] = .00001 + .012345 * (i - NPTS/3 ) ;  zo[i] = -99999.0 ; }
+    for(i=0 ; i<NPTS ; i++) zi[i] *= (32767.0f/(NPTS-1)) ;
+    avgi = 0.0 ;
+    minval = maxval = zi[0] ;
+    for(i=0 ; i<NPTS ; i++) { 
+      maxval = (zi[i] > maxval) ? zi[i] : maxval ; 
+      minval = (zi[i] < minval) ? zi[i] : minval ;
+      avgi += zi[i] ;
+    }
+    avgi /= NPTS ;
+    quantum = quantum_adjust(1.00001f / factor) ;
+    printf("npts = %d, minval = %g, maxval = %g, range = %g, average = %g", NPTS, minval, maxval, maxval - minval, avgi);
+    printf(", quantum = %g\n", quantum) ;
+
+    nbits = float_quantize_simple(zi, iw, NPTS, quantum, &int_extrema ) ;
+    printf("range = %d, min = %d, max = %d",
+          int_extrema.t[1] - int_extrema.t[0], int_extrema.t[0], int_extrema.t[1]) ;
+    printf(", int_extrema = %d (%d bits) %d (%d bits), nbits = %d\n",
+          int_extrema.t[0], NeedBits(int_extrema.t[0]), int_extrema.t[1], NeedBits(int_extrema.t[1]), nbits) ;
+    TIME_LOOP_EZ(1000, NPTS, nbits = float_quantize_simple(zi, iw, NPTS, quantum, &int_extrema ) ) ;
+    printf("float_quantize_simple   : %s\n",timer_msg);
+
+    float_unquantize_simple(zo, iw, NPTS, quantum, &float_extrema) ;
+    TIME_LOOP_EZ(1000, NPTS, float_unquantize_simple(zo, iw, NPTS, quantum, &float_extrema) ) ;
+    printf("float_unquantize_simple : %s\n",timer_msg);
+
+    toler = quantum * .5 ;
+    avgo = 0.0 ;
+    for(i=0 ; i<NPTS ; i++) avgo += zo[i] ;
+    avgo /= NPTS ;
+    printf("avgo(%9.4g), ", avgo) ;
+    error = 0 ; maxdelta = 0.0 ; avgdelta = 0.0 ; avg = 0.0 ;
+    for(i=0 ; i<NPTS ; i++) {
+      delta = zo[i] ; delta -= zi[i] ;
+      avg += delta ;
+      delta = ABS(delta) ;
+      avgdelta += delta ;
+      maxdelta = (delta > maxdelta) ? delta : maxdelta ;
+      if(delta > toler) error++;
+    }
+    avg /= NPTS;
+    printf("maxd= %9.4g (%9.4g), ",
+            maxdelta, avgdelta/NPTS);
+    printf("bias= %9.3g, toler= %8.3g, bias/avg = %8.2g, maxd/t = %6.4f, exceed=%d\n",
+          avg, toler, avg/avgi, maxdelta/toler, error);
+    printf("\n") ;
   }
 }

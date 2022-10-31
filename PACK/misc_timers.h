@@ -60,7 +60,7 @@ static double NaNoSeC = 0.0 ;
 //
 // TIME_ONCE_TOP does not need niter
 #define TIME_LOOP_TOP(niter) \
-{ uint64_t t, to , mint = ~0, maxt = 0, avgt = 0.0 ; int iter = niter ; \
+{ uint64_t t, to , mint = ~0, maxt = 0, avgt = 0.0 ; int iter = niter ; int j ; \
   if(NaNoSeC == 0) NaNoSeC = 1.0E+9f / cycles_counter_freq() ; \
   to = elapsed_cycles() ; t = elapsed_cycles() ; to = t - to ; to = to - (to >> 3) ; \
   for(j=0 ; j < iter ; j++) { t = elapsed_cycles() ;

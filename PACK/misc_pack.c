@@ -18,12 +18,28 @@
  */
 #include <stdio.h>
 #include <stdint.h>
+
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+#include <immintrin.h>
+#endif
+
 #include <misc_types.h>
 #include <misc_operators.h>
 #include <misc_pack.h>
+
 #if ! defined(__INTEL_COMPILER_UPDATE)
 #pragma GCC optimize "tree-vectorize"
 #endif
+
+// adjust quantum to first power of 2 <= quantum
+float quantum_adjust(float quantum){
+  FloatInt rq ;
+
+  rq.f = quantum ;
+  rq.i &= 0x7F800000 ;   // drop mantissa bits
+//   printf("quantum = %g, adjusted quantum = %g\n", quantum, rq.f) ;
+  return rq.f ;
+}
 
 // pre-quantizer, prepare the packing header that will be used by the next stages
 // p       : packing header to be initialized                         [OUT]
@@ -47,11 +63,9 @@ void float_quantize_prep(int nbits, QuantizeHeader *p, float maxval, float minva
   range = maxval - minval;                   // range of floating point numbers
   if(quantum > 0.0) {
     int neededbits ;
-    m1.f = m2.f = quantum ;
-    m1.i &= (~0x7FFFFF) ;                    // first power of 2 <= quantum
+    m1.f = quantum_adjust(quantum) ;         // first power of 2 <= quantum
     irange = (range / m1.f) ;
     NEEDBITS( irange, neededbits) ;
-// printf("new nbits = %d, quantum = %g (%8.8x) -> %g (%8.8x), range = %g\n", neededbits, quantum, m2.i, m1.f, m1.i, range) ;
     nbits = neededbits ;
   }
 
@@ -166,6 +180,41 @@ void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, Quant
   }
 }
 
+// quantize an array of floats (transform floats into integers using a quantization unit)
+// z       : array of floats to quantize                 [IN]
+// q       : integer array, quantized values             [OUT]
+// ni      : number of values                            [IN]
+// quantum : quantization unit                           [IN]
+// t       : lowest, highest quantized values            [OUT]
+// return  : number of bits needed to represent the lowest->highest quantized values
+//           quantum will be internally adjusted to the first power of 2 <= quantum
+// the vectorisers seem to have no problem with this function
+uint32_t float_quantize_simple(float * restrict z, int32_t * restrict q, int ni, float quantum, IntPair *t){
+  int i, i0 ;
+  int32_t min = 0x7FFFFFFF, max = -min ;
+  float ovq ;
+  int n7 = (ni & 7) ;
+  FloatInt rq ;
+  uint32_t needed1, needed2 ;
+
+  rq.f = quantum ; rq.i &= 0x7F800000 ; quantum = rq.f ;   // adjust quantum to power of 2 <= quantum
+  ovq = 1. / quantum ;
+  for(i=0 ; i<n7 ; i++){         // first 1 - 7 values
+    q[i] = (z[i] * ovq) + ((z[i] < 0) ? -.5f : .5f) ;
+    min = (q[i] < min) ? q[i] : min ;
+    max = (q[i] > max) ? q[i] : max ;
+  }
+
+  for(i = n7 ; i < ni ; i++){    // a multiple of 8 values is left
+    q[i] = (z[i] * ovq) + ((z[i] < 0) ? -.5f : .5f) ;
+    min = (q[i] < min) ? q[i] : min ;
+    max = (q[i] > max) ? q[i] : max ;
+  }
+  t->t[0] = min ; needed1 = NeedBits(min) ;
+  t->t[1] = max ; needed2 = NeedBits(max) ;
+  return  (needed1 > needed2) ? needed1 : needed2 ;
+}
+
 // inverse quantizer for 32 bit floats producing a stream of unsigned 32 bit integers
 // nbits is taken from the packing header
 // iz      : quantized stream (32 bit elements)  [IN]
@@ -219,5 +268,59 @@ void float_unquantize(void *iz, float *z, int ni, int lni, int lniz, int nj, Qua
       izw += lniz ;
     }
   }
+}
+
+// restore float values from integer quantized values
+// z       : array of restored floats                   [OUT]
+// q       : integer array, quantized values            [IN]
+// ni      : number of values                           [IN]
+// quantum : quantization unit                          [IN]
+// t       : lowest, highest restored values            [OUT]
+//           quantum will be internally adjusted to the first power of 2 <= quantum
+// there is a SIMD version because the min/max in the loop seem to be a problem for some vectorisers
+void float_unquantize_simple(float * restrict z, int32_t * restrict q, int ni, float quantum, FloatPair *t){
+  int i, i0 ;
+  float min = 1.0E+38f, max = -min ;
+  float vmin[8], vmax[8] ;
+  int n7 = (ni & 7) ? (ni & 7) : 8 ;
+  FloatInt rq ;
+
+  rq.f = quantum ; rq.i &= 0x7F800000 ; quantum = rq.f ;   // adjust quantum to power of 2 <= quantum
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+  __m256 vz, vf = _mm256_set1_ps(quantum), vmi = _mm256_set1_ps(+1.0E38), vma = _mm256_set1_ps(-1.0E38) ;
+  __m256i vq ;
+
+  if(ni < 8) goto less_than_8 ;                     // less than 8 values, use non SIMD code
+
+  // N.B. the first and second pass will process some values twice (overlap)
+  for(i0 = 0 ; i0 < ni-7 ; i0+=n7 , n7=8){          // batches of 8 values
+    vq = _mm256_loadu_si256( (__m256i *)(q+i0) ) ;  // fetch q
+    vz = _mm256_cvtepi32_ps(vq) ;                   // convert to float
+    vz = _mm256_mul_ps(vz, vf) ;                    // * quantum
+    vma = _mm256_max_ps(vma, vz) ;                  // max(z, max)
+    vmi = _mm256_min_ps(vmi, vz) ;                  // min(z, min)
+    _mm256_storeu_ps(z+i0, vz) ;                    // store z
+  }
+  _mm256_storeu_ps(vmax, vma) ;                     // fold max, min to 1 value each
+  _mm256_storeu_ps(vmin, vmi) ;
+  for(i=1 ; i<8 ; i++){                             // fold into vmin[0], vmax[0]
+    vmin[0] = (vmin[i] < vmin[0]) ? vmin[i] : vmin[0] ;
+    vmax[0] = (vmax[i] > vmax[0]) ? vmax[i] : vmax[0] ;
+  }
+  min = vmin[0] ;
+  max = vmax[0] ;
+  goto end ;
+
+less_than_8 :
+#endif
+  // non SIMD code, also used by SIMD version if less than 8 values
+  for(i=0 ; i<ni ; i++){
+    z[i] = quantum * q[i] ;                 // unquantize
+    min = (z[i] < min) ? z[i] : min ;       // min
+    max = (z[i] > max) ? z[i] : max ;       // max
+  }
+end:
+  t->t[0] = min ;      // build return value
+  t->t[1] = max ;
 }
 

@@ -89,35 +89,46 @@ end interface
 #include <stdint.h>
 #include <stddef.h>
 
+#include <misc_types.h>
+
+void float_unquantize_simple(float * restrict z, int32_t * restrict q, int ni, float quantum, FloatPair *t);
+uint32_t float_quantize_simple(float * restrict z, int32_t * restrict q, int ni, float quantum, IntPair *t);
+float quantum_adjust(float quantum);
+
 // determine how many bits are needed to represent value x
-static inline uint32_t NeedBits(uint32_t x){
+static inline uint32_t NeedBits(int32_t nx){
   uint32_t n ;
-#if defined(__x86_64__xx)
+  uint32_t x ;
+  uint32_t xtra = (nx < 0) ? 1 : 0 ;
+  x = (nx < 0) ? -nx : nx ;
+#if defined(__x86_64__)
   __asm__ __volatile__ ("lzcnt{l %1, %0| %0, %1}" : "=r"(n) : "r"(x) : "cc");
+  n -= xtra ;
   return 32 - n ;
 #elif defined(__aarch64__)
   __asm__ __volatile__ ("clz %w[out], %w[in]" : [out]"=r"(n) : [in]"r"(x) );
+  n -= xtra ;
   return 32 - n ;
 #else
   uint32_t m = 0xFFFF ;
   n = 0 ;
-  n  += ((x > m) ? 16 : 0) ;
-  x >>= ((x > m) ? 16 : 0) ;
+  n  += ((x > m) ? 16 : 0) ;   // something in the upper 16 bits
+  x >>= ((x > m) ? 16 : 0) ;   // lower 16 bits
   m >>= 8 ;
-  n  += ((x > m) ? 8 : 0) ;
-  x >>= ((x > m) ? 8 : 0) ;
+  n  += ((x > m) ? 8 : 0) ;    // something in bits 8-15
+  x >>= ((x > m) ? 8 : 0) ;    // lower 8 bits
   m >>= 4 ;
-  n  += ((x > m) ? 4 : 0) ;
-  x >>= ((x > m) ? 4 : 0) ;
+  n  += ((x > m) ? 4 : 0) ;    // something in bits 4-7
+  x >>= ((x > m) ? 4 : 0) ;    // lower 4 bits
   m >>= 2 ;
-  n  += ((x > m) ? 2 : 0) ;
-  x >>= ((x > m) ? 2 : 0) ;
+  n  += ((x > m) ? 2 : 0) ;    // something in bits 2-3
+  x >>= ((x > m) ? 2 : 0) ;    // lower 2 bits
   m >>= 1 ;
-  n  += ((x > m) ? 1 : 0) ;
-  x >>= ((x > m) ? 1 : 0) ;
+  n  += ((x > m) ? 1 : 0) ;    // something in bit 1
+  x >>= ((x > m) ? 1 : 0) ;    // lower 1 bit
   m >>= 1 ;
-  n  += ((x > m) ? 1 : 0) ;
-  return n ;
+  n  += ((x > m) ? 1 : 0) ;    // something in bit 0
+  return n + xtra ;
 #endif
 }
 
