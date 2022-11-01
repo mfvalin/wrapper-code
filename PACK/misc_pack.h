@@ -51,6 +51,34 @@ interface
     real(C_FLOAT), dimension(lni,nj), intent(INOUT) :: z
     type(PackHeader), intent(IN) :: p
   end subroutine
+! float quantum_adjust(float quantum);
+  function quantum_adjust(quantum) result(adjusted) bind(C,name='quantum_adjust')
+    import :: C_FLOAT
+    implicit none
+    real(C_FLOAT), intent(IN), value :: quantum
+    real(C_FLOAT) :: adjusted
+  end function
+! uint32_t float_quantize_simple(float * restrict z, int32_t * restrict q, int ni, int lniz, int lniq, int nj, float quantum, IntPair *t);
+  function float_quantize_simple(z, q, ni, lniz, lniq, nj, quantum, t) result(nbits) bind(C,name='float_quantize_simple')
+    import :: C_INT, C_FLOAT
+    implicit none
+    real(C_FLOAT), dimension(*), intent(IN) :: z
+    integer(C_INT), dimension(*), intent(OUT) :: q
+    integer(C_INT), intent(IN), value :: ni, lniq, nj, lniz
+    real(C_FLOAT), intent(IN), value :: quantum
+    integer(C_INT), dimension(2), intent(OUT) :: t
+    integer(C_INT) :: nbits
+  end function
+! void float_unquantize_simple(float * restrict z, int32_t * restrict q, int ni, int lniz, int lniq, int nj, float quantum, FloatPair *t);
+  subroutine float_unquantize_simple(z, q, ni, lniz, lniq, nj, quantum, t) bind(C,name='float_unquantize_simple')
+    import :: C_INT, C_FLOAT
+    implicit none
+    real(C_FLOAT), dimension(*), intent(OUT) :: z
+    integer(C_INT), dimension(*), intent(IN) :: q
+    integer(C_INT), intent(IN), value :: ni, lniq, nj, lniz
+    real(C_FLOAT), intent(IN), value :: quantum
+    real(C_FLOAT), dimension(2), intent(OUT) :: t
+  end subroutine
 end interface
 
 ! int float_info(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval, uint32_t spmask);
