@@ -33,10 +33,12 @@ all_tests : test_compress test_lorenzo test_pack test_pack_macros \
             test_ieeequantize
 
 test_compress : test_compress.$(MOD).exe
-	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; rm -f sample_compressed ; ./$< sample $(VAR) sample_compressed) || true
+	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; \
+	rm -f sample_compressed ; ./$< sample $(VAR) sample_compressed) || true
 test_compress.$(MOD).exe : tests/test_compress.F90 ${LIBDIR}/libmisc.a
 	(module load $(MOD)$(EXT) >/dev/null ; echo "LD_RUN_PATH=$$LD_RUN_PATH" ; \
-	$$FTN -fopenmp -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} -lmisc $$LIBECCC/lib/librmn.a -o $@ -Wl,-rpath,$$LD_RUN_PATH; )
+	$$FTN -fopenmp -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} \
+	-lmisc $$LIBECCC/lib/librmn.a -o $@ -Wl,-rpath,$$LD_RUN_PATH; )
 
 test_lorenzo : test_lorenzo.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
