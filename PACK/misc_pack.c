@@ -1,5 +1,5 @@
 /* Hopefully useful routines for C and FORTRAN
- * Copyright (C) 2020  Recherche en Prevision Numerique
+ * Copyright (C) 2020-2022  Recherche en Prevision Numerique
  *
  * This is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -11,10 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Library General Public License for more details.
  *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Author : M. Valin (RPN-SI)
  */
 #include <stdio.h>
 #include <stdint.h>
@@ -42,12 +39,13 @@ float quantum_adjust(float quantum){
 }
 
 // pre-quantizer, prepare the packing header that will be used by the next stages
+// by float_quantize and float_unquantize
 // p       : packing header to be initialized                         [OUT]
 // nbits   : quantize using at most nbits bits (assumed to be <= 24)  [IN]
 // maxval  : highest value in array  to be quantized (float)          [IN]
 // minval  : lowest value in array  to be quantized (float)           [IN]
 // quantum : if nonzero and positive,                                 [IN]
-//           use inverse of quantum as the quantization factor
+//           use inverse of quantum as the quantization multiplier
 //           nbits will then be recomputed internally as a function of quantum
 //           quantum will be adjusted to the first power of 2 <= quantum
 void float_quantize_prep(int nbits, QuantizeHeader *p, float maxval, float minval, float quantum) {
@@ -113,10 +111,11 @@ void float_quantize_prep(int nbits, QuantizeHeader *p, float maxval, float minva
 // iz      : quantized stream (32 bit elements)  [OUT]
 // z       : float array to be quantized         [IN]
 // ni      : number of useful points in rows     [IN]
-// lni     : storage size of rows in array z     [IN]
-// lniz    : storage size of rows in array iz    [IN]
+// lniz    : storage dimension of z rows         [IN]
+// lniq    : storage dimension of q rows         [IN]
 // nj      : number of rows in z and iz          [IN]
 // p       : packing header as initialized by float_quantize_prep  [IN]
+// N.B. the quantized result will be >= 0 (NEVER NEGATIVE)
 void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, QuantizeHeader *p ) {
   int i, j, it;
   int offset = p->o ;   // offset reflecting minimum value
@@ -180,23 +179,24 @@ void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, Quant
   }
 }
 
-// quantize an array of floats (transform floats into integers using a quantization unit)
-// z       : array of floats to quantize                 [IN]
-// q       : integer array, quantized values             [OUT]
-// ni      : number of values                            [IN]
-// quantum : quantization unit                           [IN]
-// t       : lowest, highest quantized values            [OUT]
-// return  : number of bits needed to represent the lowest->highest quantized values
-//           quantum will be internally adjusted to the first power of 2 <= quantum
-// the vectorisers seem to have no problem with this function
+// 1D version of float_quantize_simple
 uint32_t float_quantize_simple_1D(float * restrict z, int32_t * restrict q, int ni, float quantum, IntPair *t){
   return float_quantize_simple(z, q, ni, ni, ni, 1, quantum, t) ;
 }
 
-// 2D version of float_quantize_simple_1D
-// lniz  : storage length of z rows      [IN]
-// lniq  : storage length of q rows      [IN]
-// nj    : number of rows                [IN]
+// quantize an array of floats (transform floats into integers using a quantization unit)
+// z       : array of floats to quantize       [nj,lniz] [IN]
+// q       : integer array, quantized values   [nj,lniq] [OUT]
+// ni      : number of values to process in row          [IN]
+// quantum : quantization unit                           [IN]
+// t       : lowest, highest quantized values            [OUT]
+// lniz    : storage dimension of z rows                 [IN]
+// lniq    : storage dimension of q rows                 [IN]
+// nj      : number of rows                              [IN]
+// return  : number of bits needed to represent the lowest->highest quantized values
+// N.B. quantum will be internally adjusted to the first power of 2 <= quantum
+// N.B. the quantized result may be POSITIVE or NEGATIVE (as opposed to float_quantize)
+// some vectorisers seem to have a problem with this function, hence the SIMD version
 uint32_t float_quantize_simple(float * restrict z, int32_t * restrict q, int ni, int lniz, int lniq, int nj, float quantum, IntPair *t){
   int i, i0 ;
   int32_t min = 0x7FFFFFFF, max = -min ;
@@ -211,7 +211,7 @@ uint32_t float_quantize_simple(float * restrict z, int32_t * restrict q, int ni,
   __m256 vz, vf ;
   __m256i vq, vmi, vma ;
   __m128i vma0, vma1, vmi0, vmi1 ;
-  int n7 = (ni & 7) ? (ni & 7) : 8 ;
+  int n7 ;
   uint32_t round_mode ;
 
   if(ni < 8) goto less_than_8 ;
@@ -222,6 +222,7 @@ uint32_t float_quantize_simple(float * restrict z, int32_t * restrict q, int ni,
   vma = _mm256_set1_epi32(max) ;
   while(nj-- > 0) {
     // N.B. the first and second pass will process some values twice (overlap)
+    n7 = (ni & 7) ? (ni & 7) : 8 ;
     for(i0 = 0 ; i0 < ni-7 ; i0+=n7 , n7=8){          // batches of 8 values
       vz = _mm256_loadu_ps(z+i0) ;                    // fetch z
       vz = _mm256_mul_ps(vz, vf) ;                    // * ovq
@@ -274,10 +275,11 @@ end:
 // iz      : quantized stream (32 bit elements)  [IN]
 // z       : float array to be quantized         [OUT]
 // ni      : number of useful points in rows     [IN]
-// lni     : storage size of rows in array z     [IN]
-// lniz    : storage size of rows in array iz    [IN]
+// lniz    : storage dimension of z rows         [IN]
+// lniq    : storage dimension of q rows         [IN]
 // nj      : number of rows in z and iz          [IN]
 // p       : packing header as initialized by float_quantize_prep     [IN]
+// N.B. the quantized input is expected to be POSITIVE
 void float_unquantize(void *iz, float *z, int ni, int lni, int lniz, int nj, QuantizeHeader *p) {
   int i, j, t;
   unsigned int   *izw = (unsigned int   *) iz;
@@ -306,8 +308,8 @@ void float_unquantize(void *iz, float *z, int ni, int lni, int lniz, int nj, Qua
       z += lni ;
       izw += lniz ;
     }
-  }else{
-    DoubleLong m1;
+  }else{                                 // "uncivilized" exponent for largest value
+    DoubleLong m1;                       // must use a double for conversion
     double fac64;
     exp = (exp > 127) ? 127 : exp ;
     m1.l = (exp + 1023 - 23) ;  // inverse of factor to bring largest exponent to 23
@@ -323,27 +325,29 @@ void float_unquantize(void *iz, float *z, int ni, int lni, int lniz, int nj, Qua
     }
   }
 }
-// restore float values from integer quantized values
-// z       : array of restored floats                   [OUT]
-// q       : integer array, quantized values            [IN]
-// ni      : number of values                           [IN]
-// quantum : quantization unit                          [IN]
-// t       : lowest, highest restored values            [OUT]
-//           quantum will be internally adjusted to the first power of 2 <= quantum
-// there is a SIMD version because the min/max in the loop seem to be a problem for some vectorisers
+
+
+// 1D version of float_unquantize_simple
 void float_unquantize_simple_1D(float * restrict z, int32_t * restrict q, int ni, float quantum, FloatPair *t){
   float_unquantize_simple(z, q, ni, ni, ni, 1, quantum, t) ;
 }
 
-// 2D version of float_unquantize_simple_1D
-// lniz  : storage length of z rows      [IN]
-// lniq  : storage length of q rows      [IN]
-// nj    : number of rows                [IN]
+// restore float values from integer quantized values (from float_quantize_simple)
+// z       : array of restored floats        [nj, lniz] [OUT]
+// q       : integer array, quantized values [nj, lniq] [IN]
+// ni      : number of values to process in row         [IN]
+// quantum : quantization unit                          [IN]
+// t       : lowest, highest restored values            [OUT]
+// lniz    : storage dimension of z rows                [IN]
+// lniq    : storage dimension of q rows                [IN]
+// nj      : number of rows                             [IN]
+// N.B. quantum will be internally adjusted to the first power of 2 <= quantum
+// there is a SIMD version because the min/max in the loop seem to be a problem for some vectorisers
 void float_unquantize_simple(float * restrict z, int32_t * restrict q, int ni, int lniz, int lniq, int nj, float quantum, FloatPair *t){
   int i, i0 ;
   float min = 1.0E+38f, max = -min ;
   float vmin[8], vmax[8] ;
-  int n7 = (ni & 7) ? (ni & 7) : 8 ;
+  int n7 ;
   FloatInt rq ;
 
   rq.f = quantum ; rq.i &= 0x7F800000 ; quantum = rq.f ;   // adjust quantum to power of 2 <= quantum
@@ -355,6 +359,7 @@ void float_unquantize_simple(float * restrict z, int32_t * restrict q, int ni, i
 
   while(nj-- > 0) {
     // N.B. the first and second pass will process some values twice (overlap)
+    n7 = (ni & 7) ? (ni & 7) : 8 ;
     for(i0 = 0 ; i0 < ni-7 ; i0+=n7 , n7=8){          // batches of 8 values
       vq = _mm256_loadu_si256( (__m256i *)(q+i0) ) ;  // fetch q
       vz = _mm256_cvtepi32_ps(vq) ;                   // convert to float

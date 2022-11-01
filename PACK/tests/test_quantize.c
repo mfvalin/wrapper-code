@@ -32,7 +32,7 @@ int main(int argc, char **argv){
   printf("time base : %6.2G ns / tick, %6.2G GHz\n", 1.0E9/freq, freq/1.0E9) ;
 
   if(argc > 1){
-    NPTS= atoi(argv[1]) ;
+    NPTS= atoi(argv[1]) * 64 ;
     if(NPTS<19) NPTS = 19 ;
   }
   zi = (float *) malloc(NPTS*sizeof(float)) ;
@@ -202,20 +202,20 @@ int main(int argc, char **argv){
           int_extrema.t[1] - int_extrema.t[0], int_extrema.t[0], int_extrema.t[1]) ;
     printf(", int_extrema = %d (%d bits) %d (%d bits), nbits = %d\n",
           int_extrema.t[0], NeedBits(int_extrema.t[0]), int_extrema.t[1], NeedBits(int_extrema.t[1]), nbits) ;
-    TIME_LOOP_EZ(1000, NPTS, nbits = float_quantize_simple_1D(zi, iw, NPTS, quantum, &int_extrema ) ) ;
+    TIME_LOOP_EZ(nloops, NPTS, nbits = float_quantize_simple_1D(zi, iw, NPTS, quantum, &int_extrema ) ) ;
     printf("float_quantize_simple_1D   : %s\n",timer_msg);
-    TIME_LOOP_EZ(1000, NPTS, nbits = float_quantize_simple(zi, iw, NPTS/64, NPTS/64, NPTS/64, 64, quantum, &int_extrema ) ) ;
+    TIME_LOOP_EZ(nloops, NPTS, nbits = float_quantize_simple(zi, iw, NPTS/64, NPTS/64, NPTS/64, 64, quantum, &int_extrema ) ) ;
     printf("float_quantize_simple      : %s\n",timer_msg);
 
     float_unquantize_simple_1D(zo, iw, NPTS, quantum, &float_extrema) ;
-    TIME_LOOP_EZ(1000, NPTS, float_unquantize_simple_1D(zo, iw, NPTS, quantum, &float_extrema) ) ;
+    TIME_LOOP_EZ(nloops, NPTS, float_unquantize_simple_1D(zo, iw, NPTS, quantum, &float_extrema) ) ;
     printf("float_unquantize_simple_1D : %s\n",timer_msg);
-    TIME_LOOP_EZ(1000, NPTS, float_unquantize_simple(zo, iw, NPTS/64, NPTS/64, NPTS/64, 64, quantum, &float_extrema) ) ;
+    TIME_LOOP_EZ(nloops, NPTS, float_unquantize_simple(zo, iw, NPTS/64, NPTS/64, NPTS/64, 64, quantum, &float_extrema) ) ;
     printf("float_unquantize_simple    : %s\n",timer_msg);
 
     for(i=0 ; i<NPTS ; i++) { zo[i] = -999999999.0 ; iw[i] = -999999999 ; }
-    nbits = float_quantize_simple(zi, iw, NPTS/4, NPTS/4, NPTS/4, 4, quantum, &int_extrema ) ;
-    float_unquantize_simple(zo, iw, NPTS/4, NPTS/4, NPTS/4, 4, quantum, &float_extrema) ;
+    nbits = float_quantize_simple(zi, iw, NPTS/64, NPTS/64, NPTS/64, 64, quantum, &int_extrema ) ;
+    float_unquantize_simple(zo, iw, NPTS/64, NPTS/64, NPTS/64, 64, quantum, &float_extrema) ;
     printf("nbits = %d, ", nbits);
 
     toler = quantum * .5 ;
@@ -233,8 +233,7 @@ int main(int argc, char **argv){
       if(delta > toler) error++;
     }
     avg /= NPTS;
-    printf("maxd= %9.4g (%9.4g), ",
-            maxdelta, avgdelta/NPTS);
+    printf("maxd= %9.4g (%9.4g), ", maxdelta, avgdelta/NPTS);
     printf("bias= %9.3g, toler= %9.4g, bias/avg = %7.2g, maxd/t = %4.2f, exceed=%d\n",
           avg, toler, avg/avgi, maxdelta/toler, error);
     printf("\n") ;
