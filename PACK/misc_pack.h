@@ -91,16 +91,12 @@ end interface
 
 #include <misc_types.h>
 
-void float_unquantize_simple(float * restrict z, int32_t * restrict q, int ni, float quantum, FloatPair *t);
-uint32_t float_quantize_simple(float * restrict z, int32_t * restrict q, int ni, float quantum, IntPair *t);
-float quantum_adjust(float quantum);
-
 // determine how many bits are needed to represent value x
 static inline uint32_t NeedBits(int32_t nx){
   uint32_t n ;
   uint32_t x ;
-  uint32_t xtra = (nx < 0) ? 1 : 0 ;
-  x = (nx < 0) ? -nx : nx ;
+  uint32_t xtra = (nx < 0) ? 1 : 0 ;  // one extra bit is necessary if nx is negative
+  x = (nx < 0) ? -nx : nx ;           // absolute value of nx
 #if defined(__x86_64__)
   __asm__ __volatile__ ("lzcnt{l %1, %0| %0, %1}" : "=r"(n) : "r"(x) : "cc");
   n -= xtra ;
@@ -143,7 +139,14 @@ typedef struct {
 // linear quantization functions
 void float_quantize_prep(int nbits, QuantizeHeader *p, float maxval, float minval, float quantum);
 void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, QuantizeHeader *p );
+uint32_t float_quantize_simple_1D(float * restrict z, int32_t * restrict q, int ni, float quantum, IntPair *t);
+uint32_t float_quantize_simple(float * restrict z, int32_t * restrict q, int ni, int lniz, int lniq, int nj, float quantum, IntPair *t);
+
 void float_unquantize(void *iz, float *z, int ni, int lni, int lniz, int nj, QuantizeHeader *p);
+void float_unquantize_simple_1D(float * restrict z, int32_t * restrict q, int ni, float quantum, FloatPair *t);
+void float_unquantize_simple(float * restrict z, int32_t * restrict q, int ni, int lniz, int lniq, int nj, float quantum, FloatPair *t);
+
+float quantum_adjust(float quantum);
 int float_info_no_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs);
 int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval, uint32_t spmask);
 int float_info(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval, uint32_t spmask);

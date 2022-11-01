@@ -28,7 +28,7 @@
 #include <misc_pack.h>
 
 #if ! defined(__INTEL_COMPILER_UPDATE)
-#pragma GCC optimize "tree-vectorize"
+#pragma GCC optimize "O3,tree-vectorize"
 #endif
 
 // adjust quantum to first power of 2 <= quantum
@@ -189,27 +189,72 @@ void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, Quant
 // return  : number of bits needed to represent the lowest->highest quantized values
 //           quantum will be internally adjusted to the first power of 2 <= quantum
 // the vectorisers seem to have no problem with this function
-uint32_t float_quantize_simple(float * restrict z, int32_t * restrict q, int ni, float quantum, IntPair *t){
+uint32_t float_quantize_simple_1D(float * restrict z, int32_t * restrict q, int ni, float quantum, IntPair *t){
+  return float_quantize_simple(z, q, ni, ni, ni, 1, quantum, t) ;
+}
+
+// 2D version of float_quantize_simple_1D
+// lniz  : storage length of z rows      [IN]
+// lniq  : storage length of q rows      [IN]
+// nj    : number of rows                [IN]
+uint32_t float_quantize_simple(float * restrict z, int32_t * restrict q, int ni, int lniz, int lniq, int nj, float quantum, IntPair *t){
   int i, i0 ;
   int32_t min = 0x7FFFFFFF, max = -min ;
   float ovq ;
-  int n7 = (ni & 7) ;
   FloatInt rq ;
   uint32_t needed1, needed2 ;
 
   rq.f = quantum ; rq.i &= 0x7F800000 ; quantum = rq.f ;   // adjust quantum to power of 2 <= quantum
   ovq = 1. / quantum ;
-  for(i=0 ; i<n7 ; i++){         // first 1 - 7 values
-    q[i] = (z[i] * ovq) + ((z[i] < 0) ? -.5f : .5f) ;
-    min = (q[i] < min) ? q[i] : min ;
-    max = (q[i] > max) ? q[i] : max ;
-  }
 
-  for(i = n7 ; i < ni ; i++){    // a multiple of 8 values is left
-    q[i] = (z[i] * ovq) + ((z[i] < 0) ? -.5f : .5f) ;
-    min = (q[i] < min) ? q[i] : min ;
-    max = (q[i] > max) ? q[i] : max ;
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+  __m256 vz, vf = _mm256_set1_ps(ovq), vp5 = _mm256_set1_ps(0.25f), vm5 = _mm256_set1_ps(-0.25f), v5 ;
+  __m256i vq, vmi = _mm256_set1_epi32(min), vma = _mm256_set1_epi32(max) ;
+  int ma8[8], mi8[8] ;
+  int n7 = (ni & 7) ? (ni & 7) : 8 ;
+//   goto less_than_8 ;
+  if(ni < 8) goto less_than_8 ;
+  while(nj-- > 0) {
+    // N.B. the first and second pass will process some values twice (overlap)
+    for(i0 = 0 ; i0 < ni-7 ; i0+=n7 , n7=8){          // batches of 8 values
+      vz = _mm256_loadu_ps(z+i0) ;                    // fetch z
+      v5 = _mm256_blendv_ps(vp5, vm5, vz) ;           // .5 or -.5 according to sign of z
+      vz = _mm256_mul_ps(vz, vf) ;                    // * ovq
+//       vz = _mm256_add_ps(vz, v5) ;                    // add .5 or -.5
+      vq = _mm256_cvtps_epi32(vz) ;                   // convert to integer
+      vma = _mm256_max_epi32(vma, vq) ;               // max(q, max)
+      vmi = _mm256_min_epi32(vmi, vq) ;               // min(q, min)
+      _mm256_storeu_si256( (__m256i *)(q+i0), vq) ;   // store q
+    }
+    z += lniz ;
+    q += lniq ;
   }
+  _mm256_storeu_si256( (__m256i *)ma8, vma) ;
+  _mm256_storeu_si256( (__m256i *)mi8, vmi) ;
+  for(i=1 ; i<8 ; i++){
+    ma8[0] = (ma8[i] > ma8[0]) ? ma8[i] : ma8[0] ;
+    mi8[0] = (mi8[i] < mi8[0]) ? mi8[i] : mi8[0] ;
+  }
+  min = mi8[0] ;
+  max = ma8[0] ;
+  goto end ;
+less_than_8:
+#endif
+  while(nj-- > 0) {
+//     for(i=0 ; i<n7 ; i++){         // first 1 - 7 values
+//       q[i] = (z[i] * ovq) + ((z[i] < 0) ? -.5f : .5f) ;
+//       min = (q[i] < min) ? q[i] : min ;
+//       max = (q[i] > max) ? q[i] : max ;
+//     }
+    for(i = 0 ; i < ni ; i++){    // a multiple of 8 values is left
+      q[i] = (z[i] * ovq) + ((z[i] < 0) ? -.5f : .5f) ;
+      min = (q[i] < min) ? q[i] : min ;
+      max = (q[i] > max) ? q[i] : max ;
+    }
+    z += lniz ;
+    q += lniq ;
+  }
+end:
   t->t[0] = min ; needed1 = NeedBits(min) ;
   t->t[1] = max ; needed2 = NeedBits(max) ;
   return  (needed1 > needed2) ? needed1 : needed2 ;
@@ -269,7 +314,6 @@ void float_unquantize(void *iz, float *z, int ni, int lni, int lniz, int nj, Qua
     }
   }
 }
-
 // restore float values from integer quantized values
 // z       : array of restored floats                   [OUT]
 // q       : integer array, quantized values            [IN]
@@ -278,7 +322,15 @@ void float_unquantize(void *iz, float *z, int ni, int lni, int lniz, int nj, Qua
 // t       : lowest, highest restored values            [OUT]
 //           quantum will be internally adjusted to the first power of 2 <= quantum
 // there is a SIMD version because the min/max in the loop seem to be a problem for some vectorisers
-void float_unquantize_simple(float * restrict z, int32_t * restrict q, int ni, float quantum, FloatPair *t){
+void float_unquantize_simple_1D(float * restrict z, int32_t * restrict q, int ni, float quantum, FloatPair *t){
+  float_unquantize_simple(z, q, ni, ni, ni, 1, quantum, t) ;
+}
+
+// 2D version of float_unquantize_simple_1D
+// lniz  : storage length of z rows      [IN]
+// lniq  : storage length of q rows      [IN]
+// nj    : number of rows                [IN]
+void float_unquantize_simple(float * restrict z, int32_t * restrict q, int ni, int lniz, int lniq, int nj, float quantum, FloatPair *t){
   int i, i0 ;
   float min = 1.0E+38f, max = -min ;
   float vmin[8], vmax[8] ;
@@ -292,14 +344,18 @@ void float_unquantize_simple(float * restrict z, int32_t * restrict q, int ni, f
 
   if(ni < 8) goto less_than_8 ;                     // less than 8 values, use non SIMD code
 
-  // N.B. the first and second pass will process some values twice (overlap)
-  for(i0 = 0 ; i0 < ni-7 ; i0+=n7 , n7=8){          // batches of 8 values
-    vq = _mm256_loadu_si256( (__m256i *)(q+i0) ) ;  // fetch q
-    vz = _mm256_cvtepi32_ps(vq) ;                   // convert to float
-    vz = _mm256_mul_ps(vz, vf) ;                    // * quantum
-    vma = _mm256_max_ps(vma, vz) ;                  // max(z, max)
-    vmi = _mm256_min_ps(vmi, vz) ;                  // min(z, min)
-    _mm256_storeu_ps(z+i0, vz) ;                    // store z
+  while(nj-- > 0) {
+    // N.B. the first and second pass will process some values twice (overlap)
+    for(i0 = 0 ; i0 < ni-7 ; i0+=n7 , n7=8){          // batches of 8 values
+      vq = _mm256_loadu_si256( (__m256i *)(q+i0) ) ;  // fetch q
+      vz = _mm256_cvtepi32_ps(vq) ;                   // convert to float
+      vz = _mm256_mul_ps(vz, vf) ;                    // * quantum
+      vma = _mm256_max_ps(vma, vz) ;                  // max(z, max)
+      vmi = _mm256_min_ps(vmi, vz) ;                  // min(z, min)
+      _mm256_storeu_ps(z+i0, vz) ;                    // store z
+    }
+    z += lniz ;
+    q += lniq ;
   }
   _mm256_storeu_ps(vmax, vma) ;                     // fold max, min to 1 value each
   _mm256_storeu_ps(vmin, vmi) ;
@@ -314,10 +370,14 @@ void float_unquantize_simple(float * restrict z, int32_t * restrict q, int ni, f
 less_than_8 :
 #endif
   // non SIMD code, also used by SIMD version if less than 8 values
-  for(i=0 ; i<ni ; i++){
-    z[i] = quantum * q[i] ;                 // unquantize
-    min = (z[i] < min) ? z[i] : min ;       // min
-    max = (z[i] > max) ? z[i] : max ;       // max
+  while(nj-- > 0) {
+    for(i=0 ; i<ni ; i++){
+      z[i] = quantum * q[i] ;                 // unquantize
+      min = (z[i] < min) ? z[i] : min ;       // min
+      max = (z[i] > max) ? z[i] : max ;       // max
+    }
+    z += lniz ;
+    q += lniq ;
   }
 end:
   t->t[0] = min ;      // build return value

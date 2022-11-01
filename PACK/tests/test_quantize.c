@@ -162,8 +162,8 @@ int main(int argc, char **argv){
   printf("quantizing/restoring (9 - i) * .125f\n");
   for(i=0 ; i<19 ; i++) zi[i] = (9 - i) * .125f ;
   for(i=0 ; i<19 ; i++) printf("%8.3f ", zi[i]) ; printf("\n") ;
-  nbits   = float_quantize_simple(zi, iw, 19, quantum, &int_extrema) ;
-  float_unquantize_simple(zo, iw, 19, quantum, &float_extrema) ;
+  nbits   = float_quantize_simple_1D(zi, iw, 19, quantum, &int_extrema) ;
+  float_unquantize_simple_1D(zo, iw, 19, quantum, &float_extrema) ;
   for(i=0 ; i<19 ; i++) printf("%8.3f ", zo[i]) ; printf("\n") ;
   printf("float_extrema = %f %f\n", float_extrema.t[0], float_extrema.t[1]) ;
   for(i=0 ; i<19 ; i++) printf("%8d ", iw[i]) ; printf("\n") ;
@@ -172,8 +172,9 @@ int main(int argc, char **argv){
 
   printf("quantizing/restoring (i - 9) * .125f * (1 - epsilon)\n");
   for(i=0 ; i<19 ; i++){ zi[i] = (i - 9) * .125f ; zi[i] *= eps_minus ; }
-  nbits = float_quantize_simple(zi, iw, 19, quantum, &int_extrema) ;
-  float_unquantize_simple(zo, iw, 19, quantum, &float_extrema) ;
+  nbits = float_quantize_simple_1D(zi, iw, 19, quantum, &int_extrema) ;
+  float_unquantize_simple_1D(zo, iw, 19, quantum, &float_extrema) ;
+  for(i=0 ; i<19 ; i++) printf("%8.3f ", zi[i]) ; printf("\n") ;
   for(i=0 ; i<19 ; i++) printf("%8.3f ", zo[i]) ; printf("\n") ;
   for(i=0 ; i<19 ; i++) printf("%8d ", iw[i]) ; printf("\n") ;
   printf("int_extrema = %d (%d bits) %d (%d bits), nbits = %d\n",
@@ -193,20 +194,29 @@ int main(int argc, char **argv){
     }
     avgi /= NPTS ;
     quantum = quantum_adjust(1.00001f / factor) ;
-    printf("npts = %d, minval = %g, maxval = %g, range = %g, average = %g", NPTS, minval, maxval, maxval - minval, avgi);
+    printf("npts = %dx64, minval = %g, maxval = %g, range = %g, average = %g", NPTS/64, minval, maxval, maxval - minval, avgi);
     printf(", quantum = %g\n", quantum) ;
 
-    nbits = float_quantize_simple(zi, iw, NPTS, quantum, &int_extrema ) ;
+    nbits = float_quantize_simple_1D(zi, iw, NPTS, quantum, &int_extrema ) ;
     printf("range = %d, min = %d, max = %d",
           int_extrema.t[1] - int_extrema.t[0], int_extrema.t[0], int_extrema.t[1]) ;
     printf(", int_extrema = %d (%d bits) %d (%d bits), nbits = %d\n",
           int_extrema.t[0], NeedBits(int_extrema.t[0]), int_extrema.t[1], NeedBits(int_extrema.t[1]), nbits) ;
-    TIME_LOOP_EZ(1000, NPTS, nbits = float_quantize_simple(zi, iw, NPTS, quantum, &int_extrema ) ) ;
-    printf("float_quantize_simple   : %s\n",timer_msg);
+    TIME_LOOP_EZ(1000, NPTS, nbits = float_quantize_simple_1D(zi, iw, NPTS, quantum, &int_extrema ) ) ;
+    printf("float_quantize_simple_1D   : %s\n",timer_msg);
+    TIME_LOOP_EZ(1000, NPTS, nbits = float_quantize_simple(zi, iw, NPTS/64, NPTS/64, NPTS/64, 64, quantum, &int_extrema ) ) ;
+    printf("float_quantize_simple      : %s\n",timer_msg);
 
-    float_unquantize_simple(zo, iw, NPTS, quantum, &float_extrema) ;
-    TIME_LOOP_EZ(1000, NPTS, float_unquantize_simple(zo, iw, NPTS, quantum, &float_extrema) ) ;
-    printf("float_unquantize_simple : %s\n",timer_msg);
+    float_unquantize_simple_1D(zo, iw, NPTS, quantum, &float_extrema) ;
+    TIME_LOOP_EZ(1000, NPTS, float_unquantize_simple_1D(zo, iw, NPTS, quantum, &float_extrema) ) ;
+    printf("float_unquantize_simple_1D : %s\n",timer_msg);
+    TIME_LOOP_EZ(1000, NPTS, float_unquantize_simple(zo, iw, NPTS/64, NPTS/64, NPTS/64, 64, quantum, &float_extrema) ) ;
+    printf("float_unquantize_simple    : %s\n",timer_msg);
+
+    for(i=0 ; i<NPTS ; i++) { zo[i] = -999999999.0 ; iw[i] = -999999999 ; }
+    nbits = float_quantize_simple(zi, iw, NPTS/4, NPTS/4, NPTS/4, 4, quantum, &int_extrema ) ;
+    float_unquantize_simple(zo, iw, NPTS/4, NPTS/4, NPTS/4, 4, quantum, &float_extrema) ;
+    printf("nbits = %d, ", nbits);
 
     toler = quantum * .5 ;
     avgo = 0.0 ;
@@ -225,7 +235,7 @@ int main(int argc, char **argv){
     avg /= NPTS;
     printf("maxd= %9.4g (%9.4g), ",
             maxdelta, avgdelta/NPTS);
-    printf("bias= %9.3g, toler= %8.3g, bias/avg = %8.2g, maxd/t = %6.4f, exceed=%d\n",
+    printf("bias= %9.3g, toler= %9.4g, bias/avg = %7.2g, maxd/t = %4.2f, exceed=%d\n",
           avg, toler, avg/avgi, maxdelta/toler, error);
     printf("\n") ;
   }
