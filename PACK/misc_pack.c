@@ -28,7 +28,7 @@
 #include <misc_pack.h>
 
 #if ! defined(__INTEL_COMPILER_UPDATE)
-#pragma GCC optimize "O3,tree-vectorize"
+#pragma GCC optimize "tree-vectorize"
 #endif
 
 // adjust quantum to first power of 2 <= quantum
@@ -205,23 +205,27 @@ uint32_t float_quantize_simple(float * restrict z, int32_t * restrict q, int ni,
   uint32_t needed1, needed2 ;
 
   rq.f = quantum ; rq.i &= 0x7F800000 ; quantum = rq.f ;   // adjust quantum to power of 2 <= quantum
-  ovq = 1. / quantum ;
+  ovq = 1.0f / quantum ;
 
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-  __m256 vz, vf = _mm256_set1_ps(ovq), vp5 = _mm256_set1_ps(0.25f), vm5 = _mm256_set1_ps(-0.25f), v5 ;
-  __m256i vq, vmi = _mm256_set1_epi32(min), vma = _mm256_set1_epi32(max) ;
-  int ma8[8], mi8[8] ;
+  __m256 vz, vf ;
+  __m256i vq, vmi, vma ;
+  __m128i vma0, vma1, vmi0, vmi1 ;
   int n7 = (ni & 7) ? (ni & 7) : 8 ;
-//   goto less_than_8 ;
+  uint32_t round_mode ;
+
   if(ni < 8) goto less_than_8 ;
+  round_mode = _MM_GET_ROUNDING_MODE() ;
+  _MM_SET_ROUNDING_MODE(_MM_ROUND_NEAREST) ;
+  vf  = _mm256_set1_ps(ovq) ;
+  vmi = _mm256_set1_epi32(min) ;
+  vma = _mm256_set1_epi32(max) ;
   while(nj-- > 0) {
     // N.B. the first and second pass will process some values twice (overlap)
     for(i0 = 0 ; i0 < ni-7 ; i0+=n7 , n7=8){          // batches of 8 values
       vz = _mm256_loadu_ps(z+i0) ;                    // fetch z
-      v5 = _mm256_blendv_ps(vp5, vm5, vz) ;           // .5 or -.5 according to sign of z
       vz = _mm256_mul_ps(vz, vf) ;                    // * ovq
-//       vz = _mm256_add_ps(vz, v5) ;                    // add .5 or -.5
-      vq = _mm256_cvtps_epi32(vz) ;                   // convert to integer
+      vq = _mm256_cvtps_epi32(vz) ;                   // convert to integer (use current rounding mode)
       vma = _mm256_max_epi32(vma, vq) ;               // max(q, max)
       vmi = _mm256_min_epi32(vmi, vq) ;               // min(q, min)
       _mm256_storeu_si256( (__m256i *)(q+i0), vq) ;   // store q
@@ -229,23 +233,28 @@ uint32_t float_quantize_simple(float * restrict z, int32_t * restrict q, int ni,
     z += lniz ;
     q += lniq ;
   }
-  _mm256_storeu_si256( (__m256i *)ma8, vma) ;
-  _mm256_storeu_si256( (__m256i *)mi8, vmi) ;
-  for(i=1 ; i<8 ; i++){
-    ma8[0] = (ma8[i] > ma8[0]) ? ma8[i] : ma8[0] ;
-    mi8[0] = (mi8[i] < mi8[0]) ? mi8[i] : mi8[0] ;
-  }
-  min = mi8[0] ;
-  max = ma8[0] ;
+  _MM_SET_ROUNDING_MODE(round_mode) ;
+  vma0 = _mm256_extracti128_si256(vma, 0) ;     // fold max to 1 value
+  vma1 = _mm256_extracti128_si256(vma, 1) ;
+  vma0 = _mm_max_epi32(vma0, vma1) ;            // max( 0|4 , 1|5 , 2|6 , 1|7 )
+  vma1 = _mm_shuffle_epi32(vma0, 0b10110001) ;  // vma0[2], vma0[3], vma0[0], vma0[1]
+  vma0 = _mm_max_epi32(vma0, vma1) ;            // max( 0|2|4|6 , 1|3|5|7 , dont' t care )
+  vma1 = _mm_shuffle_epi32(vma0, 0b01001011) ;  // vma0[1], vma0[0], vma0[2], vma0[3]
+  vma0 = _mm_max_epi32(vma0, vma1) ;            // max( 0|1|2|3|4|5|6|7 , dont' t care )
+  _mm_storeu_si32( &max, vma0) ;                // store max
+
+  vmi0 = _mm256_extracti128_si256(vmi, 0) ;     // fold min to 1 value
+  vmi1 = _mm256_extracti128_si256(vmi, 1) ;
+  vmi0 = _mm_min_epi32(vmi0, vmi1) ;
+  vmi1 = _mm_shuffle_epi32(vmi0, 0b10110001) ;
+  vmi0 = _mm_min_epi32(vmi0, vmi1) ;
+  vmi1 = _mm_shuffle_epi32(vmi0, 0b01001011) ;
+  vmi0 = _mm_min_epi32(vmi0, vmi1) ;
+  _mm_storeu_si32( &min, vmi0) ;                // store min
   goto end ;
 less_than_8:
 #endif
   while(nj-- > 0) {
-//     for(i=0 ; i<n7 ; i++){         // first 1 - 7 values
-//       q[i] = (z[i] * ovq) + ((z[i] < 0) ? -.5f : .5f) ;
-//       min = (q[i] < min) ? q[i] : min ;
-//       max = (q[i] > max) ? q[i] : max ;
-//     }
     for(i = 0 ; i < ni ; i++){    // a multiple of 8 values is left
       q[i] = (z[i] * ovq) + ((z[i] < 0) ? -.5f : .5f) ;
       min = (q[i] < min) ? q[i] : min ;
