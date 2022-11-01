@@ -5,6 +5,7 @@ SHELL = /bin/bash
 VAR = TT
 DEF =
 LIBDIR = lib_${MOD}
+VPATH = obj_${MOD}
 
 .SUFFIXES :
 .SUFFIXES : .F90 .c .o
