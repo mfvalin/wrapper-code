@@ -6,9 +6,9 @@
 
 // static int b_conts = 0b01010101 ;
 
-#define STATIC extern
 #include <misc_operators.h>
 
+#define STATIC extern
 
 // a[8] , b[8] -> c[4] , row length of a = 8
 STATIC inline void average_rows_8x2_8(float *a, float *c){

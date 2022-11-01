@@ -77,7 +77,7 @@ int main(){
 //     fp16 = vfp16[i] ;
 //     fp32 = fo[i] ;
     fprintf(stdout, "fp32 = %12g (%12g) (%8.8x), fp16 = %8.8x (%2d,%4.4x)\n", 
-            fi[i], fo[i], x1.i, vfp16[i], vfp16[i]>>10, vfp16[i] & 0x3FF) ;
+            fi[i], fo[i], x1.u, vfp16[i], vfp16[i]>>10, vfp16[i] & 0x3FF) ;
   }
 // return 0 ;
 //   for(i=0 ; i<NPT ; i++) fz0[i] = i - (NPT-1)/2.0f ;
@@ -117,7 +117,7 @@ int main(){
       first_denorm = 0 ;
     }
     fprintf(stdout,"z0 = %8.8x %12g, coded = %8.8x, z1 = %8.8x %12g, r = %12f %10.0f %12.0f, d = %9f\n",
-                   fi0.i, fi[i],     q[i],          fo0.i, fo[i],    r, 1.0/r, zmax / (fi[i] - fo[i]), fo[i] - fi[i]);
+                   fi0.u, fi[i],     q[i],          fo0.u, fo[i],    r, 1.0/r, zmax / (fi[i] - fo[i]), fo[i] - fi[i]);
     if(q[i] == 0) break ;
   }
 return 0 ;
