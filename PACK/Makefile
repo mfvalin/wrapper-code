@@ -31,14 +31,14 @@ INCLUDES = average_2x2.h    cdf53.h        cpu_type.h        idwt53.h \
 	(module load $(MOD)$(EXT) >/dev/null ; mkdir -p obj_$(MOD) ; \
 	$$CC -c -I. $(OPT) $(DEF) $< -o obj_$(MOD)/$@ ; )
 
-recompile_${MOD} :  $(INCLUDES)
-	rm -f obj_$(MOD)/*.o
-	touch recompile_${MOD}
-
 ${LIBDIR}/libmisc.a: recompile_${MOD} $(OBJECTS)
 	mkdir -p ${LIBDIR}
 	ar rcv $@ obj_$(MOD)/*.o
 	mkdir -p include_$(MOD)
+
+recompile_${MOD} :  $(INCLUDES)
+	rm -f obj_$(MOD)/*.o
+	touch recompile_${MOD}
 
 all_tests : test_compress test_lorenzo test_pack test_pack_macros \
             test_quantize test_float_info test_helpers test_averages \
@@ -162,7 +162,7 @@ test_lorenzo_c.$(MOD).exe : tests/test_lorenzo_c.c ${LIBDIR}/libmisc.a
 	$$CC $(OPT) $(DEF) -I. $^ -L${LIBDIR} -lmisc -o $@ )
 
 clean:
-	rm -f *.o *.mod a*.out *.Abs *.exe *.s *.ll *.gch
+	rm -f *.o *.mod a*.out *.Abs *.exe *.s *.ll *.gch recompile_*
 veryclean: clean
-	rm -f lib_*/libmisc.a include*/*.mod obj*/*.o
+	rm -f lib_*/libmisc.a include*/*.mod obj*/*.o recompile_*
 
