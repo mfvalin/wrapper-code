@@ -39,6 +39,13 @@ interface
   end function cycles_counter_freq
 end interface
 
+#define TIME_LOOP_DATA integer(C_INT64_t) :: timer_min, timer_max ; real(C_DOUBLE) :: timer_avg ;\
+character(len=1024) :: timer_msg ; integer(C_SIZE_T) :: timer_msg_size = len(timer_msg)
+
+#define TIMER_DATA integer(C_INT64_t) :: timer_t
+#define TIMER_START timer_t = elapsed_cycles()
+#define TIMER_STOP timer_t = elapsed_cycles() - timer_t
+
 #else
 
 // protect against multiple include
@@ -191,7 +198,8 @@ static inline uint64_t elapsed_cycles_fenced(void) {
 
 // elapsed timer ticks, NO serializing, LOCAL fencing before
 // default version
-static inline uint64_t elapsed_cycles(void) {
+static uint64_t cycles_overhead = 0 ;
+static uint64_t elapsed_cycles_(void) {
 #if defined(__x86_64__)
   uint64_t lo, hi ;
   __asm__ volatile ("lfence");
@@ -201,6 +209,27 @@ static inline uint64_t elapsed_cycles(void) {
   uint64_t time0 ;
   asm volatile ("isb ; mrs %0, cntvct_el0" : "=r" (time0));
   return time0;
+#else
+  return elapsed_us() * 1000 ;  // nanoseconds
+#endif
+}
+static void get_cycles_overhead(){
+  cycles_overhead = elapsed_cycles_() ;
+  cycles_overhead = elapsed_cycles_() - cycles_overhead ;
+  cycles_overhead = cycles_overhead - (cycles_overhead >> 3) ;
+}
+static inline uint64_t elapsed_cycles(void) {
+  if(cycles_overhead == 0) get_cycles_overhead() ;
+#if defined(__x86_64__)
+  uint64_t lo, hi, t ;
+  __asm__ volatile ("lfence");
+  __asm__ volatile ("rdtsc" : /* outputs   */ "=a" (lo), "=d" (hi) );
+  t = lo | (hi << 32) ;
+  return t - cycles_overhead ;
+#elif defined(__aarch64__)
+  uint64_t time0 ;
+  asm volatile ("isb ; mrs %0, cntvct_el0" : "=r" (time0));
+  return time0 - cycles_overhead ;
 #else
   return elapsed_us() * 1000 ;  // nanoseconds
 #endif
