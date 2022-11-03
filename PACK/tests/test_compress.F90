@@ -1,6 +1,64 @@
-#define IN_FORTRAN_CODE
+#define IN_FORTRAN_CODE__
+
+module analyze_data_mod
+  use ISO_C_BINDING
+  implicit none
+#include <misc_pack.hf>
+
+contains
+
+  function array_stats_1(zi, ni, lni, nj, quantum) result(bits)
+    implicit none
+    integer, intent(IN), value :: ni, lni, nj
+    real, dimension(*), intent(IN), target :: zi
+    integer, dimension(:,:), pointer :: bits
+
+    real, dimension(lni,64) :: z
+    pointer(pz, z)
+    integer, dimension(:), allocatable :: boundi, boundj
+    integer, dimension(64,64) :: q
+    real, dimension(64,64) :: zr
+    integer :: i0, j0, i, j, ni0, nj0, nb0
+    integer, dimension(2) :: t
+    real, intent(IN) :: quantum
+
+    ni0 = (ni+63)/64
+    nj0 = (nj+63)/64
+    allocate( bits(ni0, nj0), boundi(ni0+1), boundj(nj0+1) )
+    bits = 0
+    zr = 5.0
+    zr(64,:) = 55.0
+    print *, 'quantum =', quantum
+
+    boundi = [ ( (i*64)-63 , i = 1, size(boundi) ) ]
+    boundi(ni0) = ni + 1 - mod(ni,64)
+    boundi(ni0+1) = ni + 1
+    print 1,boundi
+
+    boundj = [ ( ((j*64)-63) , j = 1, size(boundj) ) ]
+    boundj(nj0) = nj + 1 - mod(nj,64)
+    boundj(nj0+1) = nj + 1
+    print 1,boundj
+
+    bits = 0
+!     quantum = 1.0
+    do j0 = 1, nj0
+    do i0 = 1, ni0
+      pz = loc( zi(boundi(i0)+(boundj(j0)-1)*lni) )
+      bits(i0,j0) = float_quantize_simple(z, q, 64, 64, 64, 64, quantum, t)
+    enddo
+    enddo
+    do j = nj0, 1, -1
+      print 2, bits(:,j)
+    enddo
+1 format(50I5)
+2 format(50I3)
+  end function
+end module
 
 module globalstats
+  use ISO_C_BINDING
+  use analyze_data_mod
   implicit none
   integer, dimension(-1:4), save :: biases, nbiases
 end module globalstats
@@ -385,7 +443,7 @@ program test_compress
   use ISO_C_BINDING
   use globalstats
   implicit none
-#include <misc_pack.hf>
+! #include <misc_pack.hf>
   integer, external :: fnom, fstouv, fstnbr, fstinf, fstsui
   integer :: iun, status, nrec, key, ni, nj, nk, irec, ilev, ilen
   integer :: date,deet,npas,nbits,datyp,ip1,ip2,ip3,ig1,ig2,ig3,ig4
@@ -419,6 +477,7 @@ program test_compress
       integer(C_INT), intent(IN), value :: n, nbits
     end subroutine ieee_clip
   end interface
+  integer, dimension(:,:), pointer :: bits0
 
   write(0,*)'======= compression algorithm test ======='
   iun=0
@@ -482,7 +541,10 @@ program test_compress
         if(nomvar(1:2) == 'ZZ') quantum = 0.1   ! .1 m
         if(nomvar(1:2) == 'UU') quantum = 0.1
         if(nomvar(1:2) == 'VV') quantum = 0.1
+        if(nomvar(1:2) == 'WW') quantum = 0.01
 !         quantum = 0.0
+bits0 => array_stats_1(p, ni, ni, nj, quantum)
+#if 0
         call float_quantize_prep(12, phead, maxvalue, minvalue, quantum)
         print *,'NBITS from header =',phead%nbits,' quantum =',phead%quantum
         q(1:ni*nj) = p(1:ni*nj)  !    aucun filtre
@@ -555,6 +617,7 @@ program test_compress
 !         call scores(s,z,y,ni,nj,1.00000,.false.,'diag:',1)
         call CONVIP_plus( ip1, p1, the_kind, -1, str_ip, .false. )
         write(6,*) nomvar, s(12), s(13), s(16), s(8), p1
+#endif
         if(irec == 25) exit
       endif
     endif

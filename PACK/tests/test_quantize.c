@@ -180,6 +180,13 @@ int main(int argc, char **argv){
   printf("int_extrema = %d (%d bits) %d (%d bits), nbits = %d\n",
          int_extrema.t[0], NeedBits(int_extrema.t[0]), int_extrema.t[1], NeedBits(int_extrema.t[1]), nbits) ;
 
+  printf("=============== rounding test with 7 points =================\n");
+  for(i=0 ; i<7 ; i++) zi[i] = (9 - i) * .125f ;
+  nbits   = float_quantize_simple_1D(zi, iw, 7, quantum, &int_extrema) ;
+  float_unquantize_simple_1D(zo, iw, 7, quantum, &float_extrema) ;
+  for(i=0 ; i<7 ; i++) printf("%8.3f ", zi[i]) ; printf("\n") ;
+  for(i=0 ; i<7 ; i++) printf("%8.3f ", zo[i]) ; printf("\n") ;
+  for(i=0 ; i<7 ; i++) printf("%8d ", iw[i]) ; printf("\n") ;
   printf("\n=================================================\n") ;
 
   for(factor = 4.0f ; factor <= 16384.0f ; factor *= 8.0f ){
