@@ -25,7 +25,7 @@
 #define CLOSE_MODE   8
 #define ALLOC_MODE  16
 
-#if defined(IN_FORTRAN_CODE)
+#if defined(IN_FORTRAN_CODE)  || defined(__GFORTRAN__)
   type, BIND(C) :: c_pstream   ! packing stream (the packed stream is a sequence of 32 bit unsigned integers)
     private
     integer(C_INT64_T) :: a    ! 64bit accumulator

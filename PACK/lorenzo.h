@@ -12,7 +12,7 @@
  *
  */
 
-#if ! defined(IN_FORTRAN_CODE)
+#if ! defined(IN_FORTRAN_CODE) && ! defined(__GFORTRAN__)
 
 void LorenzoPredict_c(int32_t *orig, int32_t *diff, int ni, int lnio, int lnid, int nj);
 void LorenzoPredictInplace_c(int32_t * restrict orig, int ni, int lnio, int nj);
