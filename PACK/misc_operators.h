@@ -54,8 +54,59 @@ Library General Public License for more details.
 #define RMASK32(nbits)  (~((~0)  << nbits))
 #define RMASK64(nbits)  (~((~0l) << nbits))
 
+// leading zeros count (32 bit value)
+STATIC inline uint32_t lzcnt_32(uint32_t what){
+  uint32_t cnt ;
+#if defined(__x86_64__)
+  __asm__ __volatile__ ("lzcnt{l %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
+#elif defined(__aarch64__)
+   __asm__ __volatile__ ("clz %w[out], %w[in]" : [out]"=r"(cnt) : [in]"r"(what) ) ;
+#endif
+  return cnt ;
+}
+
+// leading zeros count (64 bit value)
+STATIC inline uint32_t lzcnt_64(uint64_t what){
+  uint64_t cnt ;
+#if defined(__x86_64__)
+  __asm__ __volatile__ ("lzcnt{ %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
+#elif defined(__aarch64__)
+   __asm__ __volatile__ ("clz %[out], %[in]" : [out]"=r"(cnt) : [in]"r"(what) ) ;
+#endif
+  return cnt ;
+}
+
 // number of bits needed to represent a 32 bit signed number
-STATIC inline uint32_t BitsNeeded(int32_t what){
+// uses lzcnt_32 function, that uses the lzcnt instruction
+STATIC inline uint32_t BitsNeeded_32(int32_t what){
+  union {
+    int32_t  i ;
+    uint32_t u ;
+  }iu ;
+  uint32_t nbits ;
+  if(what >= 0) return 32 - lzcnt_32(what) ;
+  iu.i = what - 1 ;          // what < 0
+  nbits = 33 - lzcnt_32(~iu.u) ;
+  return (nbits > 32) ? 32 : nbits ;
+}
+
+// number of bits needed to represent a 64 bit signed number
+// uses lzcnt_64 function, that uses the lzcnt instruction
+STATIC inline uint32_t BitsNeeded_64(int64_t what){
+  union {
+    int64_t  i ;
+    uint64_t u ;
+  }iu ;
+  uint32_t nbits ;
+  if(what >= 0) return 64 - lzcnt_64(what) ;
+  iu.i = what - 1 ;          // what < 0
+  nbits = 65 - lzcnt_64(~iu.u) ;
+  return (nbits > 64) ? 64 : nbits ;
+}
+
+// number of bits needed to represent a 32 bit signed number
+// sleigh of hand using the IEEE double exponent to determine number of bits
+STATIC inline uint32_t BitsNeeded32(int32_t what){
   int it ;
   union{
     double   f;
@@ -69,6 +120,8 @@ STATIC inline uint32_t BitsNeeded(int32_t what){
   return (it > 32) ? 32 : it ;
 }
 
+// number of bits needed to represent a 24 bit signed number (inaccurate above 24 bits)
+// sleigh of hand using the IEEE float exponent to determine number of bits
 STATIC inline uint32_t BitsNeeded24(int32_t what){
   int it ;
   union{
@@ -79,7 +132,7 @@ STATIC inline uint32_t BitsNeeded24(int32_t what){
 
   t.f = what ;
   it = ((t.u >> 23) & 0xFF) - 127 + 1 ; // exponent - bias + 1
-  it += (t.u >> 31) ;
+  it += (t.u >> 31) ;                   // add 1 if number is negative
   return (it > 32) ? 32 : it ;
 }
 
@@ -90,7 +143,7 @@ STATIC inline uint32_t BitsNeeded24(int32_t what){
 STATIC inline void BitPop(int32_t *what, uint32_t *pop, int n){
   int i;
   for(i=0 ; i<n ; i++) {
-    int nbits = BitsNeeded(what[i]) ;  // number of bits needed for this signed integer
+    int nbits = BitsNeeded_32(what[i]) ;  // number of bits needed for this signed integer
     pop[nbits]++ ;                     // bump count for this number of bits
   }
 }
@@ -118,14 +171,36 @@ STATIC inline int Nint(float what){
 #endif
 
 #else
-  interface
-    function BitsNeeded(what) result(nbits) bind(C,name='BitsNeeded')
+  interface BitsNeeded  ! generic interface
+    function BitsNeeded_32(what) result(nbits) bind(C,name='BitsNeeded_32')
       import C_INT32_T
       implicit none
       integer(C_INT32_T), intent(IN), value :: what
       integer(C_INT32_T) :: nbits
-    end function BitsNeeded
-    function BitsNeeded24(what) result(nbits) bind(C,name='BitsNeeded')
+    end function BitsNeeded_32
+    function BitsNeeded_64(what) result(nbits) bind(C,name='BitsNeeded_64')
+      import C_INT32_T, C_INT64_T
+      implicit none
+      integer(C_INT64_T), intent(IN), value :: what
+      integer(C_INT32_T) :: nbits
+    end function BitsNeeded_64
+  end interface
+  interface lzcnt
+    function lzcnt_32(what) result(nbits) bind(C,name='lzcnt_32')
+      import C_INT32_T
+      implicit none
+      integer(C_INT32_T), intent(IN), value :: what
+      integer(C_INT32_T) :: nbits
+    end function lzcnt_32
+    function lzcnt_64(what) result(nbits) bind(C,name='lzcnt_32')
+      import C_INT32_T, C_INT64_T
+      implicit none
+      integer(C_INT64_T), intent(IN), value :: what
+      integer(C_INT32_T) :: nbits
+    end function lzcnt_64
+  end interface
+  interface
+    function BitsNeeded24(what) result(nbits) bind(C,name='BitsNeeded24')
       import C_INT32_T
       implicit none
       integer(C_INT32_T), intent(IN), value :: what
