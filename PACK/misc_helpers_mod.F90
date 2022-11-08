@@ -1,0 +1,14 @@
+module rmn_misc_helpers
+  use ISO_C_BINDING
+  implicit none
+#define IN_FORTRAN_CODE
+#include <misc_operators.h>
+#include <misc_pack.h>
+#include <misc_swizzle.h>
+#include <misc_timers.h>
+#include <pack_stream.h>
+#include <lorenzo.h>
+#include <cpu_type.h>
+#include <idwt53.h>
+#include <smooth124.h>
+end module
