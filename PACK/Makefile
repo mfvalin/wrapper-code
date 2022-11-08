@@ -16,7 +16,7 @@ OBJECTS = lorenzo_f.o lorenzo_c.o cdf97.o cdf53.o idwt53.o analyze_8x8.o \
 	  average_by_2_4_8.o average_2x2.o smooth124.o bi_endian_pack.o \
           misc_timers.o misc_pack.o float_info.o misc_swizzle.o misc_endian.o \
           ieee_quantize.o misc_floats.o verify.o misc_operators.o analyze_data.o \
-          misc_operators_mod.o
+          misc_operators_mod.o misc_helpers_mod.o
 
 INCLUDES = average_2x2.h    cdf53.h        cpu_type.h        idwt53.h \
            lorenzo.h        misc_floats.h  misc_operators.h  misc_swizzle.h  \
@@ -53,6 +53,12 @@ test_compress.$(MOD).exe : tests/test_compress.F90 ${LIBDIR}/libmisc.a
 	(module load $(MOD)$(EXT) >/dev/null ; echo "LD_RUN_PATH=$$LD_RUN_PATH" ; \
 	$$FTN -fopenmp -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} \
 	-lmisc $$LIBECCC/lib/librmn.a -o $@ -Wl,-rpath,$$LD_RUN_PATH; )
+
+test_operators : test_operators.$(MOD).exe
+	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
+test_operators.$(MOD).exe : tests/test_operators.F90 ${LIBDIR}/libmisc.a
+	(module load $(MOD)$(EXT) >/dev/null ; \
+	$$FTN -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} -lmisc -o $@ ; )
 
 test_lorenzo : test_lorenzo.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
