@@ -12,11 +12,33 @@
 // Library General Public License for more details.
 //
 
+#if ! defined(__INTEL_COMPILER_UPDATE)
+#pragma GCC optimize "tree-vectorize"
+#endif
+
 #define STATIC extern
 #include <misc_operators.h>
 
 #include <math.h>
 #include <stdlib.h>
+
+int32_t vBitsNeeded_32(int32_t * restrict what, int32_t * restrict bits, int n){
+  int i, needed=0 ;
+  for(i=0 ; i<n ; i++) {
+    bits[i] = BitsNeeded_32(what[i]) ;
+    needed = (bits[i] > needed) ? bits[i] : needed ;
+  }
+  return needed ;
+}
+
+int32_t vBitsNeeded_64(int64_t * restrict what, int32_t * restrict bits, int n){
+  int i, needed=0 ;
+  for(i=0 ; i<n ; i++) {
+    bits[i] = BitsNeeded_64(what[i]) ;
+    needed = (bits[i] > needed) ? bits[i] : needed ;
+  }
+  return needed ;
+}
 
 void BitEntropy4(float entropy[4], uint32_t *bitstream, int npts, int nbits, int rshift) {
   uint32_t bins[4][16] ;
