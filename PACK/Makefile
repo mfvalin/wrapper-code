@@ -16,7 +16,7 @@ OBJECTS = lorenzo_f.o lorenzo_c.o cdf97.o cdf53.o idwt53.o analyze_8x8.o \
 	  average_by_2_4_8.o average_2x2.o smooth124.o bi_endian_pack.o \
           misc_timers.o misc_pack.o float_info.o misc_swizzle.o misc_endian.o \
           ieee_quantize.o misc_floats.o verify.o misc_operators.o misc_operators_mod.o \
-          misc_helpers_mod.o analyze_data.o
+          misc_helpers_mod.o analyze_data.o misc_zfp.o
 
 INCLUDES = average_2x2.h    cdf53.h        cpu_type.h        idwt53.h \
            lorenzo.h        misc_floats.h  misc_operators.h  misc_swizzle.h  \
@@ -26,11 +26,11 @@ INCLUDES = average_2x2.h    cdf53.h        cpu_type.h        idwt53.h \
 
 .F90.o:
 	(module load $(MOD)$(EXT) >/dev/null ; mkdir -p obj_$(MOD) include_$(MOD) ; \
-	$$FTN -c -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -o obj_$(MOD)/$@ ; \
+	$$FTN -c -I. -Iinclude_$(MOD) -I$$LIBECCC/include $(OPT) $(DEF) $< -o obj_$(MOD)/$@ ; \
 	mv *.mod include_$(MOD)/. )
 .c.o:
 	(module load $(MOD)$(EXT) >/dev/null ; mkdir -p obj_$(MOD) ; \
-	$$CC -c -I. $(OPT) $(DEF) $< -o obj_$(MOD)/$@ ; )
+	$$CC -c -I. -I$$LIBECCC/include $(OPT) $(DEF) $< -o obj_$(MOD)/$@ ; )
 
 ${LIBDIR}/libmisc.a: recompile_${MOD} $(OBJECTS)
 	mkdir -p ${LIBDIR}
@@ -83,6 +83,12 @@ test_bi_endian_pack : test_bi_endian_pack.$(MOD).exe
 test_bi_endian_pack.$(MOD).exe : tests/test_bi_endian_pack.c ${LIBDIR}/libmisc.a
 	(module load $(MOD)$(EXT) >/dev/null ; \
 	$$CC $(OPT) $(DEF) -I. $^ -L${LIBDIR} -lmisc -o $@ )
+
+test_zfp : test_zfp.$(MOD).exe
+	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< .001 ) || true
+test_zfp.$(MOD).exe : tests/test_zfp.c ${LIBDIR}/libmisc.a
+	(module load $(MOD)$(EXT) >/dev/null ; \
+	$$CC $(OPT) $(DEF) -I. -I$${LIBECCC}/include $^ -L${LIBDIR} -L$${LIBECCC}/lib -lmisc -lzfp -lm -o $@ )
 
 test_quantize : test_quantize.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
