@@ -50,8 +50,17 @@ character(len=1024) :: timer_msg ; integer(C_SIZE_T) :: timer_msg_size = len(tim
 
 // protect against multiple include
 #if ! defined(TIME_LOOP_TOP)
+#include <stdint.h>
 
 static double NaNoSeC = 0.0 ;
+
+static inline uint64_t cycles_counter_freq(void) ;
+#define TIME_CONVERT_INIT if(NaNoSeC == 0) NaNoSeC = 1.0E+9f / cycles_counter_freq() ;
+
+static double inline cycles_to_ns(uint64_t t){
+  TIME_CONVERT_INIT ;
+  return t * NaNoSeC ;
+}
 
 #define TIME_LOOP_DATA \
   uint64_t timer_min, timer_max ; \
@@ -68,11 +77,11 @@ static double NaNoSeC = 0.0 ;
 // TIME_ONCE_TOP does not need niter
 #define TIME_LOOP_TOP(niter) \
 { uint64_t t, to , mint = ~0, maxt = 0, avgt = 0.0 ; int iter = niter ; int j ; \
-  if(NaNoSeC == 0) NaNoSeC = 1.0E+9f / cycles_counter_freq() ; \
+  TIME_CONVERT_INIT ; \
   to = elapsed_cycles() ; t = elapsed_cycles() ; to = t - to ; to = to - (to >> 3) ; \
   for(j=0 ; j < iter ; j++) { t = elapsed_cycles() ;
 #define TIME_ONCE_TOP \
-{ uint64_t t, to ; double NaNoSeC = 1.0E+9f / cycles_counter_freq() ; \
+{ uint64_t t, to ; TIME_CONVERT_INIT ; \
   to = elapsed_cycles() ; t = elapsed_cycles() ; to = t - to ; to = to - (to >> 3) ;
 //
 // code to be timed in a loop goes between TIME_LOOP_TOP and TIME_LOOP_BOT
