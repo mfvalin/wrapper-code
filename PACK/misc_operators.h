@@ -58,9 +58,21 @@ Library General Public License for more details.
 STATIC inline uint32_t lzcnt_32(uint32_t what){
   uint32_t cnt ;
 #if defined(__x86_64__)
+  // X86 family of processors
   __asm__ __volatile__ ("lzcnt{l %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
 #elif defined(__aarch64__)
+  // ARM family of processors
    __asm__ __volatile__ ("clz %w[out], %w[in]" : [out]"=r"(cnt) : [in]"r"(what) ) ;
+#else
+   // generic code
+   cnt = 0;
+   if(what >> 16) { cnt+= 16 ; what >>= 16 ; } ; // bits (16-31) not 0
+   if(what >>  8) { cnt+=  8 ; what >>=  8 ; } ; // bits ( 8-15) not 0
+   if(what >>  4) { cnt+=  4 ; what >>=  4 ; } ; // bits ( 4- 7) not 0
+   if(what >>  2) { cnt+=  2 ; what >>=  2 ; } ; // bits ( 2- 3) not 0
+   if(what >>  1) { cnt+=  1 ; what >>=  1 ; } ; // bits ( 1- 1) not 0
+   if(what) cnt++ ;                            // bit 0 not 0 ;
+   cnt = 32 - cnt ;
 #endif
   return cnt ;
 }
@@ -69,9 +81,22 @@ STATIC inline uint32_t lzcnt_32(uint32_t what){
 STATIC inline uint32_t lzcnt_64(uint64_t what){
   uint64_t cnt ;
 #if defined(__x86_64__)
+  // X86 family of processors
   __asm__ __volatile__ ("lzcnt{ %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
 #elif defined(__aarch64__)
+  // ARM family of processors
    __asm__ __volatile__ ("clz %[out], %[in]" : [out]"=r"(cnt) : [in]"r"(what) ) ;
+#else
+   // generic code
+   cnt = 0;
+   if(what >> 32) { cnt+= 32 ; what >>= 32 ; } ; // bits (32-63) not 0
+   if(what >> 16) { cnt+= 16 ; what >>= 16 ; } ; // bits (16-31) not 0
+   if(what >>  8) { cnt+=  8 ; what >>=  8 ; } ; // bits ( 8-15) not 0
+   if(what >>  4) { cnt+=  4 ; what >>=  4 ; } ; // bits ( 4- 7) not 0
+   if(what >>  2) { cnt+=  2 ; what >>=  2 ; } ; // bits ( 2- 3) not 0
+   if(what >>  1) { cnt+=  1 ; what >>=  1 ; } ; // bits ( 1- 1) not 0
+   if(what) cnt++ ;                            // bit 0 not 0 ;
+   cnt = 64 - cnt ;
 #endif
   return cnt ;
 }
@@ -106,6 +131,12 @@ STATIC inline int32_t visignmag_32_inplace(int32_t * restrict src, int ni){
   return max ;
 }
 
+// number of bits needed to represent a 32 bit unsigned number
+// uses lzcnt_32 function, that uses the lzcnt instruction
+STATIC inline uint32_t BitsNeeded_u32(uint32_t what){
+  return 32 - lzcnt_32(what) ;
+}
+
 // number of bits needed to represent a 32 bit signed number
 // uses lzcnt_32 function, that uses the lzcnt instruction
 STATIC inline uint32_t BitsNeeded_32(int32_t what){
@@ -113,13 +144,21 @@ STATIC inline uint32_t BitsNeeded_32(int32_t what){
     int32_t  i ;
     uint32_t u ;
   }iu ;
-  uint32_t nbits ;
-  if(what >= 0) return 32 - lzcnt_32(what) ;
-  iu.i = what ; // - 1 ;          // what < 0
-  nbits = 33 - lzcnt_32(~iu.u) ;
-  return (nbits > 32) ? 32 : nbits ;
+  uint32_t nbits = 33 - lzcnt_32(what) ; // there must be a 0 bit at the front
+  if(what >= 0) goto end ;
+  iu.i = what ;                          // what < 0
+  nbits = 33 - lzcnt_32(~iu.u) ;         // one's complement, then count leading zeros
+end:
+  return (nbits > 32) ? 32 : nbits ;     // max is 32 bits
 }
 int32_t vBitsNeeded_32(int32_t * restrict what, int32_t * restrict bits, int n);
+int32_t vBitsNeeded_u32(uint32_t * restrict what, int32_t * restrict bits, int n);
+
+// number of bits needed to represent a 64 bit unsigned number
+// uses lzcnt_64 function, that uses the lzcnt instruction
+STATIC inline uint32_t BitsNeeded_u64(uint64_t what){
+  return 64 - lzcnt_64(what) ;
+}
 
 // number of bits needed to represent a 64 bit signed number
 // uses lzcnt_64 function, that uses the lzcnt instruction
@@ -128,45 +167,15 @@ STATIC inline uint32_t BitsNeeded_64(int64_t what){
     int64_t  i ;
     uint64_t u ;
   }iu ;
-  uint32_t nbits ;
-  if(what >= 0) return 64 - lzcnt_64(what) ;
-  iu.i = what - 1 ;          // what < 0
-  nbits = 65 - lzcnt_64(~iu.u) ;
-  return (nbits > 64) ? 64 : nbits ;
+  uint32_t nbits = 65 - lzcnt_64(what) ; // there must be a 0 bit at the front
+  if(what >= 0) goto end ;
+  iu.i = what ;                          // what < 0
+  nbits = 65 - lzcnt_64(~iu.u) ;         // one's complement, then count leading zeros
+end:
+  return (nbits > 64) ? 64 : nbits ;     // max is 64 bits
 }
 int32_t vBitsNeeded_64(int64_t * restrict what, int32_t * restrict bits, int n);
-
-// number of bits needed to represent a 32 bit signed number
-// sleigh of hand using the IEEE double exponent to determine number of bits
-STATIC inline uint32_t BitsNeeded32(int32_t what){
-  int it ;
-  union{
-    double   f;
-    uint64_t u;
-  } t ;
-  if(what == 0) return 0 ;
-
-  t.f = what ;
-  it = ((t.u >> 52) & 0x7FF) - 1023 + 1 ; // exponent - bias + 1
-  it += (t.u >> 63) ;
-  return (it > 32) ? 32 : it ;
-}
-
-// number of bits needed to represent a 24 bit signed number (inaccurate above 24 bits)
-// sleigh of hand using the IEEE float exponent to determine number of bits
-STATIC inline uint32_t BitsNeeded24(int32_t what){
-  int it ;
-  union{
-    float    f;
-    uint32_t u;
-  } t ;
-  if(what == 0) return 0 ;
-
-  t.f = what ;
-  it = ((t.u >> 23) & 0xFF) - 127 + 1 ; // exponent - bias + 1
-  it += (t.u >> 31) ;                   // add 1 if number is negative
-  return (it > 32) ? 32 : it ;
-}
+int32_t vBitsNeeded_u64(uint64_t * restrict what, int32_t * restrict bits, int n);
 
 // add to number of bits needed distribution
 // what : integer array of dimension n

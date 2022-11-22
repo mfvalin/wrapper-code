@@ -22,20 +22,46 @@
 #include <math.h>
 #include <stdlib.h>
 
-int32_t vBitsNeeded_32(int32_t * restrict what, int32_t * restrict bits, int n){
+int32_t vBitsNeeded_u32(uint32_t * restrict what, int32_t * restrict bits, int nn){
   int i, needed=0 ;
+  int n = (nn < 0) ? -nn : nn ;
   for(i=0 ; i<n ; i++) {
-    bits[i] = BitsNeeded_32(what[i]) ;
-    needed = (bits[i] > needed) ? bits[i] : needed ;
+    int32_t nbits = BitsNeeded_u32(what[i]) ;
+    if(nn >= 0) bits[i] = nbits ;
+    needed = (nbits > needed) ? nbits : needed ;
   }
   return needed ;
 }
 
-int32_t vBitsNeeded_64(int64_t * restrict what, int32_t * restrict bits, int n){
+int32_t vBitsNeeded_32(int32_t * restrict what, int32_t * restrict bits, int nn){
   int i, needed=0 ;
+  int n = (nn < 0) ? -nn : nn ;
   for(i=0 ; i<n ; i++) {
-    bits[i] = BitsNeeded_64(what[i]) ;
-    needed = (bits[i] > needed) ? bits[i] : needed ;
+    int32_t nbits = BitsNeeded_u32(what[i]) ;
+    if(nn >= 0) bits[i] = nbits ;
+    needed = (nbits > needed) ? nbits : needed ;
+  }
+  return needed ;
+}
+
+int32_t vBitsNeeded_u64(uint64_t * restrict what, int32_t * restrict bits, int nn){
+  int i, needed=0 ;
+  int n = (nn < 0) ? -nn : nn ;
+  for(i=0 ; i<n ; i++) {
+    int32_t nbits = BitsNeeded_u64(what[i]) ;
+    if(nn >= 0) bits[i] = nbits ;
+    needed = (nbits > needed) ? nbits : needed ;
+  }
+  return needed ;
+}
+
+int32_t vBitsNeeded_64(int64_t * restrict what, int32_t * restrict bits, int nn){
+  int i, needed=0 ;
+  int n = (nn < 0) ? -nn : nn ;
+  for(i=0 ; i<n ; i++) {
+    int32_t nbits = BitsNeeded_64(what[i]) ;
+    if(nn >= 0) bits[i] = nbits ;
+    needed = (nbits > needed) ? nbits : needed ;
   }
   return needed ;
 }
