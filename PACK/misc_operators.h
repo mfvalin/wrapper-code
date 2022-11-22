@@ -57,7 +57,7 @@ Library General Public License for more details.
 // leading zeros count (32 bit value)
 STATIC inline uint32_t lzcnt_32(uint32_t what){
   uint32_t cnt ;
-#if defined(__x86_64__)
+#if defined(__x86_64__x)
   // X86 family of processors
   __asm__ __volatile__ ("lzcnt{l %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
 #elif defined(__aarch64__)
@@ -65,14 +65,13 @@ STATIC inline uint32_t lzcnt_32(uint32_t what){
    __asm__ __volatile__ ("clz %w[out], %w[in]" : [out]"=r"(cnt) : [in]"r"(what) ) ;
 #else
    // generic code
-   cnt = 0;
-   if(what >> 16) { cnt+= 16 ; what >>= 16 ; } ; // bits (16-31) not 0
-   if(what >>  8) { cnt+=  8 ; what >>=  8 ; } ; // bits ( 8-15) not 0
-   if(what >>  4) { cnt+=  4 ; what >>=  4 ; } ; // bits ( 4- 7) not 0
-   if(what >>  2) { cnt+=  2 ; what >>=  2 ; } ; // bits ( 2- 3) not 0
-   if(what >>  1) { cnt+=  1 ; what >>=  1 ; } ; // bits ( 1- 1) not 0
-   if(what) cnt++ ;                            // bit 0 not 0 ;
-   cnt = 32 - cnt ;
+   cnt = 32;
+   if(what >> 16) { cnt-= 16 ; what >>= 16 ; } ; // bits (16-31) not 0
+   if(what >>  8) { cnt-=  8 ; what >>=  8 ; } ; // bits ( 8-15) not 0
+   if(what >>  4) { cnt-=  4 ; what >>=  4 ; } ; // bits ( 4- 7) not 0
+   if(what >>  2) { cnt-=  2 ; what >>=  2 ; } ; // bits ( 2- 3) not 0
+   if(what >>  1) { cnt-=  1 ; what >>=  1 ; } ; // bits ( 1- 1) not 0
+   if(what) cnt-- ;                            // bit 0 not 0 ;
 #endif
   return cnt ;
 }
@@ -80,7 +79,7 @@ STATIC inline uint32_t lzcnt_32(uint32_t what){
 // leading zeros count (64 bit value)
 STATIC inline uint32_t lzcnt_64(uint64_t what){
   uint64_t cnt ;
-#if defined(__x86_64__)
+#if defined(__x86_64__x)
   // X86 family of processors
   __asm__ __volatile__ ("lzcnt{ %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
 #elif defined(__aarch64__)
@@ -88,15 +87,14 @@ STATIC inline uint32_t lzcnt_64(uint64_t what){
    __asm__ __volatile__ ("clz %[out], %[in]" : [out]"=r"(cnt) : [in]"r"(what) ) ;
 #else
    // generic code
-   cnt = 0;
-   if(what >> 32) { cnt+= 32 ; what >>= 32 ; } ; // bits (32-63) not 0
-   if(what >> 16) { cnt+= 16 ; what >>= 16 ; } ; // bits (16-31) not 0
-   if(what >>  8) { cnt+=  8 ; what >>=  8 ; } ; // bits ( 8-15) not 0
-   if(what >>  4) { cnt+=  4 ; what >>=  4 ; } ; // bits ( 4- 7) not 0
-   if(what >>  2) { cnt+=  2 ; what >>=  2 ; } ; // bits ( 2- 3) not 0
-   if(what >>  1) { cnt+=  1 ; what >>=  1 ; } ; // bits ( 1- 1) not 0
-   if(what) cnt++ ;                            // bit 0 not 0 ;
-   cnt = 64 - cnt ;
+   cnt = 64;
+   if(what >> 32) { cnt-= 32 ; what >>= 32 ; } ; // bits (32-63) not 0
+   if(what >> 16) { cnt-= 16 ; what >>= 16 ; } ; // bits (16-31) not 0
+   if(what >>  8) { cnt-=  8 ; what >>=  8 ; } ; // bits ( 8-15) not 0
+   if(what >>  4) { cnt-=  4 ; what >>=  4 ; } ; // bits ( 4- 7) not 0
+   if(what >>  2) { cnt-=  2 ; what >>=  2 ; } ; // bits ( 2- 3) not 0
+   if(what >>  1) { cnt-=  1 ; what >>=  1 ; } ; // bits ( 1- 1) not 0
+   if(what) cnt-- ;                            // bit 0 not 0 ;
 #endif
   return cnt ;
 }
