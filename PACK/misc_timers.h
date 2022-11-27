@@ -1,5 +1,5 @@
 /*
- * Hopefully useful code for C and Fortran
+ * Hopefully useful code for C
  * Copyright (C) 2022  Recherche en Prevision Numerique
  *
  * This code is free software; you can redistribute it and/or
@@ -19,45 +19,22 @@
  * https://sites.utexas.edu/jdm4372/2018/07/   John McCalpin's blog
  * https://github.com/jdmccalpin/low-overhead-timers
  */
-#if defined(IN_FORTRAN_CODE) || defined(__GFORTRAN__)
-
-interface
-  function elapsed_us() result(t) bind(C,name='ElapsedUs')  ! elapsed microseconds
-    import C_INT64_T
-    implicit none
-    integer(C_INT64_T) :: t
-  end function elapsed_us
-  function elapsed_cycles() result(t) bind(C,name='ElapsedCycles')  ! elapsed timer ticks
-    import C_INT64_T
-    implicit none
-    integer(C_INT64_T) :: t
-  end function elapsed_cycles
-  function cycles_counter_freq() result(t) bind(C,name='CyclesCounterFreq')  ! timer tick frequency
-    import C_INT64_T
-    implicit none
-    integer(C_INT64_T) :: t
-  end function cycles_counter_freq
-end interface
-
-#define TIME_LOOP_DATA integer(C_INT64_t) :: timer_min, timer_max ; real(C_DOUBLE) :: timer_avg ;\
-character(len=1024) :: timer_msg ; integer(C_SIZE_T) :: timer_msg_size = len(timer_msg)
-
-#define TIMER_DATA integer(C_INT64_t) :: timer_t
-#define TIMER_START timer_t = elapsed_cycles()
-#define TIMER_STOP timer_t = elapsed_cycles() - timer_t
-
-#else
 
 // protect against multiple include
 #if ! defined(TIME_LOOP_TOP)
 #include <stdint.h>
 
+#if ! defined(STATIC)
+#define STATIC static
+#define STATIC_DEFINED_HERE
+#endif
+
 static double NaNoSeC = 0.0 ;
 
-static inline uint64_t cycles_counter_freq(void) ;
+STATIC inline uint64_t cycles_counter_freq(void) ;
 #define TIME_CONVERT_INIT if(NaNoSeC == 0) NaNoSeC = 1.0E+9f / cycles_counter_freq() ;
 
-static double inline cycles_to_ns(uint64_t t){
+STATIC double inline cycles_to_ns(uint64_t t){
   TIME_CONVERT_INIT ;
   return t * NaNoSeC ;
 }
@@ -149,7 +126,7 @@ static double inline cycles_to_ns(uint64_t t){
 
 // elapsed microseconds of wall clock time
 // an effective resolution of O(microsecond) is assumed for gettimeofday
-static inline uint64_t elapsed_us(void){
+STATIC inline uint64_t elapsed_us(void){
   struct timeval t ;
   uint64_t elapsed ;
   gettimeofday(&t, NULL) ;
@@ -225,9 +202,9 @@ static uint64_t elapsed_cycles_(void) {
 static void get_cycles_overhead(){
   cycles_overhead = elapsed_cycles_() ;
   cycles_overhead = elapsed_cycles_() - cycles_overhead ;
-  cycles_overhead = cycles_overhead - (cycles_overhead >> 3) ;
+  cycles_overhead = cycles_overhead - (cycles_overhead >> 3) ; // keep 7/8 of value
 }
-static inline uint64_t elapsed_cycles(void) {
+STATIC inline uint64_t elapsed_cycles(void) {
   if(cycles_overhead == 0) get_cycles_overhead() ;
 #if defined(__x86_64__)
   uint64_t lo, hi, t ;
@@ -245,7 +222,7 @@ static inline uint64_t elapsed_cycles(void) {
 }
 
 // determine the timer tick frequency (in Hz)
-static inline uint64_t cycles_counter_freq(void){
+STATIC inline uint64_t cycles_counter_freq(void){
   static uint64_t timerfreq = 0;
   uint64_t t1, t2, tc1, tc2 ;
 
@@ -268,13 +245,11 @@ static inline uint64_t cycles_counter_freq(void){
   return timerfreq ;
 }
 
-// entry points used for Fortran interface (code in misc_timers.c)
-uint64_t ElapsedUs(void);
-uint64_t ElapsedCycles(void);
-uint64_t CyclesCounterFreq(void);
-
 #endif
 
+#if defined(STATIC_DEFINED_HERE)
+#undef STATIC
+#undef STATIC_DEFINED_HERE
 #endif
 
 #endif
