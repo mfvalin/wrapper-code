@@ -48,7 +48,7 @@ module rmn_timers
     end function
 end interface
 contains
-  subroutine timer_start                       ! start timet
+  subroutine timer_start                       ! start timer
     implicit none
     timer_t = c_elapsed_cycles()
   end subroutine
