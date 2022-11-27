@@ -36,11 +36,11 @@ void  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
     for(    ; i<n-1 ; i+=2){
       // little endian => upper part [i+1] | lower part [i]
       t  = (w32[i  ] & mask) | ((w32[i+1] & mask) << nbits) ;
-      LE64_PUT_NBITS(accum, insert, t, nb) ;   // insert a pair of values
+      LE64_PUT_NBITS(accum, insert, t, nb, stream) ;   // insert a pair of values
     }
   }
   for(    ; i<n ; i++){
-    LE64_PUT_NBITS(accum, insert, w32[i], nbits) ;
+    LE64_PUT_NBITS(accum, insert, w32[i], nbits, stream) ;
   }
   if(nw <= 0) LE64_INSERT_FINAL(accum, insert, stream) ;
   p->accum = accum ;
@@ -64,11 +64,11 @@ void  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
     for(    ; i<n-1 ; i+=2){
       // big endian => upper part [i] | lower part [i+1]
       t  = (w32[i+1] & mask) | ((w32[i  ] & mask) << nbits) ;
-      BE64_PUT_NBITS(accum, insert, t, nb) ;   // insert a pair of values
+      BE64_PUT_NBITS(accum, insert, t, nb, stream) ;   // insert a pair of values
     }
   }
   for(    ; i<n ; i++){
-    BE64_PUT_NBITS(accum, insert, w32[i], nbits) ;
+    BE64_PUT_NBITS(accum, insert, w32[i], nbits, stream) ;
   }
   if(nw <= 0) BE64_INSERT_FINAL(accum, insert, stream) ;
   p->accum = accum ;
@@ -90,13 +90,13 @@ void  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   if(nbits <= 16) {
     uint32_t t, mask = RMask(nbits), nb = nbits + nbits ;
     for(    ; i<n-1 ; i+=2){
-      LE64_GET_NBITS(accum, xtract, t, nb) ;   // get a pair of values
+      LE64_GET_NBITS(accum, xtract, t, nb, stream) ;   // get a pair of values
       w32[i  ] = t & mask ;                    // little endian means lower part first
       w32[i+1] = t >> nbits ;                  // then upper part
     }
   }
   for(    ; i<n ; i++){
-    LE64_GET_NBITS(accum, xtract, w32[i], nbits) ;
+    LE64_GET_NBITS(accum, xtract, w32[i], nbits, stream) ;
   }
   p->accum = accum ;
   p->xtract = xtract ;
@@ -117,13 +117,13 @@ void  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   if(nbits <= 16) {
     uint32_t t, mask = RMask(nbits), nb = nbits + nbits ;
     for(    ; i<n-1 ; i+=2){
-      BE64_GET_NBITS(accum, xtract, t, nb) ;      // get a pair of values
+      BE64_GET_NBITS(accum, xtract, t, nb, stream) ;      // get a pair of values
       w32[i  ] = t >> nbits ;                     // big endian means upper part first
       w32[i+1] = t & mask ;                       // then lower part
     }
   }
   for(    ; i<n ; i++){
-    BE64_GET_NBITS(accum, xtract, w32[i], nbits) ;
+    BE64_GET_NBITS(accum, xtract, w32[i], nbits, stream) ;
   }
   p->accum = accum ;
   p->xtract = xtract ;
@@ -144,13 +144,13 @@ void  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
   if(nbits <= 16) {
     int32_t t, mask = RMask(nbits), nb = nbits + nbits ;
     for(    ; i<n-1 ; i+=2){
-      BE64_GET_NBITS(accum, xtract, t, nb) ;         // get a pair of values
+      BE64_GET_NBITS(accum, xtract, t, nb, stream) ;         // get a pair of values
       w32[i  ] = t >> nbits ;                        // big endian means upper part first (shift propagates sign)
       w32[i+1] = (t << (32-nbits)) >> (32-nbits) ;   // then lower part (double shift to propagate sign)
     }
   }
   for(    ; i<n ; i++){
-    BE64_GET_NBITS(accum, xtract, w32[i], nbits) ;
+    BE64_GET_NBITS(accum, xtract, w32[i], nbits, stream) ;
   }
   p->accum = (uint64_t)accum ;
   p->xtract = xtract ;
@@ -171,7 +171,7 @@ void  LeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   uint32_t *stream = p->stream ;
   while(n[0] > 0 ){     // loop until end of list (negative value)
     for(i=0 ; i<n[0] ; i++){
-      LE64_PUT_NBITS(accum, insert, w32[i], nbits[0]) ;
+      LE64_PUT_NBITS(accum, insert, w32[i], nbits[0], stream) ;
     }
     nbits++ ;
     n++ ;       // next pair
@@ -196,7 +196,7 @@ void  BeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   uint32_t *stream = p->stream ;
   while(n[0] > 0 ){     // loop until end of list (negative value)
     for(i=0 ; i<n[0] ; i++){
-      BE64_PUT_NBITS(accum, insert, w32[i], nbits[0]) ;
+      BE64_PUT_NBITS(accum, insert, w32[i], nbits[0], stream) ;
     }
     nbits++ ;
     n++ ;       // next pair
@@ -221,7 +221,7 @@ void  LeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   uint32_t *stream = p->stream ;
   while(n[0] > 0 ){     // loop until end of list (negative value)
     for(i=0 ; i<n[0] ; i++){
-      LE64_GET_NBITS(accum, xtract, w32[i], nbits[0]) ;
+      LE64_GET_NBITS(accum, xtract, w32[i], nbits[0], stream) ;
     }
     nbits++ ;
     n++ ;       // next pair
@@ -245,7 +245,7 @@ void  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   uint32_t *stream = p->stream ;
   while(n[0] > 0 ){     // loop until end of list (negative value)
     for(i=0 ; i<n[0] ; i++){
-      BE64_GET_NBITS(accum, xtract, w32[i], nbits[0]) ;
+      BE64_GET_NBITS(accum, xtract, w32[i], nbits[0], stream) ;
     }
     nbits++ ;
     n++ ;       // next pair

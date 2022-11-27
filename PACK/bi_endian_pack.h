@@ -23,32 +23,52 @@
 #define STATIC_DEFINED_HERE
 #endif
 
+// bit stream descriptor. ONLY ONE of insert / extract should be non zero
 typedef struct{
   uint64_t  accum ;   // 64 bit unsigned bit accumulator
   uint32_t *start ;   // pointer to start of stream data storage
-  uint32_t *stream ;  // pointer into packed stream
-  uint32_t  insert ;  // number of bits already filled in accumulator
-  uint32_t  xtract ;  // number of bits available for extraction in accumulator
+  uint32_t *stream ;  // pointer into packed stream (both insert and extract mode)
+  uint32_t  insert ;  // # of bits used in accumulator (0 <= insert <= 64)
+  uint32_t  xtract ;  // # of bits extractable from accumulator (0 <= xtract <= 64)
 } bitstream ;
 
-// for this macro to produce meaningful results, w32 MUST BE int32_t
+// for this macro to produce meaningful results, w32 MUST BE int32_t (32 bit signed int)
 #define MAKE_SIGNED_32(w32, nbits) { w32 <<= (32 - (nbits)) ; w32 >>= (32 - (nbits)) ; }
-// for this macro to produce meaningful results, w32 MUST BE int64_t
+// for this macro to produce meaningful results, w64 MUST BE int64_t (64 bit signed int)
 #define MAKE_SIGNED_64(w64, nbits) { w64 <<= (64 - (nbits)) ; w64 >>= (64 - (nbits)) ; }
 
 //
+// macro arguments description
+// accum  [INOUT] : 64 bit accumulator
+// insert [INOUT] : # of bits used in accumulator (0 <= insert <= 64)
+// xtract [INOUT] : # of bits extractable from accumulator (0 <= xtract <= 64)
+// stream [INOUT] : pointer to next position in packed stream
+// w32    [IN]    : 32 bit integer containing data to be inserted (expression allowed)
+//        [OUT]   : 32 bit integer receiving extracted data (MUST be a variable)
+// nbits  [IN]    : number of bits to insert / extract in w32 (<= 32 bits)
+//
+// N.B. : if w32 and accum are signed variables, extraction will produce a "signed" result
+//        if w32 and accum are unsigned variables, extraction will produce an "unsigned" result
+//
 // little endian style (right to left) bit stream packing
 // insertion at top, most significant part
+// the useful bits are at the bottom (least significant part) of accum
 //
+// initialize stream for insertion
 #define LE64_INSERT_BEGIN(accum, insert) \
         { accum = 0 ; insert = 0 ; }
+// insert the lower nbits bits from w32 into accum, update insert
 #define LE64_INSERT_NBITS(accum, insert, w32, nbits) \
         { uint32_t mask = ~0 ; mask >>= (32-(nbits)) ; uint64_t w64 = (w32) & mask ; accum |= (w64 << insert) ; insert += (nbits) ; }
+// check that 32 bits can be safely inserted into accum
+// if not possible, store lower 32 bits of accum into stream, update accum, insert, stream
 #define LE64_INSERT_CHECK(accum, insert, stream) \
         { if(insert > 32) { *stream = accum ; stream++ ; insert -= 32 ; accum >>= 32 ; } ; }
+// store any residual data from accum into stream, update accum, insert, stream
 #define LE64_INSERT_FINAL(accum, insert, stream) \
         { LE64_INSERT_CHECK(accum, insert, stream) ; { if(insert > 0) { *stream = accum ; stream++ ;} ; } }
-#define LE64_PUT_NBITS(accum, insert, w32, nbits) \
+// combined INSERT_CHECK and INSERT_NBITS, update accum, insert, stream
+#define LE64_PUT_NBITS(accum, insert, w32, nbits, stream) \
         { LE64_INSERT_CHECK(accum, insert, stream) ; LE64_INSERT_NBITS(accum, insert, w32, nbits) ; }
 
 // the extract process produces an "unsigned" result
@@ -61,7 +81,7 @@ typedef struct{
         { if(xtract < 32) { uint64_t w64 = *(stream) ; accum |= (w64 << xtract) ; (stream)++ ; xtract += 32 ; } ; }
 #define LE64_XTRACT_FINAL(accum, xtract) \
         { accum = 0 ; xtract = 0 ; }
-#define LE64_GET_NBITS(accum, xtract, w32, nbits) \
+#define LE64_GET_NBITS(accum, xtract, w32, nbits, stream) \
         { LE64_XTRACT_CHECK(accum, xtract, stream) ; LE64_XTRACT_NBITS(accum, xtract, w32, nbits) ; }
 //
 // big endian style (left to right) bit stream packing
@@ -75,7 +95,7 @@ typedef struct{
         { if(insert > 32) { insert -= 32 ; *(stream) = accum >> insert ; (stream)++ ; } ; }
 #define BE64_INSERT_FINAL(accum, insert, stream) \
         { BE64_INSERT_CHECK(accum, insert, stream) ; if(insert > 0) { *stream = accum << (32 - insert) ; stream++ ; } }
-#define BE64_PUT_NBITS(accum, insert, w32, nbits) \
+#define BE64_PUT_NBITS(accum, insert, w32, nbits, stream) \
         { BE64_INSERT_CHECK(accum, insert, stream) ; BE64_INSERT_NBITS(accum, insert, w32, nbits) ; }
 
 // NOTE : if w32 and accum are signed variables, the extract will produce a "signed" result
@@ -88,9 +108,10 @@ typedef struct{
         { if(xtract < 32) { accum >>= (32-xtract) ; accum |= *stream ; accum <<= (32-xtract) ; xtract += 32 ; (stream)++ ; } ; }
 #define BE64_XTRACT_FINAL(accum, xtract) \
         { accum = 0 ; xtract = 0 ; }
-#define BE64_GET_NBITS(accum, xtract, w32, nbits) \
+#define BE64_GET_NBITS(accum, xtract, w32, nbits, stream) \
         { BE64_XTRACT_CHECK(accum, xtract, stream) ; BE64_XTRACT_NBITS(accum, xtract, w32, nbits) ; }
 
+// initialize a LittleEndian stream
 STATIC inline void  LeStreamInit(bitstream *p, uint32_t *buffer){
   p->accum  = 0 ;         // accumulator is empty
   p->insert = 0 ;         // insertion point at Least Significant Bit
@@ -99,6 +120,7 @@ STATIC inline void  LeStreamInit(bitstream *p, uint32_t *buffer){
   p->stream = buffer ;    // stream is empty and starts at 
 }
 
+// initialize a BigEndian stream
 STATIC inline void  BeStreamInit(bitstream *p, uint32_t *buffer){
   p->accum  = 0 ;         // accumulator is empty
   p->insert = 0 ;         // no data has been inserted
