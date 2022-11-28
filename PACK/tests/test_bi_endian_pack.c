@@ -6,26 +6,16 @@
 #include <bi_endian_pack.h>
 
 #if !defined(NPTS)
-#define NPTS 4097
+#define NPTS 524289
 #endif
 
-#define NTIMES 1000
-
-#define TIME_CODE(tmin, tmax, tavg, niter, CODE) { \
-    tmin = 1000000000.0 ; tmax = 0.0 ; tavg = 0.0 ;uint64_t t ; \
-    for(j=0 ; j < niter ; j++) { t = elapsed_cycles() ; \
-      CODE ; \
-      t = elapsed_cycles() -t ; \
-      tavg += t ; tmin = (t < tmin) ? t : tmin ; tmax = (t > tmax) ? t : tmax ; \
-    } tavg /= niter ; \
-  }
-
+#define NTIMES 100
 
 int main(int argc, char **argv){
   uint32_t unpacked[NPTS], packedle[NPTS], packedbe[NPTS], restored[NPTS] ;
   int32_t unpacked_signed[NPTS], signed_restored[NPTS] ;
   bitstream ple, pbe ;
-  int i, j, nbits, errors, errorsle, errorsbe, errorsbes ;
+  int i, j, nbits, errors, errorsle, errorsbe, errorsles, errorsbes ;
   uint32_t mask ;
   uint64_t t0, t1, tmin, tmax, tavg, freq ;
   double nano ;
@@ -41,11 +31,11 @@ int main(int argc, char **argv){
   for(i=0 ; i<NPTS ; i++) unpacked[i] = i + 16 ;
   for(i=0 ; i<NPTS   ; i+=2) unpacked_signed[i] = -unpacked[i] ;
   for(i=1 ; i<NPTS-1 ; i+=2) unpacked_signed[i] =  unpacked[i] ;
-  printf("original   : ") ;
+  printf("original(u)  : ") ;
   for(i=0 ; i<8 ; i++) printf("%8.8x ", unpacked[i]); printf("\n") ;
-  printf("original(s): ") ;
+  printf("original(s)  : ") ;
   for(i=0 ; i<8 ; i++) printf("%8.8x ", unpacked_signed[i]); printf("\n") ;
-  
+  printf("\n") ;
 
   nbits = 12 ;
   LeStreamInit(&ple, packedle) ;
@@ -65,8 +55,16 @@ int main(int argc, char **argv){
   printf("restoredbe %2d: ", nbits) ; for(i=0 ; i<8 ; i++) printf("%8.8x ", restored[i]); printf("\n") ;
   printf("\n") ;
 
+  LeStreamInit(&ple, packedle) ;
+  LeStreamInsert(&ple, (void *) unpacked_signed, nbits, -NPTS) ;
+  printf("packedle %2d  : ", nbits) ; for(i=7 ; i>=0 ; i--) printf("%8.8x ", packedle[i]); printf("\n") ;
+  LeStreamInit(&ple, packedle) ;
+  for(i=0 ; i<NPTS ; i++) signed_restored[i] = 0xFFFFFFFFu ;
+  LeStreamXtractSigned(&ple, signed_restored, nbits, NPTS) ;
+  printf("restoredle %2d: ", nbits) ; for(i=0 ; i<8 ; i++) printf("%8.8x ", signed_restored[i]); printf("\n") ;
+
   BeStreamInit(&pbe, packedbe) ;
-  BeStreamInsert(&pbe, unpacked_signed, nbits, -NPTS) ;
+  BeStreamInsert(&pbe, (void *) unpacked_signed, nbits, -NPTS) ;
   printf("packedbe %2d  : ", nbits) ; for(i=0 ; i<8 ; i++) printf("%8.8x ", packedbe[i]); printf("\n") ;
   BeStreamInit(&pbe, packedbe) ;
   for(i=0 ; i<NPTS ; i++) signed_restored[i] = 0xFFFFFFFFu ;
@@ -74,66 +72,66 @@ int main(int argc, char **argv){
   printf("restoredbe %2d: ", nbits) ; for(i=0 ; i<8 ; i++) printf("%8.8x ", signed_restored[i]); printf("\n") ;
   printf("\n") ;
 
+  printf("%6d points,              insert                            extract (unsigned)                       extract (signed)\n", NPTS) ;
   for(nbits = 1 ; nbits <= 32 ; nbits += 1){
     mask = RMask(nbits) ;
     for(i=0 ; i<NPTS ; i++)    unpacked[i] = (i + 15) ;
     for(i=0 ; i<NPTS   ; i+=2) unpacked_signed[i] = -(((unpacked[i]) & mask) >> 1) ;
     for(i=1 ; i<NPTS-1 ; i+=2) unpacked_signed[i] =  (((unpacked[i]) & mask) >> 1) ;
+    printf("nbits = %2d", nbits) ;
+
+//  time little endian insertion
     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, LeStreamInit(&ple, packedle) ; LeStreamInsert(&ple, unpacked, nbits, -NPTS) ) ;
-//     printf("nbits = %2d, ns(le) = %6.0f (%6.0f), %6.2f ns/pt", nbits, tmin*nano, tavg*nano, tavg*nano/NPTS);
-    printf("nbits = %2d, (le) %6.2f ns/pt", nbits, tavg*nano/NPTS);
-  //     printf("packedle  : ") ;
-  //     for(i=7 ; i>=0 ; i--) printf("%8.8x ", packedle[i]); printf("\n") ;
+    printf(", %6.2f ns/pt (le)", tavg*nano/NPTS);
 
+//  time big endian insertion
     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, LeStreamInit(&pbe, packedbe) ; BeStreamInsert(&pbe, unpacked, nbits, -NPTS) ) ;
-//     printf(", ns(be) = %6.0f (%6.0f), %6.2f ns/pt", tmin*nano, tavg*nano, tavg*nano/NPTS);
-    printf(", (be) %6.2f ns/pt", tavg*nano/NPTS);
-  //     printf("packedbe  : ") ;
-  //     for(i=0 ; i<8 ; i++) printf("%8.8x ", packedbe[i]); printf("\n") ;
+    printf(", %6.2f ns/pt (be)", tavg*nano/NPTS);
 
+//  time little endian unsigned extraction
     for(i=0 ; i<NPTS ; i++) restored[i] = 0xFFFFFFFFu ;
     LeStreamInit(&ple, packedle) ;
     LeStreamXtract(&ple, restored, nbits, NPTS) ;
-//     printf("restoredle: ") ;
-//     for(i=0 ; i<8 ; i++) printf("%8.8x ", restored[i]); printf("\n") ;
     mask = RMask(nbits) ;
     errors = 0 ;
     for(i=0 ; i<NPTS ; i++){
-      if((restored[i] & mask) != (unpacked[i] & mask) ) {
-//         if(errors < 1) printf("i = %4d, expected = %8.8x, got = %8.8x, raw = %8.8x\n",
-//                               i, unpacked[i] & mask, restored[i] & mask, unpacked[i]) ;
-        errors++ ;
-      }
+      if((restored[i] & mask) != (unpacked[i] & mask) ) errors++ ;
     }
     errorsle = errors ;
-//     printf(", errors (le) = %d / %d", errors, NPTS) ;
     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, LeStreamInit(&ple, packedle) ; LeStreamXtract(&ple, restored, nbits, NPTS) ) ;
-//     printf(", ns(le) = %6.1f (%6.0f), %6.2f ns/pt", tmin*nano, tavg*nano, tavg*nano/NPTS);
-    printf(", (le) = %6.2f ns/pt", tavg*nano/NPTS);
+    printf(", = %6.2f ns/pt (le)", tavg*nano/NPTS);
 
-    BeStreamInit(&pbe, packedbe) ;
+//  time big endian unsigned extraction
     for(i=0 ; i<NPTS ; i++) restored[i] = 0xFFFFFFFFu ;
+    BeStreamInit(&pbe, packedbe) ;
     BeStreamXtract(&pbe, restored, nbits, NPTS) ;
-//     printf("restoredbe: ") ;
-//     for(i=0 ; i<8 ; i++) printf("%8.8x ", restored[i]); printf("\n") ;
     mask = RMask(nbits) ;
     errors = 0 ;
     for(i=0 ; i<NPTS ; i++){
-      if((restored[i] & mask) != (unpacked[i] & mask) ) {
-//         if(errors < 1) printf("i = %4d, expected = %8.8x, got = %8.8x, raw = %8.8x\n",
-//                               i, unpacked[i] & mask, restored[i] & mask, unpacked[i]) ;
-        errors++ ;
-      }
+      if((restored[i] & mask) != (unpacked[i] & mask) ) errors++ ;
     }
     errorsbe = errors ;
-//     printf(", errors (be) = %d / %d", errors, NPTS) ;
     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, BeStreamInit(&pbe, packedbe) ; BeStreamXtract(&pbe, restored, nbits, NPTS) ) ;
-//     printf(", ns(be) = %6.0f (%6.0f), %6.2f ns/pt", tmin*nano, tavg*nano, tavg*nano/NPTS);
-    printf(", (be) %6.2f ns/pt", tavg*nano/NPTS);
+    printf(", %6.2f ns/pt (be)", tavg*nano/NPTS);
 
-    BeStreamInit(&pbe, packedbe) ;
-    BeStreamInsert(&pbe, unpacked_signed, nbits, -NPTS) ;
+//  time little endian signed extraction
     for(i=0 ; i<NPTS ; i++) signed_restored[i] = 0xFFFFFFFFu ;
+    LeStreamInit(&ple, packedle) ;
+    LeStreamInsert(&ple, (void *) unpacked_signed, nbits, -NPTS) ;
+    LeStreamInit(&ple, packedle) ;
+    LeStreamXtractSigned(&ple, signed_restored, nbits, NPTS) ;
+    errors = 0 ;
+    for(i=0 ; i<NPTS ; i++){
+      if(unpacked_signed[i] != signed_restored[i]) errors++;
+    }
+    errorsles = errors ;
+    TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, LeStreamInit(&ple, packedle) ; LeStreamXtractSigned(&ple, signed_restored, nbits, NPTS) ) ;
+    printf(", %6.2f ns/pt (les)", tavg*nano/NPTS);
+
+//  time big endian signed extraction
+    for(i=0 ; i<NPTS ; i++) signed_restored[i] = 0xFFFFFFFFu ;
+    BeStreamInit(&pbe, packedbe) ;
+    BeStreamInsert(&pbe, (void *) unpacked_signed, nbits, -NPTS) ;
     BeStreamInit(&pbe, packedbe) ;
     BeStreamXtractSigned(&pbe, signed_restored, nbits, NPTS) ;
     errors = 0 ;
@@ -142,8 +140,11 @@ int main(int argc, char **argv){
     }
     errorsbes = errors ;
     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, BeStreamInit(&pbe, packedbe) ; BeStreamXtractSigned(&pbe, signed_restored, nbits, NPTS) ) ;
-    printf(", (bes) %6.2f ns/pt (%d/%d/%d errors)", tavg*nano/NPTS, errorsle, errorsbe, errorsbes);
-    printf(" %8.8x %8.8x", signed_restored[NPTS/2 + nbits], signed_restored[NPTS/2 + nbits + 1]);
+    printf(", %6.2f ns/pt (bes)", tavg*nano/NPTS);
+//
+    printf(" (%d/%d/%d/%d errors)", errorsle, errorsbe, errorsles, errorsbes);
+//
+//     printf(" %8.8x %8.8x", signed_restored[NPTS/2 + nbits], signed_restored[NPTS/2 + nbits + 1]);
     printf("\n");
   }
 }

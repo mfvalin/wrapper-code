@@ -103,6 +103,34 @@ void  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   p->stream = stream ;
 }
 
+// little endian style extraction of signed values from a packing stream
+// p     : stream                                [INOUT]
+// w32   : array of unsigned values extracted    [OUT]
+// nbits : number of bits kept for each value    [IN]
+// n     : number of values from w32             [IN}
+void  LeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
+  int i = 0 ;
+  int64_t  accum = (int64_t)p->accum ;
+  uint32_t  xtract = p->xtract ;
+  uint32_t *stream = p->stream ;
+
+  if(nbits <= 16) {
+    int32_t t, mask = RMask(nbits), nb = nbits + nbits ;
+    for(    ; i<n-1 ; i+=2){
+      LE64_GET_NBITS(accum, xtract, t, nb, stream) ;   // get a pair of values
+      // use shift to propagate sign
+      w32[i  ] = (t << (32-nbits)) >> (32-nbits) ;     // little endian means lower part first
+      w32[i+1] = t >> nbits ;                          // then upper part
+    }
+  }
+  for(    ; i<n ; i++){
+    LE64_GET_NBITS(accum, xtract, w32[i], nbits, stream) ;
+  }
+  p->accum = accum ;
+  p->xtract = xtract ;
+  p->stream = stream ;
+}
+
 // big endian style extraction of unsigned values from a packing stream
 // p     : stream                                [INOUT]
 // w32   : array of unsigned values extracted    [OUT]
@@ -145,8 +173,9 @@ void  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
     int32_t t, mask = RMask(nbits), nb = nbits + nbits ;
     for(    ; i<n-1 ; i+=2){
       BE64_GET_NBITS(accum, xtract, t, nb, stream) ;         // get a pair of values
-      w32[i  ] = t >> nbits ;                        // big endian means upper part first (shift propagates sign)
-      w32[i+1] = (t << (32-nbits)) >> (32-nbits) ;   // then lower part (double shift to propagate sign)
+      // use shift to propagate sign
+      w32[i  ] = t >> nbits ;                        // big endian means upper part first
+      w32[i+1] = (t << (32-nbits)) >> (32-nbits) ;   // then lower part
     }
   }
   for(    ; i<n ; i++){
