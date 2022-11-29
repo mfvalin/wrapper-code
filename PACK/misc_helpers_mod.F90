@@ -5,7 +5,6 @@ module rmn_misc_helpers
 #include <misc_operators.h>
 #include <misc_pack.h>
 #include <misc_swizzle.h>
-#include <misc_timers.h>
 #include <pack_stream.h>
 #include <lorenzo.h>
 #include <cpu_type.h>
