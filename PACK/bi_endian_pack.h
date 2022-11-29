@@ -183,19 +183,54 @@ STATIC inline uint32_t LMask(uint32_t nbits){
   return  ( mask << (32 - nbits)) ;
 }
 
-STATIC inline void  LeStreamReset(bitstream *p, uint32_t *buffer){
+// flush stream being written into
+STATIC inline void  LeStreamFlush(bitstream *p){
+  if(p->insert > 0) LE64_INSERT_FINAL(p->accum, p->insert, p->stream) ;
   p->accum = 0 ;
   p->insert = 0 ;
-  p->stream = buffer ;
-  p->start  = buffer ;
+  p->xtract = 0 ;
 }
 
-STATIC inline void  BeStreamReset(bitstream *p, uint32_t *buffer){
+// flush stream being written into
+STATIC inline void  BeStreamFlush(bitstream *p){
+  if(p->insert > 0) BE64_INSERT_FINAL(p->accum, p->insert, p->stream) ;
   p->accum = 0 ;
   p->insert = 0 ;
-  p->stream = buffer ;
-  p->start  = buffer ;
 }
+
+// rewind stream to read it from the beginning
+STATIC inline void  LeStreamRewind(bitstream *p){
+  if(p->insert > 0) LeStreamFlush(p) ;   // something left to write
+  p->accum = 0 ;
+  p->insert = 0 ;
+  p->xtract = 0 ;
+  p->stream = p->start ;
+}
+
+// rewind stream to read it from the beginning
+STATIC inline void  BeStreamRewind(bitstream *p){
+  if(p->insert > 0) BeStreamFlush(p) ;   // something left to write
+  p->accum = 0 ;
+  p->insert = 0 ;
+  p->xtract = 0 ;
+  p->stream = p->start ;
+}
+
+// STATIC inline void  LeStreamReset(bitstream *p, uint32_t *buffer){
+//   p->accum = 0 ;
+//   p->insert = 0 ;
+//   p->xtract = 0 ;
+//   p->stream = buffer ;
+//   p->start  = buffer ;
+// }
+// 
+// STATIC inline void  BeStreamReset(bitstream *p, uint32_t *buffer){
+//   p->accum = 0 ;
+//   p->insert = 0 ;
+//   p->xtract = 0 ;
+//   p->stream = buffer ;
+//   p->start  = buffer ;
+// }
 
 #if defined(STATIC_DEFINED_HERE)
 #undef STATIC
