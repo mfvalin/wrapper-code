@@ -92,13 +92,15 @@ void AnalyzeCompressionErrors(float *fa, float *fb, int np, float small, char *s
   if(acc2 < 0) acc2 = 0;
   acc0 = log2(1.0+ierr);                       // worst accuracy
   if(acc0 < 0) acc0 = 0;
-  sum2 = sum2 / np;                                    // average quadratic error
+  sum2 = sum2 / np;                            // average quadratic error
+  sum2 = sqrt(sum2);                           // RMS
   snr  = .25 * (maxval - minval) * (maxval - minval);
   snr  = 10.0 * log10(snr / sum2);                    // Peak Signal / Noise Ratio
 //   if(relerr < .000001f) relerr = .000001f;
   if(relerr == 0.0) relerr = 1.0E-10;
-  printf("%s[%6.4f] ",str,small);
-  printf("max/avg/bias/rms/rel err = (%8.6f, %8.6f, %8.6f, %8.6f, 1/%8.2g), range = %10.6f",errmax, errsuma/n, errsum/n, sqrt(sum2),1.0/relerr, maxval-minval);
+  printf("%s epsilon = %6.2g ",str,small);
+  printf("max/avg/bias/rms/rel err = (%8.6f, %8.6f, %8.6f, %8.6f, 1/%8.2g), range = %10.6f",
+         errmax, errsuma/n, errsum/n, sum2, 1.0/relerr, maxval-minval);
   printf(", worst/avg accuracy = (%6.2f,%6.2f) bits, PSNR = %5.0f",24-acc0, 24-acc2, snr);  // probably not relevant for FCST verif
 //   printf(", DISSIM = %12.6g, Pearson = %12.6g", 1.0 - ssim,1.0-rab);   // not very useful for packing error analysis, maybe for FCST verif ?
   printf(" [%.0f]\n",(maxval-minval)/errmax);
@@ -117,8 +119,8 @@ void AnalyzeCompressionErrors(float *fa, float *fb, int np, float small, char *s
 
 int main(int argc, char **argv){
   /* allocate array of floats */
-  int nx = 128; int nx2 = nx/2 ;
-  int ny = 128; int ny2 = ny/2 ;
+  int nx = 1024; int nx2 = nx/2 ;
+  int ny = 1024; int ny2 = ny/2 ;
   int nz = 1; int nz2 = 4 ;
   int nxy2 = nx2 * ny2;
   float* array = malloc(nx * ny * nz * sizeof(float));
@@ -128,11 +130,15 @@ int main(int argc, char **argv){
   int i, j, k;
   float toler = 0.0f, maxerror = 0.0f ;
   int precision = 0 ;
-  void *Stream1, *Stream2;
+  void *Stream1, *Stream2, *Stream3, *Stream4;
   int Ssize, Ssize2, errors ;
   uint64_t t ;
   int d[4], s[4], nsize ;
   double t_ns ;
+  float epsilon = .00000111f ;
+  float noise = 0.01f ;
+
+  if(argc > 2) sscanf(argv[2],"%f",&noise);       // get noise level
 
   ZfpCompress_set_debug(1) ;
   /* initialize array to be compressed */
@@ -145,6 +151,10 @@ int main(int argc, char **argv){
         float y = 2.0 * j / ny;
         float z = 2.0 * k / nz;
         float v = (x * x + y * y + z * z) + .002f ;
+//         float v = sinf(x*4.0*3.14159f) + sinf(y*4.0*3.14159f) + sinf(z*4.0*3.14159f) ;
+//         v = v - 4.0f ;
+        v += (drand48() - .5) * noise ;
+//         v *= 100.0f ;
         array[i + nx * (j + ny * k)] = v ;
         minval = (v < minval) ? v : minval ;
         maxval = (v > maxval) ? v : maxval ;
@@ -165,8 +175,9 @@ int main(int argc, char **argv){
   if(argc > 1) sscanf(argv[1],"%f",&toler);                                          // get precision control
   if(toler > 0) maxerror = toler ;
   else          precision = -toler ;
-  fprintf(stderr,"zfp_codec_version = %u, ZFP_CODEC = %u\n", zfp_codec_version, ZFP_CODEC) ;
-  fprintf(stderr,"precision = %d, max tolerance = %f, min = %f, max = %f\n", precision, maxerror, minval, maxval) ;
+  fprintf(stderr,"zfp_codec_version = %u, ZFP_CODEC = %u, codec is %s\n", get_zfp_codec_version(), get_ZFP_CODEC(), zfp_codec_consistent() ? "coherent" : "DIFFERENT") ;
+  fprintf(stderr,"precision = %d, max tolerance = %f, min = %f, max = %f, noise = +-%f\n", 
+          precision, maxerror, minval, maxval, noise) ;
   fprintf(stderr,"\n") ;
 
   fprintf(stderr,"============= compress/decompress 2D array =============\n");
@@ -182,7 +193,7 @@ int main(int argc, char **argv){
   t = elapsed_cycles() -t ;
   t_ns = cycles_to_ns(t) ;
   fprintf(stderr,"cycles = %ld, time = %8.0f (%f ns/pt), %f MB/s\n", t, t_ns, t_ns/(nx*ny*nz), 4000.0/(t_ns/(nx*ny*nz))) ;
-  AnalyzeCompressionErrors(array, brray, nx*ny*nz, 0.0f, "Ctest1");     // evaluate errors
+  AnalyzeCompressionErrors(array, brray, nx*ny*nz, epsilon, "(nx,ny,1)");     // evaluate errors
   fprintf(stderr,"\n") ;
 
   // Array is array disguised as a 3D array, 4 levels
@@ -190,7 +201,7 @@ int main(int argc, char **argv){
   // level 1 even i, even j elements
   // level 2 even i,  odd j elements
   // level 3  odd i,  odd j elements
-  fprintf(stderr,"========== compress/decompress 2D as 3D array ============\n");
+  fprintf(stderr,"========== compress/decompress 2D as (nx/2,ny/2,4) array ============\n");
   if(precision >0) precision += 1 ;
   t  = elapsed_cycles() ;
   Stream2 = ZfpCompress(Array, nx2, ny2, nz2, maxerror, precision , &Ssize2) ;
@@ -204,5 +215,41 @@ int main(int argc, char **argv){
   t = elapsed_cycles() -t ;
   t_ns = cycles_to_ns(t) ;
   fprintf(stderr,"cycles = %ld, time = %8.0f (%f ns/pt), %f MB/s\n", t, t_ns, t_ns/(nx*ny*nz), 4000.0/(t_ns/(nx*ny*nz))) ;
-  AnalyzeCompressionErrors(Array, brray, nx*ny*nz, 0.0f, "Ctest2");     // evaluate errors
+  AnalyzeCompressionErrors(Array, brray, nx*ny*nz, epsilon, "(nx/2,ny/2,4)");     // evaluate errors
+  fprintf(stderr,"\n") ;
+
+  // array disguised as a 3D array, 4 levels
+  fprintf(stderr,"========== compress/decompress 2D as (nx,4,ny/4) array ============\n");
+  if(precision >0) precision += 1 ;
+  t  = elapsed_cycles() ;
+  Stream3 = ZfpCompress(array, nx, 4, ny/4, maxerror, precision , &Ssize2) ;
+  t = elapsed_cycles() -t ;
+  t_ns = cycles_to_ns(t) ;
+  fprintf(stderr,"cycles = %ld, time = %8.0f (%f ns/pt), %f MB/s\n", t, t_ns, t_ns/(nx*ny*nz), 4000.0/(t_ns/(nx*ny*nz))) ;
+  nsize = ZfpArrayDims(Stream3, d, s, Ssize) ;
+  memset(brray, 0, sizeof(float)*nx*ny*nz) ;
+  t  = elapsed_cycles() ;
+  ZfpExpand(brray, nx, 4, ny/4, Stream3, Ssize2) ;
+  t = elapsed_cycles() -t ;
+  t_ns = cycles_to_ns(t) ;
+  fprintf(stderr,"cycles = %ld, time = %8.0f (%f ns/pt), %f MB/s\n", t, t_ns, t_ns/(nx*ny*nz), 4000.0/(t_ns/(nx*ny*nz))) ;
+  AnalyzeCompressionErrors(array, brray, nx*ny*nz, epsilon, "(nx,4,ny/4)");     // evaluate errors
+  fprintf(stderr,"\n") ;
+
+  // array disguised as a 3D array, 4 levels
+  fprintf(stderr,"========== compress/decompress 2D as (4,nx/4,ny) array ============\n");
+  if(precision >0) precision += 1 ;
+  t  = elapsed_cycles() ;
+  Stream4 = ZfpCompress(array, 4, nx/4, ny, maxerror, precision , &Ssize2) ;
+  t = elapsed_cycles() -t ;
+  t_ns = cycles_to_ns(t) ;
+  fprintf(stderr,"cycles = %ld, time = %8.0f (%f ns/pt), %f MB/s\n", t, t_ns, t_ns/(nx*ny*nz), 4000.0/(t_ns/(nx*ny*nz))) ;
+  nsize = ZfpArrayDims(Stream4, d, s, Ssize) ;
+  memset(brray, 0, sizeof(float)*nx*ny*nz) ;
+  t  = elapsed_cycles() ;
+  ZfpExpand(brray, 4, nx/4, ny, Stream4, Ssize2) ;
+  t = elapsed_cycles() -t ;
+  t_ns = cycles_to_ns(t) ;
+  fprintf(stderr,"cycles = %ld, time = %8.0f (%f ns/pt), %f MB/s\n", t, t_ns, t_ns/(nx*ny*nz), 4000.0/(t_ns/(nx*ny*nz))) ;
+  AnalyzeCompressionErrors(array, brray, nx*ny*nz, epsilon, "(4,nx/4,ny)");     // evaluate errors
 }

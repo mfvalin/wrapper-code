@@ -22,7 +22,8 @@ INCLUDES = average_2x2.h    cdf53.h        cpu_type.h        idwt53.h \
            lorenzo.h        misc_floats.h  misc_operators.h  misc_swizzle.h  \
            misc_types.h     pack_stream.h  bi_endian_pack.h  cdf97.h  \
            ieee_quantize.h  misc_endian.h  misc_helpers.h    misc_pack.h \
-           misc_timers.h    pack_macros.h  smooth124.h       fast_endian.h
+           misc_timers.h    pack_macros.h  smooth124.h       fast_endian.h \
+           misc_zfp.h
 
 .F90.o:
 	(module load $(MOD)$(EXT) >/dev/null ; mkdir -p obj_$(MOD) include_$(MOD) ; \

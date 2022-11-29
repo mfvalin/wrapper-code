@@ -11,10 +11,13 @@
 //  Lesser General Public License for more details.
 //
 
-#include <zfp.h>
+// #include <zfp.h>
 
 int ZfpCompress_set_debug(int flag);
 int ZfpCompress_set_diag(int flag);
+uint32_t get_zfp_codec_version();
+uint32_t get_ZFP_CODEC();
+int32_t zfp_codec_consistent();
 void *ZfpCompress(void* array, int nx, int ny, int nz, float maxerror, int precision , int *Ssize);
 int32_t ZfpArrayDims(void *Stream, int *d, int *s, int Ssize);
 int32_t ZfpExpand(void* array, int nx, int ny, int nz, void *Stream, int Ssize);

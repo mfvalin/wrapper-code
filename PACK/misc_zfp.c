@@ -37,6 +37,14 @@ int ZfpCompress_set_diag(int flag){
   return oldval;
 }
 
+int32_t zfp_codec_consistent(){
+  return zfp_codec_version == ZFP_CODEC ;
+}
+
+uint32_t get_zfp_codec_version(){ return zfp_codec_version ; }
+
+uint32_t get_ZFP_CODEC(){ return ZFP_CODEC ; }
+
 // use zfp to compress a 1/2/3 Dimensional float array (Fortran ordering)
 // array     [IN] : float array to compress
 // nx        [IN] : first storage dimension
