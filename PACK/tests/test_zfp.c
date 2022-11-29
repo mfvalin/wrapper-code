@@ -119,7 +119,7 @@ void AnalyzeCompressionErrors(float *fa, float *fb, int np, float small, char *s
 
 int main(int argc, char **argv){
   /* allocate array of floats */
-  int nx = 1024; int nx2 = nx/2 ;
+  int nx = 2048; int nx2 = nx/2 ;
   int ny = 1024; int ny2 = ny/2 ;
   int nz = 1; int nz2 = 4 ;
   int nxy2 = nx2 * ny2;
