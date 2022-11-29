@@ -280,8 +280,12 @@ uint32_t float_quantize_simple(float * restrict z, int32_t * restrict q, int ni,
   }
 #endif
 
-  t->t[0] = min ; needed1 = NeedBits(min) ;
-  t->t[1] = max ; needed2 = NeedBits(max) ;
+  t->t[0] = min ;
+  t->t[1] = max ;
+  if(min >= 0) return BitsNeeded_u32(max) ;   // all values >= 0
+  if(max < 0) return BitsNeeded_u32(-min) ;   // all values negative
+  needed1 = BitsNeeded_32(min) ;
+  needed2 = BitsNeeded_32(max) ;
   return  (needed1 > needed2) ? needed1 : needed2 ;
 }
 
