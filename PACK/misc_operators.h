@@ -76,6 +76,11 @@ STATIC inline uint32_t lzcnt_32(uint32_t what){
   return cnt ;
 }
 
+// leading ones count (32 bit value)
+STATIC inline uint32_t lnzcnt_32(uint32_t what){
+  return lzcnt_32(~what) ;
+}
+
 // leading zeros count (64 bit value)
 STATIC inline uint32_t lzcnt_64(uint64_t what){
   uint64_t cnt ;
@@ -99,32 +104,49 @@ STATIC inline uint32_t lzcnt_64(uint64_t what){
   return cnt ;
 }
 
+// leading ones count (64 bit value)
+STATIC inline uint32_t lnzcnt_64(uint64_t what){
+  return lzcnt_64(~what) ;
+}
+
+// absolute value of signed 32 bit integer (no if)
 STATIC inline uint32_t iabs_32(int32_t what){
   int32_t sign = (what >> 31) ;
   return (what ^ sign) - sign ;
 }
 
+// sign of signed 32 bit integer (return 0 or -1)
 STATIC inline int32_t isign_32(int32_t what){
   return (what >> 31) ;
 }
 
 // convert to sign and magnitude form, sign is Least Significant Bit
-STATIC inline uint32_t isignmag_32(int32_t what){
-  return (iabs_32(what) << 1) - isign_32(what) ;
+STATIC inline uint32_t to_isignmag_32(int32_t what){
+  return (what << 1) ^ (what >> 31) ;
+//   return (iabs_32(what) << 1) - isign_32(what) ;
 }
-STATIC inline int32_t visignmag_32(int32_t * restrict src, int32_t * restrict dst, int ni){
-  int i, max=0 ;
+
+// convert from sign and magnitude form, sign is Least Significant Bit
+STATIC inline int32_t from_isignmag_32(uint32_t what){
+  int32_t sign = -(what & 1) ;
+  return ((what >> 1) ^ sign) ;
+}
+
+STATIC inline int32_t v_to_isignmag_32(int32_t * restrict src, uint32_t * restrict dst, int ni){
+  int i ;
+  uint32_t max=0 ;
   for(i=0 ; i<ni ; i++){
-    dst[i] = isignmag_32(src[i]) ;
+    dst[i] = to_isignmag_32(src[i]) ;
     max = (dst[i] > max) ? dst[i] : max ;
   }
   return max ;
 }
-STATIC inline int32_t visignmag_32_inplace(int32_t * restrict src, int ni){
-  int i, max=0 ;
+
+STATIC inline int32_t v_from_isignmag_32(uint32_t * restrict src, int32_t * restrict dst, int ni){
+  int32_t i, max=0 ;
   for(i=0 ; i<ni ; i++){
-    src[i] = isignmag_32(src[i]) ;
-    max = (src[i] > max) ? src[i] : max ;
+    dst[i] = from_isignmag_32(src[i]) ;
+    max = (dst[i] > max) ? dst[i] : max ;
   }
   return max ;
 }
@@ -149,6 +171,8 @@ STATIC inline uint32_t BitsNeeded_32(int32_t what){
 end:
   return (nbits > 32) ? 32 : nbits ;     // max is 32 bits
 }
+
+// vector versions of above
 int32_t vBitsNeeded_32(int32_t * restrict what, int32_t * restrict bits, int n);
 int32_t vBitsNeeded_u32(uint32_t * restrict what, int32_t * restrict bits, int n);
 
@@ -172,6 +196,8 @@ STATIC inline uint32_t BitsNeeded_64(int64_t what){
 end:
   return (nbits > 64) ? 64 : nbits ;     // max is 64 bits
 }
+
+// vector versions of above
 int32_t vBitsNeeded_64(int64_t * restrict what, int32_t * restrict bits, int n);
 int32_t vBitsNeeded_u64(uint64_t * restrict what, int32_t * restrict bits, int n);
 
@@ -210,6 +236,31 @@ STATIC inline int Nint(float what){
 #endif
 
 #else
+  interface BitsNeeded_u  ! generic interface
+    function BitsNeeded_u32(what) result(nbits) bind(C,name='BitsNeeded_u32')
+      import C_INT32_T
+      implicit none
+      integer(C_INT32_T), intent(IN), value :: what
+      integer(C_INT32_T) :: nbits
+    end function BitsNeeded_u32
+    function vBitsNeeded_u32_0(what, bits, n) result(nbits) bind(C,name='vBitsNeeded_u32') ! rank 0
+      import C_INT32_T
+      implicit none
+      integer(C_INT32_T), intent(IN)  :: what
+      integer(C_INT32_T), intent(OUT) :: bits
+      integer(C_INT32_T), intent(IN), value :: n
+      integer(C_INT32_T) :: nbits
+    end function vBitsNeeded_u32_0
+    function vBitsNeeded_u32_1(what, bits, n) result(nbits) bind(C,name='vBitsNeeded_u32') ! rank 1
+      import C_INT32_T
+      implicit none
+      integer(C_INT32_T), dimension(*), intent(IN)  :: what
+      integer(C_INT32_T), dimension(*), intent(OUT) :: bits
+      integer(C_INT32_T), intent(IN), value :: n
+      integer(C_INT32_T) :: nbits
+    end function vBitsNeeded_u32_1
+  end interface
+
   interface BitsNeeded  ! generic interface
     function BitsNeeded_32(what) result(nbits) bind(C,name='BitsNeeded_32')
       import C_INT32_T
@@ -217,7 +268,7 @@ STATIC inline int Nint(float what){
       integer(C_INT32_T), intent(IN), value :: what
       integer(C_INT32_T) :: nbits
     end function BitsNeeded_32
-    function vBitsNeeded_32_0(what, bits, n) result(nbits) bind(C,name='vBitsNeeded_32')
+    function vBitsNeeded_32_0(what, bits, n) result(nbits) bind(C,name='vBitsNeeded_32') ! rank 0
       import C_INT32_T
       implicit none
       integer(C_INT32_T), intent(IN)  :: what
@@ -225,7 +276,7 @@ STATIC inline int Nint(float what){
       integer(C_INT32_T), intent(IN), value :: n
       integer(C_INT32_T) :: nbits
     end function vBitsNeeded_32_0
-    function vBitsNeeded_32_1(what, bits, n) result(nbits) bind(C,name='vBitsNeeded_32')
+    function vBitsNeeded_32_1(what, bits, n) result(nbits) bind(C,name='vBitsNeeded_32') ! rank 1
       import C_INT32_T
       implicit none
       integer(C_INT32_T), dimension(*), intent(IN)  :: what
@@ -233,7 +284,7 @@ STATIC inline int Nint(float what){
       integer(C_INT32_T), intent(IN), value :: n
       integer(C_INT32_T) :: nbits
     end function vBitsNeeded_32_1
-    function vBitsNeeded_32_2(what, bits, n) result(nbits) bind(C,name='vBitsNeeded_32')
+    function vBitsNeeded_32_2(what, bits, n) result(nbits) bind(C,name='vBitsNeeded_32') ! rank 2
       import C_INT32_T
       implicit none
       integer(C_INT32_T), dimension(1,*), intent(IN)  :: what
@@ -241,7 +292,7 @@ STATIC inline int Nint(float what){
       integer(C_INT32_T), intent(IN), value :: n
       integer(C_INT32_T) :: nbits
     end function vBitsNeeded_32_2
-    function vBitsNeeded_32_3(what, bits, n) result(nbits) bind(C,name='vBitsNeeded_32')
+    function vBitsNeeded_32_3(what, bits, n) result(nbits) bind(C,name='vBitsNeeded_32') ! rank 3
       import C_INT32_T
       implicit none
       integer(C_INT32_T), dimension(1,1,*), intent(IN)  :: what
@@ -255,68 +306,113 @@ STATIC inline int Nint(float what){
       integer(C_INT64_T), intent(IN), value :: what
       integer(C_INT32_T) :: nbits
     end function BitsNeeded_64
-    function vBitsNeeded_64(what, bits, n) result(nbits) bind(C,name='vBitsNeeded_64')
+    function vBitsNeeded_64_1(what, bits, n) result(nbits) bind(C,name='vBitsNeeded_64') ! rank 1
       import C_INT32_T, C_INT64_T
       implicit none
       integer(C_INT64_T), dimension(*), intent(IN)  :: what
       integer(C_INT32_T), dimension(*), intent(OUT) :: bits
       integer(C_INT32_T), intent(IN), value :: n
       integer(C_INT32_T) :: nbits
-    end function vBitsNeeded_64
+    end function vBitsNeeded_64_1
   end interface
-  interface lzcnt
+
+  interface lzcnt  ! generic interface
     function lzcnt_32(what) result(nbits) bind(C,name='lzcnt_32')
       import C_INT32_T
       implicit none
       integer(C_INT32_T), intent(IN), value :: what
       integer(C_INT32_T) :: nbits
     end function lzcnt_32
-    function lzcnt_64(what) result(nbits) bind(C,name='lzcnt_32')
+    function lzcnt_64(what) result(nbits) bind(C,name='lzcnt_64')
       import C_INT32_T, C_INT64_T
       implicit none
       integer(C_INT64_T), intent(IN), value :: what
       integer(C_INT32_T) :: nbits
     end function lzcnt_64
   end interface
-  interface isignmag
-    function isignmag_32(what) result(r) bind(C,name='isignmag_32')
+
+  interface lnzcnt  ! generic interface
+    function lnzcnt_32(what) result(nbits) bind(C,name='lnzcnt_32')
+      import C_INT32_T
+      implicit none
+      integer(C_INT32_T), intent(IN), value :: what
+      integer(C_INT32_T) :: nbits
+    end function lnzcnt_32
+    function lnzcnt_64(what) result(nbits) bind(C,name='lnzcnt_64')
+      import C_INT32_T, C_INT64_T
+      implicit none
+      integer(C_INT64_T), intent(IN), value :: what
+      integer(C_INT32_T) :: nbits
+    end function lnzcnt_64
+  end interface
+
+  interface from_isignmag  ! generic interface
+    function from_isignmag_32(what) result(r) bind(C,name='from_isignmag_32')
       import C_INT32_T
       implicit none
       integer(C_INT32_T), intent(IN), value :: what
       integer(C_INT32_T) :: r
-    end function isignmag_32
-    function visignmag_32_0(src, dest, n) result(r) bind(C,name='visignmag_32')
+    end function
+    function v_from_isignmag_32_0(src, dest, n) result(r) bind(C,name='v_from_isignmag_32')
       import C_INT32_T
       implicit none
       integer(C_INT32_T), intent(IN)  :: src
       integer(C_INT32_T), intent(OUT) :: dest
       integer(C_INT32_T), intent(IN), value :: n
       integer(C_INT32_T) :: r
-    end function visignmag_32_0
-    function visignmag_32_1(src, dest, n) result(r) bind(C,name='visignmag_32')
+    end function
+    function v_from_isignmag_32_1(src, dest, n) result(r) bind(C,name='v_from_isignmag_32')
       import C_INT32_T
       implicit none
       integer(C_INT32_T), dimension(*), intent(IN)  :: src
       integer(C_INT32_T), dimension(*), intent(OUT) :: dest
       integer(C_INT32_T), intent(IN), value :: n
       integer(C_INT32_T) :: r
-    end function visignmag_32_1
-    function visignmag_32_2(src, dest, n) result(r) bind(C,name='visignmag_32')
+    end function
+    function v_from_isignmag_32_2(src, dest, n) result(r) bind(C,name='v_from_isignmag_32')
       import C_INT32_T
       implicit none
       integer(C_INT32_T), dimension(1,*), intent(IN)  :: src
       integer(C_INT32_T), dimension(1,*), intent(OUT) :: dest
       integer(C_INT32_T), intent(IN), value :: n
       integer(C_INT32_T) :: r
-    end function visignmag_32_2
+    end function
   end interface
-  interface
-    function BitsNeeded24(what) result(nbits) bind(C,name='BitsNeeded24')
+
+  interface to_isignmag  ! generic interface
+    function to_isignmag_32(what) result(r) bind(C,name='to_isignmag_32')
       import C_INT32_T
       implicit none
       integer(C_INT32_T), intent(IN), value :: what
-      integer(C_INT32_T) :: nbits
-    end function BitsNeeded24
+      integer(C_INT32_T) :: r
+    end function
+    function v_to_isignmag_32_0(src, dest, n) result(r) bind(C,name='v_to_isignmag_32')
+      import C_INT32_T
+      implicit none
+      integer(C_INT32_T), intent(IN)  :: src
+      integer(C_INT32_T), intent(OUT) :: dest
+      integer(C_INT32_T), intent(IN), value :: n
+      integer(C_INT32_T) :: r
+    end function
+    function v_to_isignmag_32_1(src, dest, n) result(r) bind(C,name='v_to_isignmag_32')
+      import C_INT32_T
+      implicit none
+      integer(C_INT32_T), dimension(*), intent(IN)  :: src
+      integer(C_INT32_T), dimension(*), intent(OUT) :: dest
+      integer(C_INT32_T), intent(IN), value :: n
+      integer(C_INT32_T) :: r
+    end function
+    function v_to_isignmag_32_2(src, dest, n) result(r) bind(C,name='v_to_isignmag_32')
+      import C_INT32_T
+      implicit none
+      integer(C_INT32_T), dimension(1,*), intent(IN)  :: src
+      integer(C_INT32_T), dimension(1,*), intent(OUT) :: dest
+      integer(C_INT32_T), intent(IN), value :: n
+      integer(C_INT32_T) :: r
+    end function
+  end interface
+
+  interface
     subroutine BitPop(what, pop, n) bind(C, name='BitPop')
       import :: C_INT32_T
       implicit none
@@ -324,6 +420,7 @@ STATIC inline int Nint(float what){
       integer(C_INT32_t), dimension(34), intent(INOUT) :: pop
       integer(C_INT32_t), intent(IN), value :: n
     end subroutine BitPop
+
     function BitEntropy(bitstream, npts, nbits, rshift) result(entropy) bind(C,name='BitEntropy')
       import :: C_INT32_T, C_FLOAT
       implicit none
