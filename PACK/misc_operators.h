@@ -201,6 +201,10 @@ end:
 int32_t vBitsNeeded_64(int64_t * restrict what, int32_t * restrict bits, int n);
 int32_t vBitsNeeded_u64(uint64_t * restrict what, int32_t * restrict bits, int n);
 
+// entropy calculator functions
+float BitEntropy(int32_t *bitstream, int npts, int nbits, int rshift);
+void BitEntropy4(float entropy[4], uint32_t *bitstream, int npts, int nbits, int rshift);
+
 // add to number of bits needed distribution
 // what : integer array of dimension n
 // pop  ; integer array of dimension 33 containing the number of bits needed distribution

@@ -27,7 +27,7 @@ int32_t vBitsNeeded_u32(uint32_t * restrict what, int32_t * restrict bits, int n
   int n = (nn < 0) ? -nn : nn ;
   for(i=0 ; i<n ; i++) {
     int32_t nbits = BitsNeeded_u32(what[i]) ;
-    if(nn >= 0) bits[i] = nbits ;
+    if(nn >= 0) bits[nbits]++ ;
     needed = (nbits > needed) ? nbits : needed ;
   }
   return needed ;
@@ -38,7 +38,7 @@ int32_t vBitsNeeded_32(int32_t * restrict what, int32_t * restrict bits, int nn)
   int n = (nn < 0) ? -nn : nn ;
   for(i=0 ; i<n ; i++) {
     int32_t nbits = BitsNeeded_u32(what[i]) ;
-    if(nn >= 0) bits[i] = nbits ;
+    if(nn >= 0) bits[nbits]++ ;
     needed = (nbits > needed) ? nbits : needed ;
   }
   return needed ;
@@ -49,7 +49,7 @@ int32_t vBitsNeeded_u64(uint64_t * restrict what, int32_t * restrict bits, int n
   int n = (nn < 0) ? -nn : nn ;
   for(i=0 ; i<n ; i++) {
     int32_t nbits = BitsNeeded_u64(what[i]) ;
-    if(nn >= 0) bits[i] = nbits ;
+    if(nn >= 0) bits[nbits]++ ;
     needed = (nbits > needed) ? nbits : needed ;
   }
   return needed ;
@@ -60,7 +60,7 @@ int32_t vBitsNeeded_64(int64_t * restrict what, int32_t * restrict bits, int nn)
   int n = (nn < 0) ? -nn : nn ;
   for(i=0 ; i<n ; i++) {
     int32_t nbits = BitsNeeded_64(what[i]) ;
-    if(nn >= 0) bits[i] = nbits ;
+    if(nn >= 0) bits[nbits]++ ;
     needed = (nbits > needed) ? nbits : needed ;
   }
   return needed ;

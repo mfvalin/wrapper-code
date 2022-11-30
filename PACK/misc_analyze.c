@@ -67,7 +67,9 @@ void AnalyzeCompressionErrors(float *fa, float *fb, int np, float small, char *s
     errsuma += err ;                    // sum of absolute errors
     if(err > errmax) {errmax = err ; iabs = i; } ;
     if(fabsf(fa[i]) <= small) continue ;  // ignore absolute values smaller than threshold
-    if(fa[i] < 0.0f || fb[i] < 0.0f ) continue ;  // opposite signs, ignore
+    if( (fa[i] > 0.0f && fb[i] < 0.0f ) || (fa[i] < 0.0f && fb[i] > 0.0f) ){
+      continue ;  // opposite signs, ignore
+    }
     n++;
     rdiff = fabsf(fa[i] - fb[i]) ;
     rdiff = rdiff / fa[i] ;              // fa[i] should never be zero at this point
