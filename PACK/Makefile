@@ -10,28 +10,27 @@ VPATH = obj_${MOD}
 .SUFFIXES :
 .SUFFIXES : .F90 .c .o
 
-%.o : %.h
+# %.o : %.h
+%.c.o : %.c
+	(module load $(MOD)$(EXT) >/dev/null ; mkdir -p obj_$(MOD) ; \
+	$$CC -c -I. -I$$LIBECCC/include $(OPT) $(DEF) $< -o obj_$(MOD)/$@ ; )
+%.F90.o: %.F90
+	(module load $(MOD)$(EXT) >/dev/null ; mkdir -p obj_$(MOD) include_$(MOD) ; \
+	$$FTN -c -I. -Iinclude_$(MOD) -I$$LIBECCC/include $(OPT) $(DEF) $< -o obj_$(MOD)/$@ ; \
+	mv *.mod include_$(MOD)/. )
 
-OBJECTS = lorenzo_f.o lorenzo_c.o cdf97.o cdf53.o idwt53.o analyze_8x8.o \
-	  average_by_2_4_8.o average_2x2.o smooth124.o bi_endian_pack.o \
-          misc_timers.o misc_pack.o float_info.o misc_swizzle.o misc_endian.o \
-          ieee_quantize.o misc_floats.o verify.o misc_operators.o misc_operators_mod.o \
-          misc_helpers_mod.o analyze_data.o misc_zfp.o misc_analyze.o
+OBJECTS = lorenzo_f.F90.o lorenzo_c.c.o cdf97.c.o cdf53.c.o idwt53.c.o analyze_8x8.c.o \
+	  average_by_2_4_8.c.o average_2x2.c.o smooth124.c.o bi_endian_pack.c.o \
+          misc_timers.c.o misc_pack.c.o float_info.c.o misc_swizzle.c.o misc_endian.c.o \
+          ieee_quantize.c.o misc_floats.c.o verify.c.o misc_operators.c.o misc_operators_mod.F90.o \
+          misc_helpers_mod.F90.o analyze_data.F90.o misc_zfp.c.o misc_analyze.c.o
 
 INCLUDES = average_2x2.h    cdf53.h        cpu_type.h        idwt53.h \
            lorenzo.h        misc_floats.h  misc_operators.h  misc_swizzle.h  \
            misc_types.h     pack_stream.h  bi_endian_pack.h  cdf97.h  \
            ieee_quantize.h  misc_endian.h  misc_helpers.h    misc_pack.h \
            misc_timers.h    pack_macros.h  smooth124.h       fast_endian.h \
-           misc_zfp.h
-
-.F90.o:
-	(module load $(MOD)$(EXT) >/dev/null ; mkdir -p obj_$(MOD) include_$(MOD) ; \
-	$$FTN -c -I. -Iinclude_$(MOD) -I$$LIBECCC/include $(OPT) $(DEF) $< -o obj_$(MOD)/$@ ; \
-	mv *.mod include_$(MOD)/. )
-.c.o:
-	(module load $(MOD)$(EXT) >/dev/null ; mkdir -p obj_$(MOD) ; \
-	$$CC -c -I. -I$$LIBECCC/include $(OPT) $(DEF) $< -o obj_$(MOD)/$@ ; )
+           misc_zfp.h       misc_analyze.h
 
 ${LIBDIR}/libmisc.a: recompile_${MOD} $(OBJECTS)
 	mkdir -p ${LIBDIR}
