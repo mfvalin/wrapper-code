@@ -12,6 +12,7 @@
 //  Lesser General Public License for more details.
 //
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
 
@@ -111,4 +112,153 @@ void AnalyzeCompressionErrors(float *fa, float *fb, int np, float small, char *s
 //   accuracy = 24;
 //   while(idif64 >>= 1) accuracy --;
 //   printf("average accuracy bits = %6.2f, PSNR = %f\n",acc2, snr);
+}
+
+// create a 2D float array
+void FloatTestData_2d(float *z, int ni, int lni, int nj, float alpha, float delta, float noise, int kind, float *min, float *max){
+  int i, j ;
+  float *t = z ;
+  float x, y, v, minval, maxval ;
+
+  minval = 1.0E37 ; maxval = -minval ;
+  switch(kind)
+  {
+    case 1 :  // distance to center (0 -> 1.4)
+      for(j=0 ; j<nj ; j++){
+        y = 2.0 * j / nj ; y = (y - 1.0) * (y - 1.0) ;
+        for(i=0 ; i<ni ; i++){
+          x = 2.0 * i / ni ; x = (x - 1.0) * (x - 1.0) ;
+          v =  sqrtf(x + y) ;
+          v = v * alpha + delta + noise * (drand48() - .5) ;
+          v = v * sqrtf(2.0f) * 4.0 ;
+          t[i] = v ;
+          minval = (v < minval) ? v : minval ;
+          maxval = (v > maxval) ? v : maxval ;
+        }
+        t += lni ;
+      }
+      break ;
+    case 2 :  // square of distance to center (0 -> 2)
+      for(j=0 ; j<nj ; j++){
+        y = 2.0 * j / nj ; y = (y - 1.0) * (y - 1.0) ;
+        for(i=0 ; i<ni ; i++){
+          x = 2.0 * i / ni ; x = (x - 1.0) * (x - 1.0) ;
+          v = x + y ;
+          v = v * alpha + delta + noise * (drand48() - .5) ;
+          v *= 4.0f ;
+          t[i] = v ;
+          minval = (v < minval) ? v : minval ;
+          maxval = (v > maxval) ? v : maxval ;
+        }
+        t += lni ;
+      }
+      break ;
+    case 3 :  // sum of sines (-2 -> 2)
+      for(j=0 ; j<nj ; j++){
+        y = 2.0 * j / nj ; y = y * 2.0 * 3.14159 ;   // 0 -> 4 * pi
+        for(i=0 ; i<ni ; i++){
+          x = 2.0 * i / ni ; x = x * 2.0 * 3.14159 ;   // 0 -> 4 * pi
+          v = sinf(x) + sinf(y) ;
+          v = v * alpha + delta + noise * (drand48() - .5) ;
+          v *= 2.0f ;
+          t[i] = v ;
+          minval = (v < minval) ? v : minval ;
+          maxval = (v > maxval) ? v : maxval ;
+        }
+        t += lni ;
+      }
+      break ;
+    case 4 :  // sum of cosines (-2 -> 2)
+      for(j=0 ; j<nj ; j++){
+        y = 2.0 * j / nj ; y = y * 2.0 * 3.14159 ;   // 0 -> 4 * pi
+        for(i=0 ; i<ni ; i++){
+          x = 2.0 * i / ni ; x = x * 2.0 * 3.14159 ;   // 0 -> 4 * pi
+          v = cosf(x) + cosf(y) ;
+          v = v * alpha + delta + noise * (drand48() - .5) ;
+          v *= 2.0f ;
+          t[i] = v ;
+          minval = (v < minval) ? v : minval ;
+          maxval = (v > maxval) ? v : maxval ;
+        }
+        t += lni ;
+      }
+      break ;
+    case 5 :  // sine * cosine (-1 -> 1)
+      for(j=0 ; j<nj ; j++){
+        y = 2.0 * j / nj ; y = y * 2.0 * 3.14159 ;   // 0 -> 4 * pi
+        for(i=0 ; i<ni ; i++){
+          x = 2.0 * i / ni ; x = x * 2.0 * 3.14159 ;   // 0 -> 4 * pi
+          v = sinf(x) * cosf(y) ;
+          v = v * alpha + delta + noise * (drand48() - .5) ;
+          v *= 4.0f ;
+          t[i] = v ;
+          minval = (v < minval) ? v : minval ;
+          maxval = (v > maxval) ? v : maxval ;
+        }
+        t += lni ;
+      }
+      break ;
+    case 6 :  // product (0 -> 4)
+      for(j=0 ; j<nj ; j++){
+        y = 2.0 * j / nj ;
+        for(i=0 ; i<ni ; i++){
+          x = 2.0 * i / ni ;
+          v = x * y ;
+          v = v * alpha + delta + noise * (drand48() - .5) ;
+          v *= 2.0f ;
+          t[i] = v ;
+          minval = (v < minval) ? v : minval ;
+          maxval = (v > maxval) ? v : maxval ;
+        }
+        t += lni ;
+      }
+     break ;
+    case 7 :  // sum (0 -> 4)
+      for(j=0 ; j<nj ; j++){
+        y = 2.0 * j / nj ;
+        for(i=0 ; i<ni ; i++){
+          x = 2.0 * i / ni ;
+          v = x + y ;
+          v = v * alpha + delta + noise * (drand48() - .5) ;
+          v *= 2.0f ;
+          t[i] = v ;
+          minval = (v < minval) ? v : minval ;
+          maxval = (v > maxval) ? v : maxval ;
+        }
+        t += lni ;
+      }
+     break ;
+    case 8 :  // sum of squares (0 -> 8)
+      for(j=0 ; j<nj ; j++){
+        y = 2.0 * j / nj ; y = y * y ;
+        for(i=0 ; i<ni ; i++){
+          x = 2.0 * i / ni ; x = x * x ;
+          v = x + y ;
+          v = v * alpha + delta + noise * (drand48() - .5) ;
+          t[i] = v ;
+          minval = (v < minval) ? v : minval ;
+          maxval = (v > maxval) ? v : maxval ;
+        }
+        t += lni ;
+      }
+     break ;
+    default :   // sloped plane normalized to 1.0
+       for(j=0 ; j<nj ; j++){
+        y = 2.0 * j / nj ;
+        for(i=0 ; i<ni ; i++){
+          x = 2.0 * i / ni ;
+          v = x + y ;
+          v *= .25 ;
+          v = v * alpha + delta + noise * (drand48() - .5) ;
+          v *= 8.0f ;
+          t[i] = v ;
+          minval = (v < minval) ? v : minval ;
+          maxval = (v > maxval) ? v : maxval ;
+        }
+        t += lni ;
+      }
+     break ;
+  }
+  *min = minval ;
+  *max = maxval ;
 }
