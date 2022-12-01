@@ -1,5 +1,5 @@
 #define IN_FORTRAN_CODE__
-
+#if 0
 module analyze_data_mod
   use ISO_C_BINDING
   implicit none
@@ -55,7 +55,7 @@ contains
 2 format(50I3)
   end function
 end module
-
+#endif
 module globalstats
   use ISO_C_BINDING
   use analyze_data_mod
@@ -534,7 +534,7 @@ program test_compress
         nmiss = float_info(q, ni, ni, nj, maxvalue, minvalue, minabsvalue)
         write(6,*) 'maxvalue, minvalue, minabsvalue :',maxvalue, minvalue, minabsvalue
         quantum = 0.0
-        if(nomvar(1:2) == 'TT') quantum = 0.02  ! .02 degree C
+        if(nomvar(1:2) == 'TT') quantum = 0.01  ! .01 degree C
         if(nomvar(1:2) == 'TD') quantum = 0.02
         if(nomvar(1:2) == 'ES') quantum = 0.02
         if(nomvar(1:2) == 'GZ') quantum = 0.1   ! .1 dam
@@ -618,7 +618,8 @@ bits0 => array_stats_1(p, ni, ni, nj, quantum)
         call CONVIP_plus( ip1, p1, the_kind, -1, str_ip, .false. )
         write(6,*) nomvar, s(12), s(13), s(16), s(8), p1
 #endif
-        if(irec == 25) exit
+        if(irec == 1) exit
+!         if(irec == 25) exit
       endif
     endif
     key = fstsui(iun,ni,nj,nk)
