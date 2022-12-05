@@ -152,6 +152,7 @@ inv_lift_Int(int32_t* p, ptrdiff_t s)
 #endif
 
 // borrowed from the source code of zfp
+// reorder table for 2 dimensional transform
 #define cache_align_(x) x __attribute__((aligned(64)))
 #define index(i, j) ((i) + 4 * (j))
 /* order coefficients (i, j) by i + j, then i^2 + j^2 */
@@ -182,6 +183,7 @@ cache_align_(static const uint8_t perm_2[16]) = {
 
   index(3, 3), /* 15 : 6 */
 };
+// reorder after 2 dimensional forward transform, explicit "no gather" version
 void zfp_shuffle_2d(int32_t *src, int32_t *dst){
   dst[ 0] = src[index(0, 0)] ;
   dst[ 1] = src[index(1, 0)] ;
@@ -200,6 +202,7 @@ void zfp_shuffle_2d(int32_t *src, int32_t *dst){
   dst[14] = src[index(2, 3)] ;
   dst[15] = src[index(3, 3)] ;
 }
+// reorder before 2 dimensional inverse transform, explicit "no scatter" version
 void zfp_unshuffle_2d(int32_t *src, int32_t *dst){
   dst[index(0, 0)] = src[ 0] ;
   dst[index(1, 0)] = src[ 1] ;
@@ -221,6 +224,7 @@ void zfp_unshuffle_2d(int32_t *src, int32_t *dst){
 #undef index
 
 // borrowed from the source code of zfp
+// reorder table for 3 dimensional transform
 #define index(i, j, k) ((i) + 4 * ((j) + 4 * (k)))
 /* order coefficients (i, j, k) by i + j + k, then i^2 + j^2 + k^2 */
 cache_align_(static const uint8_t perm_3[64]) = {
@@ -308,6 +312,7 @@ cache_align_(static const uint8_t perm_3[64]) = {
 
   index(3, 3, 3), /* 63 : 9 */
 };
+// reorder after 3 dimensional forward transform, explicit "no gather" version
 void zfp_shuffle_3d(int32_t *src, int32_t *dst){
   dst[ 0] = src[index(0, 0, 0)] ;
   dst[ 1] = src[index(1, 0, 0)] ;
@@ -374,6 +379,7 @@ void zfp_shuffle_3d(int32_t *src, int32_t *dst){
   dst[62] = src[index(3, 3, 2)] ;
   dst[63] = src[index(3, 3, 3)] ;
 }
+// reorder before 3 dimensional inverse transform, explicit "no scatter" version
 void zfp_unshuffle_3d(int32_t *src, int32_t *dst){
   dst[index(0, 0, 0)] = src[ 0] ;
   dst[index(1, 0, 0)] = src[ 1] ;
@@ -442,13 +448,15 @@ void zfp_unshuffle_3d(int32_t *src, int32_t *dst){
 }
 #undef index
 
-void inv_lift_zfp_1(int32_t* x, int32_t *y, int32_t* z, int32_t* w){
+// reversible inverse lifting transform, in place, 1 point
+void zfp_inv_lift_1(int32_t* x, int32_t *y, int32_t* z, int32_t* w){
   w[0] += z[0];
   z[0] += y[0]; w[0] += z[0];
   y[0] += x[0]; z[0] += y[0]; w[0] += z[0];
 }
 
-void inv_lift_zfp_4(int32_t* x, int32_t* y, int32_t* z, int32_t* w){
+// reversible inverse lifting transform, in place, 4 points
+void zfp_inv_lift_4(int32_t* x, int32_t* y, int32_t* z, int32_t* w){
   int i;
   for(i=0 ; i<4 ; i++){
     w[i] += z[i];
@@ -457,7 +465,8 @@ void inv_lift_zfp_4(int32_t* x, int32_t* y, int32_t* z, int32_t* w){
   }
 }
 
-void inv_lift_zfp_16(int32_t* x, int32_t* y, int32_t* z, int32_t* w){
+// reversible inverse lifting transform, in place, 16 points
+void zfp_inv_lift_16(int32_t* x, int32_t* y, int32_t* z, int32_t* w){
   int i;
   for(i=0 ; i<16 ; i++){
     w[i] += z[i];
@@ -466,14 +475,16 @@ void inv_lift_zfp_16(int32_t* x, int32_t* y, int32_t* z, int32_t* w){
   }
 }
 
-void fwd_lift_zfp_1(int32_t* x, int32_t* y, int32_t* z, int32_t* w){
+// reversible forward lifting transform, in place, 1 point
+void zfp_fwd_lift_1(int32_t* x, int32_t* y, int32_t* z, int32_t* w){
   int i;
   w[0] -= z[0]; z[0] -= y[0]; y[0] -= x[0];
   w[0] -= z[0]; z[0] -= y[0];
   w[0] -= z[0];
 }
 
-void fwd_lift_zfp_4(int32_t* x, int32_t* y, int32_t* z, int32_t* w){
+// reversible forward lifting transform, in place, 4 points
+void zfp_fwd_lift_4(int32_t* x, int32_t* y, int32_t* z, int32_t* w){
   int i;
   for(i=0 ; i<4 ; i++){
     w[i] -= z[i]; z[i] -= y[i]; y[i] -= x[i];
@@ -482,16 +493,8 @@ void fwd_lift_zfp_4(int32_t* x, int32_t* y, int32_t* z, int32_t* w){
   }
 }
 
-void fwd_lift_zfp_8(int32_t* x, int32_t* y, int32_t* z, int32_t* w){
-  int i;
-  for(i=0 ; i<8 ; i++){
-    w[i] -= z[i]; z[i] -= y[i]; y[i] -= x[i];
-    w[i] -= z[i]; z[i] -= y[i];
-    w[i] -= z[i];
-  }
-}
-
-void fwd_lift_zfp_16(int32_t* x, int32_t* y, int32_t* z, int32_t* w){
+// reversible forward lifting transform, in place, 16 points
+void zfp_fwd_lift_16(int32_t* x, int32_t* y, int32_t* z, int32_t* w){
   int i;
   for(i=0 ; i<16 ; i++){
     w[i] -= z[i]; z[i] -= y[i]; y[i] -= x[i];
@@ -500,65 +503,70 @@ void fwd_lift_zfp_16(int32_t* x, int32_t* y, int32_t* z, int32_t* w){
   }
 }
 
-void inv_xform_1d(int32_t *t){
-  inv_lift_zfp_1(t, t+1, t+2, t+3) ;
+// reversible inverse lifting transform, in place, 1 dimensional data (4)
+void zfp_inv_xform_1d(int32_t *t){
+  zfp_inv_lift_1(t, t+1, t+2, t+3) ;
 }
 
-void inv_xform_2d(int32_t *t0){
+// reversible inverse lifting transform, in place, 2 dimensional data (4,4)
+void zfp_inv_xform_2d(int32_t *t0){
   int32_t x[4], y[4], z[4], w[4], t[16] ;
 
   zfp_unshuffle_2d(t0, t) ;  // unshuffle input
 //   for(i=0 ; i<16 ; i++) t[perm_2[i]] = t0[i] ;  // unshuffle input
   // inverse transform along y
-  inv_lift_zfp_4(t, t+4, t+8, t+12) ;
+  zfp_inv_lift_4(t, t+4, t+8, t+12) ;
   // inverse transform along x
   x[0] = t[ 0] ; x[1] = t[ 4] ; x[2] = t[ 8] ; x[3] = t[12] ;
   y[0] = t[ 1] ; y[1] = t[ 5] ; y[2] = t[ 9] ; y[3] = t[13] ;
   z[0] = t[ 2] ; z[1] = t[ 6] ; z[2] = t[10] ; z[3] = t[14] ;
   w[0] = t[ 3] ; w[1] = t[ 7] ; w[2] = t[11] ; w[3] = t[15] ;
-  inv_lift_zfp_4(x, y, z, w) ;
+  zfp_inv_lift_4(x, y, z, w) ;
   t0[ 0] = x[0] ; t0[ 4] = x[1] ; t0[ 8] = x[2] ; t0[12] = x[3] ;
   t0[ 1] = y[0] ; t0[ 5] = y[1] ; t0[ 9] = y[2] ; t0[13] = y[3] ;
   t0[ 2] = z[0] ; t0[ 6] = z[1] ; t0[10] = z[2] ; t0[14] = z[3] ;
   t0[ 3] = w[0] ; t0[ 7] = w[1] ; t0[11] = w[2] ; t0[15] = w[3] ;
 }
 
-void inv_xform_3d(int32_t *t0){
+// reversible inverse lifting transform, in place, 3 dimensional data (4,4,4)
+void zfp_inv_xform_3d(int32_t *t0){
   int32_t x[16], y[16], z[16], w[16], t[64] ;
   int i ;
   zfp_unshuffle_3d(t0, t) ;  // unshuffle input
 //   for(i=0 ; i<64 ; i++) t[perm_3[i]] = t0[i] ;  // unshuffle input
   // inverse transform along z (stride 1, length = 16)
-  inv_lift_zfp_16(t, t+16, t+32, t+48) ;
+  zfp_inv_lift_16(t, t+16, t+32, t+48) ;
   // inverse transform along y (stride 1, lenth = 4)
-  inv_lift_zfp_4(t   , t+ 4, t+ 8, t+12) ;  // plane 0
-  inv_lift_zfp_4(t+16, t+20, t+24, t+28) ;  // plane 1
-  inv_lift_zfp_4(t+32, t+36, t+40, t+44) ;  // plane 2
-  inv_lift_zfp_4(t+48, t+52, t+56, t+60) ;  // plane 3
+  zfp_inv_lift_4(t   , t+ 4, t+ 8, t+12) ;  // plane 0
+  zfp_inv_lift_4(t+16, t+20, t+24, t+28) ;  // plane 1
+  zfp_inv_lift_4(t+32, t+36, t+40, t+44) ;  // plane 2
+  zfp_inv_lift_4(t+48, t+52, t+56, t+60) ;  // plane 3
   // inverse transform along x (stride 4, length = 16)
   for(i=0 ; i<16 ; i++){
     x[i] = t[4*i] ; y[i] = t[1+4*i] ; z[i] = t[2+4*i] ; w[i] = t[3+4*i] ;
   }
-  inv_lift_zfp_16(x, y, z, w) ;
+  zfp_inv_lift_16(x, y, z, w) ;
   for(i=0 ; i<16 ; i++){
     t0[4*i] = x[i] ; t0[1+4*i] = y[i] ; t0[2+4*i] = z[i] ; t0[3+4*i] = w[i] ;
   }
 }
 
-void fwd_xform_1d(int32_t *t){
-  fwd_lift_zfp_1(t, t+1, t+2, t+3) ;
+// reversible forward lifting transform, in place, 1 dimensional data (4)
+void zfp_fwd_xform_1d(int32_t *t){
+  zfp_fwd_lift_1(t, t+1, t+2, t+3) ;
 }
 
-void fwd_xform_2d(int32_t *t){
+// reversible forward lifting transform, in place, 2 dimensional data (4,4)
+void zfp_fwd_xform_2d(int32_t *t){
   int32_t x[4], y[4], z[4], w[4], t1[16] ;
   // transform along y
-  fwd_lift_zfp_4(t, t+4, t+8, t+12) ;
+  zfp_fwd_lift_4(t, t+4, t+8, t+12) ;
   // transform along x
   x[0] = t[ 0] ; x[1] = t[ 4] ; x[2] = t[ 8] ; x[3] = t[12] ;
   y[0] = t[ 1] ; y[1] = t[ 5] ; y[2] = t[ 9] ; y[3] = t[13] ;
   z[0] = t[ 2] ; z[1] = t[ 6] ; z[2] = t[10] ; z[3] = t[14] ;
   w[0] = t[ 3] ; w[1] = t[ 7] ; w[2] = t[11] ; w[3] = t[15] ;
-  fwd_lift_zfp_4(x, y, z, w) ;
+  zfp_fwd_lift_4(x, y, z, w) ;
   t1[ 0] = x[0] ; t1[ 4] = x[1] ; t1[ 8] = x[2] ; t1[12] = x[3] ;
   t1[ 1] = y[0] ; t1[ 5] = y[1] ; t1[ 9] = y[2] ; t1[13] = y[3] ;
   t1[ 2] = z[0] ; t1[ 6] = z[1] ; t1[10] = z[2] ; t1[14] = z[3] ;
@@ -567,21 +575,22 @@ void fwd_xform_2d(int32_t *t){
 //   for(i=0 ; i<16 ; i++) t[i] = t1[perm_2[i]] ; // shuffle output
 }
 
-void fwd_xform_3d(int32_t *t){
+// reversible forward lifting transform, in place, 3 dimensional data (4,4,4)
+void zfp_fwd_xform_3d(int32_t *t){
   int32_t x[16], y[16], z[16], w[16], t1[64] ;
   int i ;
   // transform along z (stride 1, length = 16)
-  fwd_lift_zfp_16(t, t+16, t+32, t+48) ;
+  zfp_fwd_lift_16(t, t+16, t+32, t+48) ;
   // transform along y (stride 1, lenth = 4)
-  fwd_lift_zfp_4(t   , t+ 4, t+ 8, t+12) ;  // plane 0
-  fwd_lift_zfp_4(t+16, t+20, t+24, t+28) ;  // plane 1
-  fwd_lift_zfp_4(t+32, t+36, t+40, t+44) ;  // plane 2
-  fwd_lift_zfp_4(t+48, t+52, t+56, t+60) ;  // plane 3
+  zfp_fwd_lift_4(t   , t+ 4, t+ 8, t+12) ;  // plane 0
+  zfp_fwd_lift_4(t+16, t+20, t+24, t+28) ;  // plane 1
+  zfp_fwd_lift_4(t+32, t+36, t+40, t+44) ;  // plane 2
+  zfp_fwd_lift_4(t+48, t+52, t+56, t+60) ;  // plane 3
   // transform along x (stride 4, length = 16)
   for(i=0 ; i<16 ; i++){
     x[i] = t[4*i] ; y[i] = t[1+4*i] ; z[i] = t[2+4*i] ; w[i] = t[3+4*i] ;
   }
-  fwd_lift_zfp_16(x, y, z, w) ;
+  zfp_fwd_lift_16(x, y, z, w) ;
   for(i=0 ; i<16 ; i++){
     t1[4*i] = x[i] ; t1[1+4*i] = y[i] ; t1[2+4*i] = z[i] ; t1[3+4*i] = w[i] ;
   }
@@ -591,17 +600,32 @@ void fwd_xform_3d(int32_t *t){
 
 #define NBMASK 0xaaaaaaaau /* negabinary<-> 2's complement binary conversion mask */
 
-uint32_t int2nega(int32_t x)
+// signed integer (2's complement) to negabinary (base -2) conversion
+uint32_t int_to_negabinary(int32_t x)
 {
   return ((uint32_t)x + NBMASK) ^ NBMASK;
 }
 
-int32_t nega2int(uint32_t x)
+void v_int_to_negabinary(int32_t x, int32_t n)
+{
+  int i ;
+  for(i=0 ; i<n ; i++) x = int_to_negabinary(x) ;
+}
+
+// negabinary (base -2) to signed integer (2's complement) conversion
+int32_t negabinary_to_int(uint32_t x)
 {
   return (int32_t)((x ^ NBMASK) - NBMASK);
 }
 
-uint32_t max_exp_s(float *f, int n){
+void v_negabinary_to_int(uint32_t x, int32_t n)
+{
+  int i ;
+  for(i=0 ; i<n ; i++) x = negabinary_to_int(x) ;
+}
+
+// get the IEEE exponent of the largest float (absolute value) in float array f
+uint32_t get_ieee_emax(float *f, int n){
   int i ;
   uint32_t *uf = (uint32_t *) f ;
   uint32_t t, emax = 0 ;
@@ -610,16 +634,21 @@ uint32_t max_exp_s(float *f, int n){
     t = uf[i] << 1 ;
     emax = (t > emax) ? t : emax ;
   }
-  return emax >> 24 ;
+  return emax >> 24 ;  // return exponent WITH IEEE bias (127)
 }
 
-float quantize_zfp(float *f, int32_t *fi, int n, uint32_t emax){
+// quantize float array f by normalizing all exponents to the largest exponent emax
+// if emax == 0, compute said exponent from float array f
+// the sign is preserved in the integer quantized value
+// the largest float (inmagnitude) will have a 30 bit "mantissa"
+// the "hidden 1" is restored
+float zfp_quantize(float *f, int32_t *fi, int n, uint32_t emax){
   int i ;
   union{
     float f    ;
     uint32_t u ;
   } factor, rfactor ;
-  if(emax == 0) emax = max_exp_s(f, n) ;
+  if(emax == 0) emax = get_ieee_emax(f, n) ;
 
   factor.u = (157 - emax + 127) << 23 ;
   rfactor.f = 1.0 / factor.f ;
@@ -736,9 +765,9 @@ int main(int argc, char **argv){
     printf("mask = %8.8x, offset = %8.8x\n", mask, offset) ;
     for(i=-0x7FFFFFFF ; i < 0x7FFFFFFF ; i++) {
       if(argc > 2) {
-        ineg = int2nega(i) ;
+        ineg = int_to_negabinary(i) ;
         ineg &= mask ;
-        ipos = nega2int(ineg) ;
+        ipos = negabinary_to_int(ineg) ;
       }else{
         ipos = (i + offset) & mask ;
       }
@@ -758,22 +787,22 @@ int main(int argc, char **argv){
            npts, errplus, errminus, deltaerr, errmax, errpos, errneg, bias, absbias) ;
   }else{
     for(i=0 ; i<17 ; i++) ff[i] = 1.0001 * (i - 8) ;
-    uint32_t emax = max_exp_s(ff, 17) ;
+    uint32_t emax = get_ieee_emax(ff, 17) ;
     printf("emax = %u\n", emax) ;
     printf("ff ");
     for(i=0 ; i<17 ; i++) printf(" %8.5f", ff[i]) ; printf("\n") ;
     printf("ff ");
     for(i=0 ; i<17 ; i++) printf(" %8.8x", fu[i]) ; printf("\n") ;
-    factor = quantize_zfp(ff, fi, 17, emax) ;
+    factor = zfp_quantize(ff, fi, 17, emax) ;
     printf("fi ");
     for(i=0 ; i<17 ; i++) printf(" %8.8x", fi[i]) ; printf("\n") ;
-    for(i=0 ; i<17 ; i++) fi[i] = int2nega(fi[i]) ;
+    for(i=0 ; i<17 ; i++) fi[i] = int_to_negabinary(fi[i]) ;
     printf("fn ");
     for(i=0 ; i<17 ; i++) printf(" %8.8x", fi[i]) ; printf("\n") ;
     for(i=0 ; i<17 ; i++) fi[i] &= 0xFFFFC000u ;
     printf("fn ");
     for(i=0 ; i<17 ; i++) printf(" %8.8x", fi[i]) ; printf("\n") ;
-    for(i=0 ; i<17 ; i++) fi[i] = nega2int(fi[i]) ;
+    for(i=0 ; i<17 ; i++) fi[i] = negabinary_to_int(fi[i]) ;
     printf("fi ");
     for(i=0 ; i<17 ; i++) printf(" %8.8x", fi[i]) ; printf("\n") ;
     printf("ff ");
@@ -786,12 +815,12 @@ int main(int argc, char **argv){
   for(i=0 ; i<4 ; i++) { t2d[i] = i ; printf("%3d", t2d[i]) ; }
   printf("\n");
 //   rev_fwd_lift_Int(t2d, 1);
-  fwd_xform_1d(t2d) ;
+  zfp_fwd_xform_1d(t2d) ;
   printf("t1d' = ");
   for(i=0 ; i<4 ; i++) { printf("%3d", t2d[i]) ; }
   printf("\n");
 //   rev_inv_lift_Int(t2d, 1);
-  inv_xform_1d(t2d) ;
+  zfp_inv_xform_1d(t2d) ;
   printf("t1d  = ");
   for(i=0 ; i<4 ; i++) { printf("%3d", t2d[i]) ; }
   printf("\n");
@@ -804,7 +833,7 @@ int main(int argc, char **argv){
     }
   }
   printf("\n");
-  fwd_xform_2d(t2d) ;
+  zfp_fwd_xform_2d(t2d) ;
   printf("t2d' = ");
   for(j=0 ; j<4 ; j++){
     for(i=0 ; i<4 ; i++){
@@ -812,7 +841,7 @@ int main(int argc, char **argv){
     }
   }
   printf("\n");
-  inv_xform_2d(t2d) ;
+  zfp_inv_xform_2d(t2d) ;
   printf("t2d  = ");
   for(j=0 ; j<4 ; j++){
     for(i=0 ; i<4 ; i++){
@@ -834,7 +863,7 @@ int main(int argc, char **argv){
     printf("\n");
   }
 
-  fwd_xform_3d(t3d) ;
+  zfp_fwd_xform_3d(t3d) ;
   printf("t3d' :\n");
   for(k=0 ; k<4 ; k++){
     for(j=0 ; j<4 ; j++){
@@ -847,7 +876,7 @@ int main(int argc, char **argv){
   }
 //   for(i=0 ; i<64 ; i++){ printf("%3d", t3d[i]) ; } printf("\n");
 
-  inv_xform_3d(t3d) ;
+  zfp_inv_xform_3d(t3d) ;
   printf("t3d  :\n");
   for(k=0 ; k<4 ; k++){
     for(j=0 ; j<4 ; j++){
