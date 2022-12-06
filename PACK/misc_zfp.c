@@ -146,17 +146,18 @@ error:
 int32_t ZfpArrayDims(void *Stream, int *d, int *s, int Ssize){
   size_t zfpsize = Ssize ;
   bitstream* stream = stream_open(Stream, zfpsize) ;  // create bit stream structure
-  if(stream == NULL) goto error ;
   zfp_stream* zfp   = zfp_stream_open(NULL) ;         // create zfp structure
-  if(zfp == NULL) goto error ;
   zfp_field* field  = zfp_field_alloc() ;             // create field structure
-  if(field == NULL) goto error ;
   size_t dims[4] ;
   size_t dimsize ;
   ptrdiff_t strides[4] ;
   zfp_bool is_strided ;
   uint32_t ndims = 0 ;
   size_t nheader ;
+
+  if(stream == NULL) goto error ;
+  if(zfp == NULL)    goto error ;
+  if(field == NULL)  goto error ;
 
   zfp_stream_set_bit_stream(zfp, stream) ;            // associate stream to zfp stream
   zfp_stream_rewind(zfp) ;                            // set stream pointer to beginning of stream
@@ -193,17 +194,18 @@ error:
 int32_t ZfpExpand(void* array, int nx, int ny, int nz, void *Stream, int Ssize) {
   size_t zfpsize = Ssize ;
   bitstream* stream = stream_open(Stream, zfpsize) ;  // create bit stream structure
-  if(stream == NULL) goto error ;
   zfp_stream* zfp   = zfp_stream_open(NULL) ;         // create zfp structure
-  if(zfp == NULL) goto error ;
   zfp_field* field  = zfp_field_alloc() ;             // create field structure
-  if(field == NULL) goto error ;
   size_t dims[4] ;
   size_t dimsize ;
   uint32_t ndims = 0 ;
   int status = 0 ;
   float ratio ;
   size_t nheader ;
+
+  if(stream == NULL) goto error ;
+  if(zfp == NULL)    goto error ;
+  if(field == NULL)  goto error ;
 
   zfp_stream_set_bit_stream(zfp, stream) ;            // associate stream to zfp
   zfp_stream_rewind(zfp) ;                            // set stream pointer to beginning of stream
