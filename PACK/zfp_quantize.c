@@ -35,12 +35,19 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#if ! defined(__INTEL_COMPILER_UPDATE)
+#include <zfp_quantize.h>
+
+#if ! defined(__INTEL_COMPILER_UPDATE) && ! defined(__PGIC__)
 #pragma GCC optimize "tree-vectorize"
 #endif
 
-// borrowed from the source code of zfp
+#if ! defined(NO_SIMD)
+#define WITH_SIMD
+#warning "NOTE: using SIMD intrinsics, use -DNO_SIMD to use pure C code"
+#endif
+
 #if 0
+// borrowed from the source code of zfp
 #define ptrdiff_t int
 /* reversible forward lifting transform of 4-vector */
 static void
@@ -68,6 +75,7 @@ rev_fwd_lift_Int(int32_t* p, int s)
   p -= s; *p = y;
   p -= s; *p = x;
 }
+// borrowed from the source code of zfp
 /* forward lifting transform of 4-vector */
 static void
 fwd_lift_Int(int32_t* p, ptrdiff_t s)
@@ -95,6 +103,7 @@ fwd_lift_Int(int32_t* p, ptrdiff_t s)
   p -= s; *p = y;
   p -= s; *p = x;
 }
+// borrowed from the source code of zfp
 /* reversible inverse lifting transform of 4-vector */
 static void
 rev_inv_lift_Int(int32_t* p, int s)
@@ -121,6 +130,7 @@ rev_inv_lift_Int(int32_t* p, int s)
   p -= s; *p = y;
   p -= s; *p = x;
 }
+// borrowed from the source code of zfp
 /* inverse lifting transform of 4-vector */
 static void
 inv_lift_Int(int32_t* p, ptrdiff_t s)
@@ -156,7 +166,8 @@ inv_lift_Int(int32_t* p, ptrdiff_t s)
 #define cache_align_(x) x __attribute__((aligned(64)))
 #define index(i, j) ((i) + 4 * (j))
 /* order coefficients (i, j) by i + j, then i^2 + j^2 */
-cache_align_(static const uint8_t perm_2[16]) = {
+// cache_align_(static const uint8_t perm_2[16]) = {
+cache_align_(const uint8_t zfp_perm_2[16]) = {
   index(0, 0), /*  0 : 0 */
 
   index(1, 0), /*  1 : 1 */
@@ -227,7 +238,8 @@ void zfp_unshuffle_2d(int32_t *src, int32_t *dst){
 // reorder table for 3 dimensional transform
 #define index(i, j, k) ((i) + 4 * ((j) + 4 * (k)))
 /* order coefficients (i, j, k) by i + j + k, then i^2 + j^2 + k^2 */
-cache_align_(static const uint8_t perm_3[64]) = {
+// cache_align_(static const uint8_t perm_3[64]) = {
+cache_align_(const uint8_t zfp_perm_3[64]) = {
   index(0, 0, 0), /*  0 : 0 */
 
   index(1, 0, 0), /*  1 : 1 */
@@ -477,7 +489,6 @@ void zfp_inv_lift_16(int32_t* x, int32_t* y, int32_t* z, int32_t* w){
 
 // reversible forward lifting transform, in place, 1 point
 void zfp_fwd_lift_1(int32_t* x, int32_t* y, int32_t* z, int32_t* w){
-  int i;
   w[0] -= z[0]; z[0] -= y[0]; y[0] -= x[0];
   w[0] -= z[0]; z[0] -= y[0];
   w[0] -= z[0];
@@ -647,14 +658,83 @@ float zfp_quantize(float *f, int32_t *fi, int n, uint32_t emax){
   union{
     float f    ;
     uint32_t u ;
-  } factor, rfactor ;
+  } factor ;
+  float rfactor ;
   if(emax == 0) emax = get_ieee_emax(f, n) ;
 
   factor.u = (157 - emax + 127) << 23 ;
-  rfactor.f = 1.0 / factor.f ;
+  rfactor = 1.0 / factor.f ;
   for(i=0 ; i<n ; i++) fi[i] = f[i] * factor.f ;
 
-  return rfactor.f ;
+  return rfactor ;
+}
+
+// find restore factor associated with max IEEE exponent emax (emax includes IEEE bias of 127)
+float zfp_rfactor(uint32_t emax){
+  union{
+    float f    ;
+    uint32_t u ;
+  } factor ;
+  factor.u = (157 - emax + 127) << 23 ;
+  return 1.0 / factor.f ;
+}
+
+// the following 2 functions make "fake cubes" from a 2 dimansional
+// array for compression purposes
+//    ^
+// (J)|
+//    +-------------+
+// 15 |03         33|
+//    |    k = 3    |
+// 12 |00         30|
+//    +-------------+
+// 11 |03         33|
+//    |    k = 2    |
+//  8 |00         30|
+//    +-------------+
+//  7 |03         33|
+//    |    k = 1    |
+//  4 |00         30|
+//    +-------------+
+//  3 |03         33|
+//    |    k = 0    |
+//  0 |00         30|
+//    +-------------+------->
+//     0           3     (I)
+// get 4 elements from 16 rows of f and shape them as a 4x4x4 cube
+// 4x16 -> 4x4x4
+void zfp_get_x4y4y4_block(int32_t *f, int32_t lni, int32_t *block){
+  int i, j ;
+  for(j=0 ; j<16 ; j++){                     // 16 rows
+    for(i=0 ; i<4 ; i++) block[i] = f[i] ;   // 4 elements from each row
+    f += lni ;
+    block += 4 ;
+  }
+}
+
+//   ^
+//(J)|
+//   +-------------+-------------+-------------+-------------+
+// 3 |03         33|03         33|03         33|           33|
+//   |    k = 0    |    k = 1    |    k = 2    |    k = 3    |
+// 0 |00         30|00           |00         30|00         30|
+//   +-------------+-------------+-------------+-------------+------->
+//    0           3 4           7 8          11 12         15    (I)
+// get 16 elements from 4 rows of f and shape them as a 4x4x4 cube
+// 16x4 -> 4x4x4 (4 adjacent blocks of 4x4
+void zfp_get_x4y4x4_block(int32_t *f, int32_t lni, int32_t *block){
+  int i, j ;
+  int32_t *f0, *f1, *f2, *f3 ;
+  f0 = f ; f1 = f0 + lni ; f2 = f1 + lni ; f3 = f2 + lni ;
+  for(j=0 ; j<4 ; j++) {                     // 4 blocks
+    for(i=0 ; i<4 ; i++) {                   // 16 elements from each block
+      block[i   ] = f0[i+4*j] ;
+      block[i+ 4] = f1[i+4*j] ;
+      block[i+ 8] = f2[i+4*j] ;
+      block[i+12] = f3[i+4*j] ;
+    }
+    block += 16 ;                             // next block
+  }
 }
 
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
@@ -757,6 +837,42 @@ int main(int argc, char **argv){
   uint32_t stream[64], stream0 ;
   uint64_t planes[32], planes16[32] ;
   char string[65] ;
+  int32_t coord[16][16] ;
+  int32_t *coord1 = &coord[0][0] ;
+  int32_t block[64] ;
+
+  for(j=0 ; j<16 ; j++){
+    for(i=0 ; i<16 ; i++){
+      coord[j][i] = (i << 8) + j ;
+    }
+  }
+  for(j=15 ; j>=0 ; j--){
+    for(i=0 ; i<16 ; i++) printf("%5.4x", coord1[i + j*16]) ; printf("\n") ;
+  }
+  printf("\n") ;
+  printf("===== x4y4x4 =====\n") ;
+  zfp_get_x4y4x4_block(coord1, 16, block) ;
+  for(k = 3 ; k >= 0 ; k--){
+    for(j=3 ; j>=0 ; j--){
+      for(i=0 ; i<4 ; i++){
+        printf("%5.4x", block[i + j*4 + k*16]) ;
+      }
+      printf("\n") ;
+    }
+    printf("\n") ;
+  }
+  printf("===== x4y4y4 =====\n") ;
+  zfp_get_x4y4y4_block(coord1, 16, block) ;
+  for(k = 3 ; k >= 0 ; k--){
+    for(j=3 ; j>=0 ; j--){
+      for(i=0 ; i<4 ; i++){
+        printf("%5.4x", block[i + j*4 + k*16]) ;
+      }
+      printf("\n") ;
+    }
+    printf("\n") ;
+  }
+  return 0 ;
 
   if(argc > 1){
     sscanf(argv[1], "%d", &nbits) ;
