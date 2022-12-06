@@ -48,7 +48,6 @@ extern inline void Fsmooth_124_inplace(float *f, int n){
 
 // 1-2-1 / 4 smoothing
 extern inline void Fsmooth_124(float *s, float *d, int n){
-  float a, b, c ;
   int i ;
   d[0] = s[0] ;            // first element left untouched
   for(i=1 ; i<n-1 ; i++){

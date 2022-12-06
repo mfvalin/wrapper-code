@@ -98,7 +98,7 @@ void BitEntropy4(float entropy[4], uint32_t *bitstream, int npts, int nbits, int
 
 float BitEntropy(int32_t *bitstream, int npts, int nbits, int rshift) {
     int lbin, sizebins;
-    int imin, imax, range, nbits_local ;
+//     int imin, imax, range, nbits_local ;
     float prob, entropie, scale, ovlog2 ;
     uint32_t *bins;
     uint32_t mask ;

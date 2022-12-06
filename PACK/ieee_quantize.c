@@ -245,7 +245,7 @@ int32_t ieee_quantize_v4(float *f,        // array to quantize (IEEE 754 32 bit 
 {
   int i, j, e0, nm ;
   FloatUint z0, t0 ;
-  int32_t round, min, max ;
+  int32_t round ;
   int32_t limit, sbit ;
   int32_t vl ;
   float fmaxa ;    // largest absolute value in array
@@ -369,10 +369,8 @@ STATIC inline uint32_t ieee_fp32_to_fp24(float f){
 // 24 bit format : 1/7/16  sign/exp/mantissa
 // 3 entries in q for each group of 4 f values
 void fp32_to_fp24(float *f, uint32_t *q, int n){
-  int i0, i, mant, exp, sign ;
+  int i0, i ;
   uint32_t t[4] ;
-  FloatUint z ;
-  uint32_t round = 1 << 7 ;
   for(i0=0 ; i0<n-3 ; i0+=4){
     for(i=0 ; i<4 ; i++){
       t[i] = ieee_fp32_to_fp24(f[i0+i]) ;
@@ -403,7 +401,7 @@ void fp32_to_fp16_scaled(float *f, uint16_t *q, int n, float scale){
 // 4 values in f for each group of 4 q values
 void fp32_to_fp24_scaled(float *f, uint32_t *q, int n, float scale){
   int i ;
-//   for(i = 0 ; i < n ; i++) q[i] = ieee_fp32_to_fp16(f[i]*scale) ;
+  for(i = 0 ; i < n ; i++) q[i] = ieee_fp32_to_fp24(f[i]*scale) ;
 }
 
 // IEEE 32 bit floating point to brain float (16 bit)
@@ -412,7 +410,7 @@ void fp32_to_fp24_scaled(float *f, uint32_t *q, int n, float scale){
 void fp32_to_bf16(float *f, uint16_t *q, int n){
   FloatUint z ;
   uint32_t round = 1 << 15 ;
-  uint32_t sign ;
+//   uint32_t sign ;
   int i ;
   for(i = 0 ; i < n ; i++) {
     z.f = f[i] ;
@@ -459,10 +457,11 @@ void fp16_to_fp32(float *f, void *f16, int n, void *inf){
 }
 
 void fp24_to_fp32(float *f, void *f24, int n, void *inf){
-  int i0, i, mant, exp, sign ;
-  uint32_t *q = f24 ;
-  FloatUint z[4] ;
-  uint32_t Inf = 0X7F800000 ; //  IEEE Infinity
+  int i0, i ;
+//   int mant, exp, sign ;
+//   uint32_t *q = f24 ;
+//   FloatUint z[4] ;
+//   uint32_t Inf = 0X7F800000 ; //  IEEE Infinity
 
   for(i0=0 ; i0<n-3 ; i0+=4){
     for(i=0 ; i<4 ; i++){
