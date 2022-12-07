@@ -104,9 +104,8 @@ end interface
 // shuffle even and odd indices back
 
 #include <stdint.h>
-#if defined(__x86_64__) && defined(__AVX__) && defined(WITH_SIMD)
-#include <immintrin.h>
-#endif
+
+#include <with_simd.h>
 
 static int b_const = 0b01010101 ;
 

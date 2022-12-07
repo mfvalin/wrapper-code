@@ -24,9 +24,8 @@
 #define STATIC static
 #endif
 
+#include <with_simd.h>
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-#include <emmintrin.h>
-#include <immintrin.h>
 
 // shuffle table to pack the upper 24 bits from 4 32 bit words into 3 32 bit words
 static uint8_t _32_from_upper24[] = { 7, 1, 2, 3, 10, 11, 5, 6, 13, 14, 15, 9, 128, 128, 128, 128 } ;

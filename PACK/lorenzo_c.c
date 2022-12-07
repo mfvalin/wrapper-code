@@ -16,9 +16,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
-#include <immintrin.h>
-#endif
+#include <with_simd.h>
 
 #if ! defined(STATIC)
 #define STATIC static

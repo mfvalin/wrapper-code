@@ -15,9 +15,8 @@
  * Author : M.Valin 2022/09
  */
 #include <stdint.h>
-#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-#include <immintrin.h>
-#endif
+
+#include <with_simd.h>
 
 // in place 1-2-1 / 4 smoothing
 extern inline void Ismooth_124_inplace(int32_t *f, int n){

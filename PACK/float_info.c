@@ -27,9 +27,7 @@
 #endif
 
 // use Intel compatible intrinsics for SIMD instructions
-#if defined(__AVX2__) && defined(__x86_64__) && defined(__GCC_IS_COMPILER__) && defined(WITH_SIMD)
-#include <immintrin.h>
-#endif
+#include <with_simd.h>
 
 #define VL 8
 #define VLMASK (VL - 1)

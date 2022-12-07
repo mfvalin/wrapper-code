@@ -34,14 +34,7 @@ void Swap_32_in_64(void *s, void *d, int n);  // words in doublewords
 #else
 
 #include <stdint.h>
-#if !defined(NO_SIMD)
-  #if defined(__x86_64__)
-    #include <immintrin.h>
-    #if !defined(WITH_SIMD)
-      #define WITH_SIMD
-    #endif
-  #endif
-#endif
+#include <with_simd.h>
 
 // STATIC may be defined as extern, to generate real entry points
 #if ! defined(STATIC)

@@ -19,9 +19,8 @@
 #endif
 
 #include <stdint.h>
-#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-#include <immintrin.h>
-#endif
+
+#include <with_simd.h>
 
 // static int b_conts = 0b01010101 ;
 

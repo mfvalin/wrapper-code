@@ -12,15 +12,15 @@
 #define STATIC_DEFINED_HERE
 #endif
 
+#include <with_simd.h>
+
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-#include <immintrin.h>
 STATIC __m256i inline _mm256_not_si256(const __m256i v){
   return _mm256_xor_si256( v, _mm256_cmpeq_epi32(v,v) ) ;
 }
 #endif
 
 #if defined(__x86_64__) && defined(__SSE2__) && defined(WITH_SIMD)
-#include <emmintrin.h>
 STATIC __m128i inline _mm_not_si128(const __m128i v){
   return _mm_xor_si128( v, _mm_cmpeq_epi32(v,v) ) ;
 }

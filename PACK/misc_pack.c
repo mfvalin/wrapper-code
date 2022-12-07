@@ -15,6 +15,7 @@
  */
 #include <stdio.h>
 #include <stdint.h>
+#include <with_simd.h>
 
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 #include <immintrin.h>
