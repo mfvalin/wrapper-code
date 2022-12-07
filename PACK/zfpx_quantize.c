@@ -586,6 +586,8 @@ void zfpx_fwd_xform_2d(int32_t *t){
 void zfpx_fwd_xform_3d(int32_t *t){
   int32_t x[16], y[16], z[16], w[16], t1[64] ;
   int i ;
+// printf("--");
+// for(i=0 ; i<64 ; i++) printf("%d ",t[i]) ; printf("\n");
   // transform along z (stride 1, length = 16)
   zfpx_fwd_lift_16(t, t+16, t+32, t+48) ;
   // transform along y (stride 1, lenth = 4)
@@ -602,6 +604,8 @@ void zfpx_fwd_xform_3d(int32_t *t){
     t1[4*i] = x[i] ; t1[1+4*i] = y[i] ; t1[2+4*i] = z[i] ; t1[3+4*i] = w[i] ;
   }
   zfpx_shuffle_3d(t1,t) ; // shuffle output
+// printf("++");
+// for(i=0 ; i<64 ; i++) printf("%d ",t[i]) ; printf("\n");
 //   for(i=0 ; i<64 ; i++) t[i] = t1[perm_3[i]] ; // shuffle output
 }
 
@@ -675,24 +679,28 @@ float zfpx_rfactor(uint32_t emax){
   return 1.0 / factor.f ;
 }
 
-// the following 2 functions make "fake cubes" from a 2 dimansional
+// the following 6 functions extract/insert "fake cubes" from/to a 2 dimensional
 // array for compression purposes
 //    ^
 // (J)|
 //    +-------------+
 // 15 |03         33|
+//    |             |
 //    |    k = 3    |
 // 12 |00         30|
 //    +-------------+
 // 11 |03         33|
+//    |             |
 //    |    k = 2    |
 //  8 |00         30|
 //    +-------------+
 //  7 |03         33|
+//    |             |
 //    |    k = 1    |
 //  4 |00         30|
 //    +-------------+
 //  3 |03         33|
+//    |             |
 //    |    k = 0    |
 //  0 |00         30|
 //    +-------------+------->
@@ -707,13 +715,23 @@ void zfpx_get_x4y4y4_block(int32_t *f, int32_t lni, int32_t *block){
     block += 4 ;
   }
 }
+// inverse of zfpx_get_x4y4y4_block
+void zfpx_put_x4y4y4_block(int32_t *f, int32_t lni, int32_t *block){
+  int i, j ;
+  for(j=0 ; j<16 ; j++){                     // 16 rows
+    for(i=0 ; i<4 ; i++) f[i] = block[i] ;   // 4 elements from each row
+    f += lni ;
+    block += 4 ;
+  }
+}
 
 //   ^
 //(J)|
 //   +-------------+-------------+-------------+-------------+
-// 3 |03         33|03         33|03         33|           33|
-//   |    k = 0    |    k = 1    |    k = 2    |    k = 3    |
-// 0 |00         30|00           |00         30|00         30|
+// 3 |03         33|03         33|03         33|           33| f3[0-15]
+//   |             |             |             |             | f2[0-15]
+//   |    k = 0    |    k = 1    |    k = 2    |    k = 3    | f1[0-15]
+// 0 |00         30|00           |00         30|00         30| f0[0-15]
 //   +-------------+-------------+-------------+-------------+------->
 //    0           3 4           7 8          11 12         15    (I)
 // get 16 elements from 4 rows of f and shape them as a 4x4x4 cube
@@ -730,6 +748,80 @@ void zfpx_get_x4y4x4_block(int32_t *f, int32_t lni, int32_t *block){
       block[i+12] = f3[i+4*j] ;
     }
     block += 16 ;                             // next block
+  }
+}
+// inverse of zfpx_get_x4y4x4_block
+void zfpx_put_x4y4x4_block(int32_t *f, int32_t lni, int32_t *block){
+  int i, j ;
+  int32_t *f0, *f1, *f2, *f3 ;
+  f0 = f ; f1 = f0 + lni ; f2 = f1 + lni ; f3 = f2 + lni ;
+  for(j=0 ; j<4 ; j++) {                     // 4 blocks
+    for(i=0 ; i<4 ; i++) {                   // 16 elements from each block
+      f0[i+4*j] = block[i   ] ;
+      f1[i+4*j] = block[i+ 4] ;
+      f2[i+4*j] = block[i+ 8] ;
+      f3[i+4*j] = block[i+12] ;
+    }
+    block += 16 ;                             // next block
+  }
+}
+
+//   ^
+//(J)|
+//   +-------------+-------------+-------------+-------------+
+// 3 |003       303|013       313|023       323|033       333| plane 3
+//   |002       302|012       312|022       322|032       332| plane 2
+//   |001       301|011       311|021       321|031       331| plane 1
+// 0 |000       300|010       310|020       320|030       330| plane 0
+//   +-------------+-------------+-------------+-------------+------->
+//    0           3 4           7 8          11 12         15    (I)
+// get 16 elements from 4 rows of f and shape them as a 4x4x4 cube
+// the 16 elements from a row are shaped as a 4x4 plane
+// the 4 rows provide the 4 planes
+void zfpx_get_x4x4y4_block(int32_t *f, int32_t lni, int32_t *block){
+  int i, j ;
+  for(j=0 ; j<4 ; j++){                       // 4 rows
+    for(i=0 ; i<16 ; i++) block[i] = f[i] ;   // 16 elements from each row (4x4 plane)
+    f += lni ;
+    block += 16 ;
+  }
+}
+// inverse of zfpx_get_x4x4y4_block
+void zfpx_put_x4x4y4_block(int32_t *f, int32_t lni, int32_t *block){
+  int i, j ;
+  for(j=0 ; j<4 ; j++){                       // 4 rows
+    for(i=0 ; i<16 ; i++) f[i] = block[i] ;   // 16 elements from each row (4x4 plane)
+    f += lni ;
+    block += 16 ;
+  }
+}
+
+// transform a 64 x 64 block into 64 4x4x4 slices
+void zfpx_gather_64_64(int32_t *f, int32_t lni, int32_t *blocks, int transform){
+  int i0, j0;
+  // 4*lni = storage length for 4 rows
+  // 16 slices of 4 rows, 16 elements in each row => a 4x4x4 block
+  for(j0=0 ; j0<61*lni ; j0+=4*lni){    // storage length of rows is lni
+    for(i0=0 ; i0<49 ; i0+=16){
+//       zfpx_get_x4x4y4_block(f+i0+j0, lni, blocks) ;
+      zfpx_get_x4y4x4_block(f+i0+j0, lni, blocks) ;
+      if(transform) zfpx_fwd_xform_3d(blocks) ; // forward transform and shuffle
+      blocks += 64 ;
+    }
+  }
+}
+// inverse of zfpx_gather_64_64
+void zfpx_scatter_64_64(int32_t *f, int32_t lni, int32_t *blocks, int transform){
+  int i0, j0;
+  // 4*lni = storage length for 4 rows
+  // 16 slices of 4 rows, 16 elements in each row => a 4x4x4 block
+  for(j0=0 ; j0<61*lni ; j0+=4*lni){    // storage length of rows is lni
+    for(i0=0 ; i0<49 ; i0+=16){
+      if(transform) zfpx_inv_xform_3d(blocks) ; // inverse transform and unshuffle
+//       zfpx_put_x4x4y4_block(f+i0+j0, lni, blocks) ;
+      zfpx_put_x4y4x4_block(f+i0+j0, lni, blocks) ;
+      blocks += 64 ;
+    }
   }
 }
 
@@ -818,7 +910,7 @@ int main(int argc, char **argv){
   int32_t fi[17] ;
   float ff[17] ;
   uint32_t *fu = (uint32_t *) ff ;
-  int i, j, k ;
+  int i, j, k, errors ;
   float factor ;
   int mask, offset, error, errabs, errmax = 0, errneg = 0, errpos = 0, nbits = 0 ;
   int64_t bias, absbias, errtot = 0, errtotabs = 0, deltaerr ;
@@ -832,7 +924,30 @@ int main(int argc, char **argv){
   int32_t coord[32][32] ;
   int32_t *coord1 = &coord[0][0] ;
   int32_t block[64] ;
-#if 0
+#define BLKSIDE 67
+  int32_t blocks0[BLKSIDE*BLKSIDE] ; // original
+  int32_t blocks1[64*64] ;           // gathered
+  int32_t blocks2[BLKSIDE*BLKSIDE] ; // restored
+
+  for(i=0 ; i<sizeof(blocks0)/sizeof(int32_t) ; i++) { blocks0[i] = i*i+11 ; blocks2[i] = blocks0[i] ; }
+  for(i=0 ; i<sizeof(blocks1)/sizeof(int32_t) ; i++) blocks1[i] = 0 ;
+  zfpx_gather_64_64(blocks0, BLKSIDE, blocks1, 1) ;
+  for(j=0 ; j<64 ; j+=4){
+    for(i=0 ; i< 64 ; i++) printf("%d ", blocks1[i+64*j]) ; printf("\n") ;
+  }
+  for(j=0 ; j<64 ; j++){                                // set part of blocks2 to 0
+    for(i=0 ; i<64 ; i++){
+      blocks2[i+j*BLKSIDE] = 0;
+    }
+  }
+  zfpx_scatter_64_64(blocks2, BLKSIDE, blocks1, 1) ;    // re-create same part of block2
+  errors = 0 ;
+  for(i=0 ; i<sizeof(blocks0)/sizeof(int32_t) ; i++){
+    if(blocks0[i] != blocks2[i]) errors++ ;
+  }
+  printf("block0->block1->block2 : errors = %d\n", errors) ;
+return 0 ;
+#if 1
   for(j=0 ; j<32 ; j++){
     for(i=0 ; i<32 ; i++){
       coord[j][i] = (i << 8) + j ;
@@ -842,7 +957,7 @@ int main(int argc, char **argv){
     for(i=0 ; i<16 ; i++) printf("%5.4x", coord1[i + j*32]) ; printf("\n") ;
   }
   printf("\n") ;
-  printf("===== x4y4x4 =====\n") ;
+  printf("===== x4y4x4 (nx,4,ny/4) =====\n") ;
   zfpx_get_x4y4x4_block(coord1, 32, block) ;
   for(k = 3 ; k >= 0 ; k--){
     for(j=3 ; j>=0 ; j--){
@@ -853,8 +968,19 @@ int main(int argc, char **argv){
     }
     printf("\n") ;
   }
-  printf("===== x4y4y4 =====\n") ;
+  printf("===== x4y4y4 (4,nx/4,4,ny/4) =====\n") ;
   zfpx_get_x4y4y4_block(coord1, 32, block) ;
+  for(k = 3 ; k >= 0 ; k--){
+    for(j=3 ; j>=0 ; j--){
+      for(i=0 ; i<4 ; i++){
+        printf("%5.4x", block[i + j*4 + k*16]) ;
+      }
+      printf("\n") ;
+    }
+    printf("\n") ;
+  }
+  printf("===== x4x4y4 (4,nx/4,ny) =====\n") ;
+  zfpx_get_x4x4y4_block(coord1, 32, block) ;
   for(k = 3 ; k >= 0 ; k--){
     for(j=3 ; j>=0 ; j--){
       for(i=0 ; i<4 ; i++){

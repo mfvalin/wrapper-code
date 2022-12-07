@@ -139,6 +139,20 @@ interface
     integer(C_INT32_T), dimension(*), intent(IN)   :: src
     integer(C_INT32_T), dimension(*), intent(OUT)  :: planes
   end subroutine
+  subroutine zfpx_gather_64_64(f, lni, blocks, transform) bind(C, name='zfpx_gather_64_64')
+    import :: C_INT32_T
+    implicit none
+    integer(C_INT32_T), dimension(*), intent(IN)   :: f
+    integer(C_INT32_T), dimension(*), intent(OUT)  :: blocks
+    integer(C_INT32_T), intent(IN), value :: lni, transform
+  end subroutine
+  subroutine zfpx_scatter_64_64(f, lni, blocks, transform) bind(C, name='zfpx_scatter_64_64')
+    import :: C_INT32_T
+    implicit none
+    integer(C_INT32_T), dimension(*), intent(OUT)  :: f
+    integer(C_INT32_T), dimension(*), intent(IN)   :: blocks
+    integer(C_INT32_T), intent(IN), value :: lni, transform
+  end subroutine
 end interface
 
 #else
@@ -168,6 +182,11 @@ void zfpx_inv_xform_1d(int32_t *t);
 void zfpx_inv_xform_2d(int32_t *t0);
 // reversible inverse lifting transform, in place, 3 dimensional data (4,4,4)
 void zfpx_inv_xform_3d(int32_t *t0);
+
+// transform a 64 x 64 block into 64 4x4x4 slices
+void zfpx_gather_64_64(int32_t *f, int32_t lni, int32_t *blocks, int transform);
+// inverse of zfpx_gather_64_64
+void zfpx_scatter_64_64(int32_t *f, int32_t lni, int32_t *blocks, int transform);
 
 // signed integer (2's complement) to negabinary (base -2) conversion
 uint32_t int_to_negabinary(int32_t x);
