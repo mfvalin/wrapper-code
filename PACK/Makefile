@@ -24,9 +24,9 @@ OBJECTS = lorenzo_c.c.o cdf97.c.o cdf53.c.o idwt53.c.o analyze_8x8.c.o misc_anal
 	  average_by_2_4_8.c.o average_2x2.c.o smooth124.c.o bi_endian_pack.c.o \
           misc_timers.c.o misc_pack.c.o float_info.c.o misc_swizzle.c.o misc_endian.c.o \
           ieee_quantize.c.o misc_floats.c.o verify.c.o misc_operators.c.o misc_zfp.c.o \
-	  zfp_quantize.c.o \
+	  zfpx_quantize.c.o \
           lorenzo_f.F90.o misc_operators_mod.F90.o misc_helpers_mod.F90.o rmn_timers_mod.F90.o \
-          analyze_data.F90.o rmn_zfp_mod.F90.o
+          analyze_data.F90.o rmn_zfpx_mod.F90.o
 
 INCLUDES = average_2x2.h    cdf53.h        cpu_type.h        idwt53.h \
            lorenzo.h        misc_floats.h  misc_operators.h  misc_swizzle.h  \
