@@ -55,44 +55,16 @@ rev_fwd_lift_Int(int32_t* p, int s)
   z = *p; p += s;
   w = *p; p += s;
 
-  /*
-  ** high-order Lorenzo transform
-  ** ( 1  0  0  0) (x)
-  ** (-1  1  0  0) (y)
-  ** ( 1 -2  1  0) (z)
-  ** (-1  3 -3  1) (w)
+  /*                                       (P4 Pascal matrix)
+  ** high-order Lorenzo transform       ** high-order inverse Lorenzo transform
+  ** ( 1  0  0  0) (x)                  ** ( 1  0  0  0) (x)
+  ** (-1  1  0  0) (y)                  ** ( 1  1  0  0) (y)
+  ** ( 1 -2  1  0) (z)                  ** ( 1  2  1  0) (z)
+  ** (-1  3 -3  1) (w)                  ** ( 1  3  3  1) (w)
   */
-  w -= z; z -= y; y -= x;
-  w -= z; z -= y;
-  w -= z;
-
-  p -= s; *p = w;
-  p -= s; *p = z;
-  p -= s; *p = y;
-  p -= s; *p = x;
-}
-// borrowed from the source code of zfp
-/* forward lifting transform of 4-vector */
-static void
-fwd_lift_Int(int32_t* p, ptrdiff_t s)
-{
-  int32_t x, y, z, w;
-  x = *p; p += s;
-  y = *p; p += s;
-  z = *p; p += s;
-  w = *p; p += s;
-  /*
-  ** non-orthogonal transform
-  **        ( 4  4  4  4) (x)
-  ** 1/16 * ( 5  1 -1 -5) (y)
-  **        (-4  4  4 -4) (z)
-  **        (-2  6 -6  2) (w)
-  */
-  x += w; x >>= 1; w -= x;
-  z += y; z >>= 1; y -= z;
-  x += z; x >>= 1; z -= x;
-  w += y; w >>= 1; y -= w;
-  w += y >> 1; y -= w >> 1;
+  w -= z; z -= y; y -= x;               w += z;
+  w -= z; z -= y;                       z += y; w += z;
+  w -= z;                               y += x; z += y; w += z;
 
   p -= s; *p = w;
   p -= s; *p = z;
@@ -120,6 +92,34 @@ rev_inv_lift_Int(int32_t* p, int s)
   w += z;
   z += y; w += z;
   y += x; z += y; w += z;
+
+  p -= s; *p = w;
+  p -= s; *p = z;
+  p -= s; *p = y;
+  p -= s; *p = x;
+}
+// borrowed from the source code of zfp
+/* forward lifting transform of 4-vector */
+static void
+fwd_lift_Int(int32_t* p, ptrdiff_t s)
+{
+  int32_t x, y, z, w;
+  x = *p; p += s;
+  y = *p; p += s;
+  z = *p; p += s;
+  w = *p; p += s;
+  /*
+  ** non-orthogonal transform   ** non-orthogonal inverse transform
+  **        ( 4  4  4  4) (x)   **       ( 4  6 -4 -1) (x)
+  ** 1/16 * ( 5  1 -1 -5) (y)   ** 1/4 * ( 4  2  4  5) (y)
+  **        (-4  4  4 -4) (z)   **       ( 4 -2  4 -5) (z)
+  **        (-2  6 -6  2) (w)   **       ( 4 -6 -4  1) (w)
+  */
+  x += w; x >>= 1; w -= x;
+  z += y; z >>= 1; y -= z;
+  x += z; x >>= 1; z -= x;
+  w += y; w >>= 1; y -= w;
+  w += y >> 1; y -= w >> 1;
 
   p -= s; *p = w;
   p -= s; *p = z;
