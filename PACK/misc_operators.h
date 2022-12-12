@@ -121,31 +121,31 @@ STATIC inline int32_t isign_32(int32_t what){
 }
 
 // convert to sign and magnitude form, sign is Least Significant Bit
-STATIC inline uint32_t to_isignmag_32(int32_t what){
+STATIC inline uint32_t to_zigzag_32(int32_t what){
   return (what << 1) ^ (what >> 31) ;
 //   return (iabs_32(what) << 1) - isign_32(what) ;
 }
 
 // convert from sign and magnitude form, sign is Least Significant Bit
-STATIC inline int32_t from_isignmag_32(uint32_t what){
+STATIC inline int32_t from_zigzag_32(uint32_t what){
   int32_t sign = -(what & 1) ;
   return ((what >> 1) ^ sign) ;
 }
 
-STATIC inline int32_t v_to_isignmag_32(int32_t * restrict src, uint32_t * restrict dst, int ni){
+STATIC inline int32_t v_to_zigzag_32(int32_t * restrict src, uint32_t * restrict dst, int ni){
   int i ;
   uint32_t max=0 ;
   for(i=0 ; i<ni ; i++){
-    dst[i] = to_isignmag_32(src[i]) ;
+    dst[i] = to_zigzag_32(src[i]) ;
     max = (dst[i] > max) ? dst[i] : max ;
   }
   return max ;
 }
 
-STATIC inline int32_t v_from_isignmag_32(uint32_t * restrict src, int32_t * restrict dst, int ni){
+STATIC inline int32_t v_from_zigzag_32(uint32_t * restrict src, int32_t * restrict dst, int ni){
   int32_t i, max=0 ;
   for(i=0 ; i<ni ; i++){
-    dst[i] = from_isignmag_32(src[i]) ;
+    dst[i] = from_zigzag_32(src[i]) ;
     max = (dst[i] > max) ? dst[i] : max ;
   }
   return max ;
@@ -350,14 +350,14 @@ STATIC inline int Nint(float what){
     end function lnzcnt_64
   end interface
 
-  interface from_isignmag  ! generic interface
-    function from_isignmag_32(what) result(r) bind(C,name='from_isignmag_32')
+  interface from_zigzag  ! generic interface
+    function from_zigzag_32(what) result(r) bind(C,name='from_zigzag_32')
       import C_INT32_T
       implicit none
       integer(C_INT32_T), intent(IN), value :: what
       integer(C_INT32_T) :: r
     end function
-    function v_from_isignmag_32_0(src, dest, n) result(r) bind(C,name='v_from_isignmag_32')
+    function v_from_zigzag_32_0(src, dest, n) result(r) bind(C,name='v_from_zigzag_32')
       import C_INT32_T
       implicit none
       integer(C_INT32_T), intent(IN)  :: src
@@ -365,7 +365,7 @@ STATIC inline int Nint(float what){
       integer(C_INT32_T), intent(IN), value :: n
       integer(C_INT32_T) :: r
     end function
-    function v_from_isignmag_32_1(src, dest, n) result(r) bind(C,name='v_from_isignmag_32')
+    function v_from_zigzag_32_1(src, dest, n) result(r) bind(C,name='v_from_zigzag_32')
       import C_INT32_T
       implicit none
       integer(C_INT32_T), dimension(*), intent(IN)  :: src
@@ -373,7 +373,7 @@ STATIC inline int Nint(float what){
       integer(C_INT32_T), intent(IN), value :: n
       integer(C_INT32_T) :: r
     end function
-    function v_from_isignmag_32_2(src, dest, n) result(r) bind(C,name='v_from_isignmag_32')
+    function v_from_zigzag_32_2(src, dest, n) result(r) bind(C,name='v_from_zigzag_32')
       import C_INT32_T
       implicit none
       integer(C_INT32_T), dimension(1,*), intent(IN)  :: src
@@ -383,14 +383,14 @@ STATIC inline int Nint(float what){
     end function
   end interface
 
-  interface to_isignmag  ! generic interface
-    function to_isignmag_32(what) result(r) bind(C,name='to_isignmag_32')
+  interface to_zigzag  ! generic interface
+    function to_zigzag_32(what) result(r) bind(C,name='to_zigzag_32')
       import C_INT32_T
       implicit none
       integer(C_INT32_T), intent(IN), value :: what
       integer(C_INT32_T) :: r
     end function
-    function v_to_isignmag_32_0(src, dest, n) result(r) bind(C,name='v_to_isignmag_32')
+    function v_to_zigzag_32_0(src, dest, n) result(r) bind(C,name='v_to_zigzag_32')
       import C_INT32_T
       implicit none
       integer(C_INT32_T), intent(IN)  :: src
@@ -398,7 +398,7 @@ STATIC inline int Nint(float what){
       integer(C_INT32_T), intent(IN), value :: n
       integer(C_INT32_T) :: r
     end function
-    function v_to_isignmag_32_1(src, dest, n) result(r) bind(C,name='v_to_isignmag_32')
+    function v_to_zigzag_32_1(src, dest, n) result(r) bind(C,name='v_to_zigzag_32')
       import C_INT32_T
       implicit none
       integer(C_INT32_T), dimension(*), intent(IN)  :: src
@@ -406,7 +406,7 @@ STATIC inline int Nint(float what){
       integer(C_INT32_T), intent(IN), value :: n
       integer(C_INT32_T) :: r
     end function
-    function v_to_isignmag_32_2(src, dest, n) result(r) bind(C,name='v_to_isignmag_32')
+    function v_to_zigzag_32_2(src, dest, n) result(r) bind(C,name='v_to_zigzag_32')
       import C_INT32_T
       implicit none
       integer(C_INT32_T), dimension(1,*), intent(IN)  :: src
