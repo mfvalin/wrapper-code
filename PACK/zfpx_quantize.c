@@ -520,7 +520,7 @@ void zfpx_inv_xform_2d(int32_t *t0){
   int32_t x[4], y[4], z[4], w[4], t[16] ;
 
   zfpx_unshuffle_2d(t0, t) ;  // unshuffle input
-//   for(i=0 ; i<16 ; i++) t[perm_2[i]] = t0[i] ;  // unshuffle input
+//   for(i=0 ; i<16 ; i++) t[zfpx_perm_2[i]] = t0[i] ;  // unshuffle input
   // inverse transform along y
   zfpx_inv_lift_4(t, t+4, t+8, t+12) ;
   // inverse transform along x
@@ -540,7 +540,7 @@ void zfpx_inv_xform_3d(int32_t *t0){
   int32_t x[16], y[16], z[16], w[16], t[64] ;
   int i ;
   zfpx_unshuffle_3d(t0, t) ;  // unshuffle input
-//   for(i=0 ; i<64 ; i++) t[perm_3[i]] = t0[i] ;  // unshuffle input
+//   for(i=0 ; i<64 ; i++) t[zfpx_perm_3[i]] = t0[i] ;  // unshuffle input
   // inverse transform along z (stride 1, length = 16)
   zfpx_inv_lift_16(t, t+16, t+32, t+48) ;
   // inverse transform along y (stride 1, lenth = 4)
@@ -563,6 +563,7 @@ void zfpx_fwd_xform_1d(int32_t *t){
   zfpx_fwd_lift_1(t, t+1, t+2, t+3) ;
 }
 
+static int xxx = 0 ;
 // reversible forward lifting transform, in place, 2 dimensional data (4,4)
 void zfpx_fwd_xform_2d(int32_t *t){
   int32_t x[4], y[4], z[4], w[4], t1[16] ;
@@ -579,7 +580,14 @@ void zfpx_fwd_xform_2d(int32_t *t){
   t1[ 2] = z[0] ; t1[ 6] = z[1] ; t1[10] = z[2] ; t1[14] = z[3] ;
   t1[ 3] = w[0] ; t1[ 7] = w[1] ; t1[11] = w[2] ; t1[15] = w[3] ;
   zfpx_shuffle_2d(t1, t) ; // shuffle output
-//   for(i=0 ; i<16 ; i++) t[i] = t1[perm_2[i]] ; // shuffle output
+//   for(int i=0 ; i<16 ; i++) t[i] = t1[i] ;  // do not shuffle
+// if(xxx <4){
+//   int i ;
+//   for(i=0 ; i<16 ; i++) printf("%d,",t1[i]) ; printf("\n") ;
+//   for(i=0 ; i<16 ; i++) printf("%d,",t[i]) ; printf("\n") ;
+//   xxx++ ;
+// }
+//   for(int i=0 ; i<16 ; i++) t[i] = t1[zfpx_perm_2[i]] ; // shuffle output
 }
 
 // reversible forward lifting transform, in place, 3 dimensional data (4,4,4)
@@ -604,9 +612,10 @@ void zfpx_fwd_xform_3d(int32_t *t){
     t1[4*i] = x[i] ; t1[1+4*i] = y[i] ; t1[2+4*i] = z[i] ; t1[3+4*i] = w[i] ;
   }
   zfpx_shuffle_3d(t1,t) ; // shuffle output
+//   for(i=0 ; i<64 ; i++) t[i] = t1[i] ; // do not shuffle
 // printf("++");
 // for(i=0 ; i<64 ; i++) printf("%d ",t[i]) ; printf("\n");
-//   for(i=0 ; i<64 ; i++) t[i] = t1[perm_3[i]] ; // shuffle output
+//   for(i=0 ; i<64 ; i++) t[i] = t1[zfpx_perm_3[i]] ; // shuffle output
 }
 
 #define NBMASK 0xaaaaaaaau /* negabinary<-> 2's complement binary conversion mask */
@@ -805,7 +814,13 @@ void zfpx_gather_64_64(int32_t *f, int32_t lni, int32_t *blocks, int transform){
     for(i0=0 ; i0<49 ; i0+=16){
 //       zfpx_get_x4x4y4_block(f+i0+j0, lni, blocks) ;
       zfpx_get_x4y4x4_block(f+i0+j0, lni, blocks) ;
-      if(transform) zfpx_fwd_xform_3d(blocks) ; // forward transform and shuffle
+      if(transform == 1) zfpx_fwd_xform_3d(blocks) ; // forward 3D transform and shuffle
+      if(transform == 4) {
+        zfpx_fwd_xform_2d(blocks) ;
+        zfpx_fwd_xform_2d(blocks+16) ;
+        zfpx_fwd_xform_2d(blocks+32) ;
+        zfpx_fwd_xform_2d(blocks+48) ;
+      }
       blocks += 64 ;
     }
   }
@@ -817,7 +832,7 @@ void zfpx_scatter_64_64(int32_t *f, int32_t lni, int32_t *blocks, int transform)
   // 16 slices of 4 rows, 16 elements in each row => a 4x4x4 block
   for(j0=0 ; j0<61*lni ; j0+=4*lni){    // storage length of rows is lni
     for(i0=0 ; i0<49 ; i0+=16){
-      if(transform) zfpx_inv_xform_3d(blocks) ; // inverse transform and unshuffle
+      if(transform) zfpx_inv_xform_3d(blocks) ; // inverse 3D transform and unshuffle
 //       zfpx_put_x4x4y4_block(f+i0+j0, lni, blocks) ;
       zfpx_put_x4y4x4_block(f+i0+j0, lni, blocks) ;
       blocks += 64 ;

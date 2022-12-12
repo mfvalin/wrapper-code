@@ -17,6 +17,7 @@ module analyze_data_mod
   use ISO_C_BINDING
   use lorenzo_mod
   use rmn_misc_operators
+  use rmn_zfpx
   implicit none
 #include <misc_pack.hf>
 #define IN_FORTRAN_CODE
@@ -57,6 +58,7 @@ contains
     integer, dimension(:,:), pointer :: bitsl
     integer, dimension(32) :: tbl, tblo
     integer, dimension(lni,nj) :: qqq
+    integer, dimension(64,64) :: qzfp
 
     ni0 = (ni+63)/64
     nj0 = (nj+63)/64
@@ -73,14 +75,14 @@ contains
     boundi = [ ( (i*64)-63 , i = 1, size(boundi) ) ]
 !     boundi(ni0) = ni + 1 - mod(ni,64)
     boundi(ni0+1) = ni + 1
-    print 1,boundi
-    print 1,(boundi(i+1)-boundi(i) , i = 1, ni0)
+!     print 1,boundi
+!     print 1,(boundi(i+1)-boundi(i) , i = 1, ni0)
 
     boundj = [ ( ((j*64)-63) , j = 1, size(boundj) ) ]
 !     boundj(nj0) = nj + 1 - mod(nj,64)
     boundj(nj0+1) = nj + 1
-    print 1,boundj
-    print 1,(boundj(j+1)-boundj(j) , j = 1, nj0)
+!     print 1,boundj
+!     print 1,(boundj(j+1)-boundj(j) , j = 1, nj0)
 
     bits = 0
 !     quantum = 1.0
@@ -100,7 +102,23 @@ contains
           tnbo(i,j) = BitsNeeded_u32(to_isignmag_32(q(i,j)))
         enddo
         enddo
-        if(i0 == 9 .and. j0 == 7)then  ! tile(2,3)
+        if(i0 == 9 .and. j0 == 7)then  ! tile(9,7)
+          qzfp = 0
+!           do j = 1, 64
+!           do i = 1, 64
+!             q(i,j) = i**2 - 2*i*j - j*j ! + 1 * (rand() - .5)
+!           enddo
+!           enddo
+          call lorenzopredict(q, ql, 64, 64, 64, 64)
+          call lorenzopredict2_f(q, qzfp, 64, 64, 64, 64)
+!           call zfpx_gather_64_64(q, 64, qzfp, 4)
+          do j = 57, 1, -8
+            print 32, '<',j,q(1:16,j),q(17:63:3,j)
+            print 32, '+',j,qzfp(1:16,j),qzfp(17:63:3,j)
+!             print 32, '+',j,qzfp(1:16,j),qzfp(17:32,j)
+!             print 32, '|',j,qzfp(33:48,j),qzfp(49:64,j)
+            print 32, '-',j,ql(1:16,j),ql(17:63:3,j)
+          enddo
           qr=999
           call lorenzounpredict(qr, ql, nil, 64, 64, njl)
           errors = sum(qr-q)
@@ -139,7 +157,7 @@ contains
 !             print 3,tnbo(:,j)
 !             print 3,tnbo(:,j) - tnb(:,j)
 !             print 3,tnb(:,j)-tnbr(:,j)
-            if(mod(j,8) == 1) print *,""
+!             if(mod(j,8) == 1) print *,""
           enddo
 !           print *,'tnbo-tnbr, tnbo-tnb, tnbr-tnb', sum(tnbo-tnbr), sum(tnbo-tnb), sum(tnbr-tnb)
         endif
@@ -168,6 +186,8 @@ contains
 2 format(64I4)
 3 format(8(8I2,1X))
 4 format(8(8Z2,1X))
+32 format(A,I3,3I5,13I5,3x,16I5)
+64 format(A,I3,3I5,13I5,3x,16I5,/,10x,16I5,3x,16I5)
   end function
 end module
 

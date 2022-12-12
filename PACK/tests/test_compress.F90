@@ -1,4 +1,6 @@
 #define IN_FORTRAN_CODE__
+
+!=========================== UNUSED CODE ===========================
 #if 0
 module analyze_data_mod
   use ISO_C_BINDING
@@ -28,7 +30,6 @@ contains
     bits = 0
     zr = 5.0
     zr(64,:) = 55.0
-    print *, 'quantum =', quantum
 
     boundi = [ ( (i*64)-63 , i = 1, size(boundi) ) ]
     boundi(ni0) = ni + 1 - mod(ni,64)
@@ -56,6 +57,8 @@ contains
   end function
 end module
 #endif
+
+
 module globalstats
   use ISO_C_BINDING
   use analyze_data_mod
@@ -543,7 +546,9 @@ program test_compress
         if(nomvar(1:2) == 'VV') quantum = 0.1
         if(nomvar(1:2) == 'WW') quantum = 0.01
 !         quantum = 0.0
+
 bits0 => array_stats_1(p, ni, ni, nj, quantum)
+
 #if 0
         call float_quantize_prep(12, phead, maxvalue, minvalue, quantum)
         print *,'NBITS from header =',phead%nbits,' quantum =',phead%quantum
