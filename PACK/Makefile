@@ -55,7 +55,7 @@ test_compress : test_compress.$(MOD).exe
 test_compress.$(MOD).exe : tests/test_compress.F90 ${LIBDIR}/libmisc.a
 	(module load $(MOD)$(EXT) >/dev/null ; echo "LD_RUN_PATH=$$LD_RUN_PATH" ; \
 	$$FTN -fopenmp -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} \
-	-lmisc $$LIBECCC/lib/librmn.a -o $@ -Wl,-rpath,$$LD_RUN_PATH; )
+	-lmisc $$LIBECCC/lib/librmn.a $$LIBECCC/lib/libzfp.a -o $@ -Wl,-rpath,$$LD_RUN_PATH; )
 
 test_bits_needed : test_bits_needed.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
