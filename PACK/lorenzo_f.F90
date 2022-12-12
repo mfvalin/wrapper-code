@@ -53,7 +53,7 @@ end interface
 
 contains
 
-! Lorenzo prediction
+! 3 point Lorenzo predictor (forward derivative)
 ! upon exit, diff contains original value - predicted value
 ! with explicit SIMD primitives, the C version (LorenzoPredict_c) outperforms the Fortran version
 subroutine lorenzopredict_f(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoPredict_f')
@@ -74,6 +74,34 @@ subroutine lorenzopredict_f(orig, diff, ni, lnio, lnid, nj) bind(C,name='Lorenzo
     enddo
   enddo
 end subroutine lorenzopredict_f
+
+#if 0
+! 5 point Lorenzo predictor (centered derivatives)
+subroutine lorenzopredict2_f(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoPredict2_f')
+  implicit none
+  integer(C_INT32_T), intent(IN), value :: ni, lnio, lnid, nj
+  integer(C_INT32_T), dimension(lnio,nj), intent(IN)  :: orig
+  integer(C_INT32_T), dimension(lnid,nj), intent(OUT) :: diff
+  integer :: i, j
+
+  diff(1,1) = orig(1,1)                ! bottom row no prediction for first point
+  diff(2,1) = orig(2,1) - orig(1,1)    ! bottom row 1 point prediction for second point
+  diff(1,2) = orig(1,2) - orig(1,1)    ! first point of second row, 1 point prediction
+  diff(2,2) = orig(2,2) - ( orig(1,2) + orig(2,1) - orig(1,1) )  ! second point row 2, 3 point prediction
+  do i = 3, ni
+    diff(i,1) = orig(i,1) - (orig(i-1,1)*2 - orig(i-2,1))                   ! bottom row, 2 point prediction
+    diff(i,2) = orig(i,2) - ( orig(i-1,2) + (orig(i,1) - orig(i-2,1))/2 )   ! second row, 3 point prediction
+  enddo
+  do j = 3 , nj                                 ! all rows except 2 bottom rows
+    diff(1,j) = orig(1,j) - (orig(1,j-1)*2 - orig(1,j-2) )         ! first column, 2 point prediction along j
+    diff(2,j) = orig(2,j) - ( orig(2,j-1) + (orig(1,j) - orig(1,j-2))/2 )  ! second column, 3 point prediction
+    do i = 3, ni
+      diff(i,j) = orig(i,j) - &
+                ( orig(i-1,j-1) + ( orig(i,j-1) - orig(i-2,j-1) + orig(i-1,j) - orig(i-1,j-2) )/2 )  ! 5 point prediction
+    enddo
+  enddo
+end subroutine lorenzopredict2_f
+#endif
 
 ! Lorenzo restoration
 ! upon exit, orig contains values restored from prediction in diff
