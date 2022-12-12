@@ -52,7 +52,7 @@ uint32_t get_ZFP_CODEC(){ return ZFP_CODEC ; }
 // ny        [IN] : second array dimension
 // nz        [IN] : third array dimension
 // maxerror  [IN] : largest acceptable absolute error
-// precision [IN] : number of bit planes to beep (related to relative error)
+// precision [IN] : number of bit planes to keep (related to relative error)
 // Ssize    [OUT] : size in bytes of compressed stream
 // return         : pointer to compressed stream
 //
