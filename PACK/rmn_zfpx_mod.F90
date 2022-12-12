@@ -20,4 +20,5 @@ module rmn_zfpx
   implicit none
 #define IN_FORTRAN_CODE
 #include <zfpx_quantize.h>
+#include <misc_zfp.h>
 end module
