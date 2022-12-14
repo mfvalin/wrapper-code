@@ -22,6 +22,8 @@ int main(int argc, char **argv){
   uint64_t t[NTIMES] ;
   char buf[1024] ;
   size_t bufsiz = sizeof(buf) ;
+  uint32_t peek_u ;
+  int32_t peek_i ;
 
   freq = cycles_counter_freq() ;
   nano = 1000000000 ;
@@ -42,6 +44,9 @@ int main(int argc, char **argv){
   LeStreamInsert(&ple, unpacked, nbits, -NPTS) ;
   printf("packedle %2d  : ", nbits) ; for(i=7 ; i>=0 ; i--) printf("%8.8x ", packedle[i]); printf("\n") ;
   LeStreamInit(&ple, packedle, sizeof(packedle)) ;
+  LeStreamRewind(&ple) ;
+  LE64_PEEK_NBITS(ple.accum, ple.xtract, peek_u, nbits) ;
+  printf("peekle(u) = %8.8x\n", peek_u) ;
   for(i=0 ; i<NPTS ; i++) restored[i] = 0xFFFFFFFFu ;
   LeStreamXtract(&ple, restored, nbits, NPTS) ;
   printf("restoredle %2d: ", nbits) ; for(i=0 ; i<8 ; i++) printf("%8.8x ", restored[i]); printf("\n") ;
@@ -50,6 +55,9 @@ int main(int argc, char **argv){
   BeStreamInsert(&pbe, unpacked, nbits, -NPTS) ;
   printf("packedbe %2d  : ", nbits) ; for(i=0 ; i<8 ; i++) printf("%8.8x ", packedbe[i]); printf("\n") ;
   BeStreamInit(&pbe, packedbe, sizeof(packedbe)) ;
+  BeStreamRewind(&pbe) ;
+  BE64_PEEK_NBITS(pbe.accum, pbe.xtract, peek_u, nbits) ;
+  printf("peekbe(u) = %8.8x\n", peek_u) ;
   for(i=0 ; i<NPTS ; i++) restored[i] = 0xFFFFFFFFu ;
   BeStreamXtract(&pbe, restored, nbits, NPTS) ;
   printf("restoredbe %2d: ", nbits) ; for(i=0 ; i<8 ; i++) printf("%8.8x ", restored[i]); printf("\n") ;
@@ -59,6 +67,9 @@ int main(int argc, char **argv){
   LeStreamInsert(&ple, (void *) unpacked_signed, nbits, -NPTS) ;
   printf("packedle %2d  : ", nbits) ; for(i=7 ; i>=0 ; i--) printf("%8.8x ", packedle[i]); printf("\n") ;
   LeStreamInit(&ple, packedle, sizeof(packedle)) ;
+  LeStreamRewind(&ple) ;
+  LE64_PEEK_NBITS((int64_t) ple.accum, ple.xtract, peek_i, nbits) ;
+  printf("peekle(s) = %8.8x\n", peek_i) ;
   for(i=0 ; i<NPTS ; i++) signed_restored[i] = 0xFFFFFFFFu ;
   LeStreamXtractSigned(&ple, signed_restored, nbits, NPTS) ;
   printf("restoredle %2d: ", nbits) ; for(i=0 ; i<8 ; i++) printf("%8.8x ", signed_restored[i]); printf("\n") ;
@@ -67,6 +78,9 @@ int main(int argc, char **argv){
   BeStreamInsert(&pbe, (void *) unpacked_signed, nbits, -NPTS) ;
   printf("packedbe %2d  : ", nbits) ; for(i=0 ; i<8 ; i++) printf("%8.8x ", packedbe[i]); printf("\n") ;
   BeStreamInit(&pbe, packedbe, sizeof(packedbe)) ;
+  BeStreamRewind(&pbe) ;
+  BE64_PEEK_NBITS((int64_t) pbe.accum, pbe.xtract, peek_i, nbits) ;
+  printf("peekbe(s) = %8.8x\n", peek_i) ;
   for(i=0 ; i<NPTS ; i++) signed_restored[i] = 0xFFFFFFFFu ;
   BeStreamXtractSigned(&pbe, signed_restored, nbits, NPTS) ;
   printf("restoredbe %2d: ", nbits) ; for(i=0 ; i<8 ; i++) printf("%8.8x ", signed_restored[i]); printf("\n") ;
@@ -91,6 +105,7 @@ int main(int argc, char **argv){
 //  time little endian unsigned extraction
     for(i=0 ; i<NPTS ; i++) restored[i] = 0xFFFFFFFFu ;
     LeStreamInit(&ple, packedle, sizeof(packedle)) ;
+    LeStreamRewind(&ple) ;
     LeStreamXtract(&ple, restored, nbits, NPTS) ;
     mask = RMask(nbits) ;
     errors = 0 ;
@@ -104,6 +119,7 @@ int main(int argc, char **argv){
 //  time big endian unsigned extraction
     for(i=0 ; i<NPTS ; i++) restored[i] = 0xFFFFFFFFu ;
     BeStreamInit(&pbe, packedbe, sizeof(packedbe)) ;
+    BeStreamRewind(&pbe) ;
     BeStreamXtract(&pbe, restored, nbits, NPTS) ;
     mask = RMask(nbits) ;
     errors = 0 ;
