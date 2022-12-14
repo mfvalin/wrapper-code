@@ -206,13 +206,25 @@ float BitEntropy(int32_t *bitstream, int npts, int nbits, int rshift);
 void BitEntropy4(float entropy[4], uint32_t *bitstream, int npts, int nbits, int rshift);
 
 // add to number of bits needed distribution
-// what : integer array of dimension n
+// what : signed integer array of dimension n
 // pop  ; integer array of dimension 33 containing the number of bits needed distribution
 // n    : number of signed integers in what
 STATIC inline void BitPop(int32_t *what, uint32_t *pop, int n){
   int i;
   for(i=0 ; i<n ; i++) {
     int nbits = BitsNeeded_32(what[i]) ;  // number of bits needed for this signed integer
+    pop[nbits]++ ;                     // bump count for this number of bits
+  }
+}
+
+// add to number of bits needed distribution
+// what : unsigned integer array of dimension n
+// pop  ; integer array of dimension 33 containing the number of bits needed distribution
+// n    : number of signed integers in what
+STATIC inline void BitPopU(uint32_t *what, uint32_t *pop, int n){
+  int i;
+  for(i=0 ; i<n ; i++) {
+    int nbits = BitsNeeded_u32(what[i]) ;  // number of bits needed for this unsigned integer
     pop[nbits]++ ;                     // bump count for this number of bits
   }
 }
@@ -421,9 +433,17 @@ STATIC inline int Nint(float what){
       import :: C_INT32_T
       implicit none
       integer(C_INT32_t), dimension(n), intent(IN) :: what
-      integer(C_INT32_t), dimension(34), intent(INOUT) :: pop
+      integer(C_INT32_t), dimension(32), intent(INOUT) :: pop
       integer(C_INT32_t), intent(IN), value :: n
     end subroutine BitPop
+
+    subroutine BitPopU(what, pop, n) bind(C, name='BitPopU')
+      import :: C_INT32_T
+      implicit none
+      integer(C_INT32_t), dimension(n), intent(IN) :: what
+      integer(C_INT32_t), dimension(32), intent(INOUT) :: pop
+      integer(C_INT32_t), intent(IN), value :: n
+    end subroutine BitPopU
 
     function BitEntropy(bitstream, npts, nbits, rshift) result(entropy) bind(C,name='BitEntropy')
       import :: C_INT32_T, C_FLOAT
