@@ -217,7 +217,7 @@ STATIC inline void  BeStreamFlush(bitstream *p){
   p->xtract = 0 ;
 }
 
-// rewind stream to read it from the beginning
+// rewind Little Endian stream to read it from the beginning (make sure at least 32 bits are extractable)
 STATIC inline void  LeStreamRewind(bitstream *p){
   if(p->insert > 0) LeStreamFlush(p) ;   // something left to write ?
 //   p->accum = 0 ;
@@ -229,7 +229,7 @@ STATIC inline void  LeStreamRewind(bitstream *p){
   p->stream = p->start + 1 ;
 }
 
-// rewind stream to read it from the beginning
+// rewind Big Endian stream to read it from the beginning (make sure at least 32 bits are extractable)
 STATIC inline void  BeStreamRewind(bitstream *p){
   if(p->insert > 0) BeStreamFlush(p) ;   // something left to write ?
 //   p->accum = 0 ;
@@ -239,6 +239,30 @@ STATIC inline void  BeStreamRewind(bitstream *p){
   p->xtract = 32 ;
 //   p->stream = p->start ;
   p->stream = p->start + 1 ;
+}
+
+STATIC inline uint32_t LeStreamPeek(bitstream *p, int nbits){
+  uint32_t w32 ;
+  LE64_PEEK_NBITS(p->accum, p->xtract, w32, nbits) ;
+  return w32 ;
+}
+
+STATIC inline int32_t LeStreamPeekSigned(bitstream *p, int nbits){
+  int32_t w32 ;
+  LE64_PEEK_NBITS((int64_t) p->accum, p->xtract, w32, nbits) ;
+  return w32 ;
+}
+
+STATIC inline uint32_t BeStreamPeek(bitstream *p, int nbits){
+  uint32_t w32 ;
+  BE64_PEEK_NBITS(p->accum, p->xtract, w32, nbits) ;
+  return w32 ;
+}
+
+STATIC inline int32_t BeStreamPeekSigned(bitstream *p, int nbits){
+  int32_t w32 ;
+  BE64_PEEK_NBITS((int64_t) p->accum, p->xtract, w32, nbits) ;
+  return w32 ;
 }
 
 // STATIC inline void  LeStreamReset(bitstream *p, uint32_t *buffer){
