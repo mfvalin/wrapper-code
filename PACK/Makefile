@@ -30,7 +30,7 @@ OBJECTS = lorenzo_c.c.o cdf97.c.o cdf53.c.o idwt53.c.o analyze_8x8.c.o misc_anal
 
 INCLUDES = average_2x2.h    cdf53.h        cpu_type.h        idwt53.h \
            lorenzo.h        misc_floats.h  misc_operators.h  misc_swizzle.h  \
-           misc_types.h     pack_stream.h  bi_endian_pack.h  cdf97.h  \
+           misc_types.h     pack_stream.h  rmn/bi_endian_pack.h  cdf97.h  \
            ieee_quantize.h  misc_endian.h  misc_helpers.h    misc_pack.h \
            misc_timers.h    pack_macros.h  smooth124.h       fast_endian.h \
            misc_zfp.h       misc_analyze.h misc_simd.h       misc_encode.h

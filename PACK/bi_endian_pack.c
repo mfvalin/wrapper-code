@@ -21,7 +21,7 @@
 #include <stdint.h>
 
 #define STATIC extern
-#include <bi_endian_pack.h>
+#include <rmn/bi_endian_pack.h>
 
 // little endian style insertion of values into a bit stream
 // p     : stream                                [INOUT]
