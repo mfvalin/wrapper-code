@@ -12,26 +12,32 @@
 // Lesser General Public License for more details.
 //
 // Author:
-//     M. Valin,   Recherche en Prevision Numerique, 2022/09
+//     M. Valin,   Recherche en Prevision Numerique, 2022
+//
+// set of functions to help manage insertion/extraction of integers into/from a bit stream
+// the bit stream is a sequence of unsigned 32 bit integers
+// both Big and Little endian style insertion/extraction support is provided
 //
 #include <stdint.h>
 
 #define STATIC extern
 #include <bi_endian_pack.h>
 
-// little endian style insertion of values into a packing stream
+// little endian style insertion of values into a bit stream
 // p     : stream                                [INOUT]
 // w32   : array of values to insert             [IN]
 // nbits : number of bits kept for each value    [IN]
 // nw    : number of values from w32             [IN}
-void  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
+int  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
   int i = 0, n = (nw < 0) ? -nw : nw ;
   uint64_t  accum = p->accum ;
   uint32_t  insert = p->insert ;
   uint32_t *stream = p->stream ;
   uint32_t mask = RMask(nbits) ;
 
-  if(nbits <= 16) {
+  if(insert < 0) return 0;      // ERROR: not in insert mode
+
+  if(nbits <= 16) {       // process values two at a time
     uint32_t t, nb = nbits + nbits ;
     for(    ; i<n-1 ; i+=2){
       // little endian => upper part [i+1] | lower part [i]
@@ -46,20 +52,23 @@ void  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
   p->accum = accum ;
   p->insert = insert ;
   p->stream = stream ;
+  return n ;
 }
 
-// big endian style insertion of values into a packing stream
+// big endian style insertion of values into a bit stream
 // p     : stream                                [INOUT]
 // w32   : array of values to insert             [IN]
 // nbits : number of bits kept for each value    [IN]
 // nw    : number of values from w32             [IN}
-void  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
+int  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
   int i = 0, n = (nw < 0) ? -nw : nw ;
   uint64_t  accum = p->accum ;
   uint32_t  insert = p->insert ;
   uint32_t *stream = p->stream ;
 
-  if(nbits <= 16) {
+  if(insert < 0) return 0;      // ERROR: not in insert mode
+
+  if(nbits <= 16) {       // process values two at a time
     uint32_t t, mask = RMask(nbits), nb = nbits + nbits ;
     for(    ; i<n-1 ; i+=2){
       // big endian => upper part [i] | lower part [i+1]
@@ -74,20 +83,23 @@ void  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
   p->accum = accum ;
   p->insert = insert ;
   p->stream = stream ;
+  return n ;
 }
 
-// little endian style extraction of unsigned values from a packing stream
+// little endian style extraction of unsigned values from a bit stream
 // p     : stream                                [INOUT]
 // w32   : array of unsigned values extracted    [OUT]
 // nbits : number of bits kept for each value    [IN]
 // n     : number of values from w32             [IN}
-void  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
+int  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   int i = 0 ;
   uint64_t  accum = p->accum ;
   uint32_t  xtract = p->xtract ;
   uint32_t *stream = p->stream ;
 
-  if(nbits <= 16) {
+  if(xtract < 0) return 0;      // ERROR: not in extract mode
+
+  if(nbits <= 16) {       // process values two at a time
     uint32_t t, mask = RMask(nbits), nb = nbits + nbits ;
     for(    ; i<n-1 ; i+=2){
       LE64_GET_NBITS(accum, xtract, t, nb, stream) ;   // get a pair of values
@@ -101,20 +113,23 @@ void  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   p->accum = accum ;
   p->xtract = xtract ;
   p->stream = stream ;
+  return n ;
 }
 
-// little endian style extraction of signed values from a packing stream
+// little endian style extraction of signed values from a bit stream
 // p     : stream                                [INOUT]
 // w32   : array of unsigned values extracted    [OUT]
 // nbits : number of bits kept for each value    [IN]
 // n     : number of values from w32             [IN}
-void  LeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
+int  LeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
   int i = 0 ;
   int64_t  accum = (int64_t)p->accum ;
   uint32_t  xtract = p->xtract ;
   uint32_t *stream = p->stream ;
 
-  if(nbits <= 16) {
+  if(xtract < 0) return 0;      // ERROR: not in extract mode
+
+  if(nbits <= 16) {       // process values two at a time
     int32_t t, mask = RMask(nbits), nb = nbits + nbits ;
     for(    ; i<n-1 ; i+=2){
       LE64_GET_NBITS(accum, xtract, t, nb, stream) ;   // get a pair of values
@@ -129,20 +144,23 @@ void  LeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
   p->accum = accum ;
   p->xtract = xtract ;
   p->stream = stream ;
+  return n ;
 }
 
-// big endian style extraction of unsigned values from a packing stream
+// big endian style extraction of unsigned values from a bit stream
 // p     : stream                                [INOUT]
 // w32   : array of unsigned values extracted    [OUT]
 // nbits : number of bits kept for each value    [IN]
 // n     : number of values from w32             [IN}
-void  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
+int  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   int i = 0 ;
   uint64_t  accum = p->accum ;
   uint32_t  xtract = p->xtract ;
   uint32_t *stream = p->stream ;
 
-  if(nbits <= 16) {
+  if(xtract < 0) return 0;      // ERROR: not in extract mode
+
+  if(nbits <= 16) {       // process values two at a time
     uint32_t t, mask = RMask(nbits), nb = nbits + nbits ;
     for(    ; i<n-1 ; i+=2){
       BE64_GET_NBITS(accum, xtract, t, nb, stream) ;      // get a pair of values
@@ -156,20 +174,23 @@ void  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   p->accum = accum ;
   p->xtract = xtract ;
   p->stream = stream ;
+  return n ;
 }
 
-// big endian style extraction of signed values from a packing stream
+// big endian style extraction of signed values from a bit stream
 // p     : stream                                [INOUT]
 // w32   : array of signed values extracted      [OUT]
 // nbits : number of bits kept for each value    [IN]
 // n     : number of values from w32             [IN}
-void  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
+int  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
   int i = 0 ;
   int64_t  accum = (int64_t)p->accum ;
   uint32_t  xtract = p->xtract ;
   uint32_t *stream = p->stream ;
 
-  if(nbits <= 16) {
+  if(xtract < 0) return 0;      // ERROR: not in extract mode
+
+  if(nbits <= 16) {       // process values two at a time
     int32_t t, mask = RMask(nbits), nb = nbits + nbits ;
     for(    ; i<n-1 ; i+=2){
       BE64_GET_NBITS(accum, xtract, t, nb, stream) ;         // get a pair of values
@@ -184,21 +205,26 @@ void  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
   p->accum = (uint64_t)accum ;
   p->xtract = xtract ;
   p->stream = stream ;
+  return n ;
 }
 
-// little endian style insertion of values into a packing stream
+// little endian style insertion of values into a bit stream
 // p     : stream                                [INOUT]
 // w32   : array of values inserted              [IN]
 // nbits : array of nuber of bits to keep        [IN]
 // n     : number of values to insert            [IN]
 // n[i], nbits[i] is an associated (nbits , n) pair
 // n[i] <= 0 marks the end of the pair list
-void  LeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
-  int i ;
+int  LeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
+  int i, nw = 0 ;
   uint64_t  accum = p->accum ;
   uint32_t  insert = p->insert ;
   uint32_t *stream = p->stream ;
-  while(n[0] > 0 ){     // loop until end of list (negative value)
+
+  if(insert < 0) return 0;      // ERROR: not in insert mode
+
+  while(n[0] > 0 ){     // loop until end of list (non positive value)
+    nw += n[0] ;
     for(i=0 ; i<n[0] ; i++){
       LE64_PUT_NBITS(accum, insert, w32[i], nbits[0], stream) ;
     }
@@ -209,21 +235,26 @@ void  LeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   p->accum = accum ;
   p->insert = insert ;
   p->stream = stream ;
+  return nw ;
 }
 
-// big endian style insertion of values into a packing stream
+// big endian style insertion of values into a bit stream
 // p     : stream                                [INOUT]
 // w32   : array of values inserted              [IN]
 // nbits : array of nuber of bits to keep        [IN]
 // n     : number of values to insert            [IN]
 // n[i], nbits[i] is an associated (nbits , n) pair
 // n[i] <= 0 marks the end of the pair list
-void  BeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
-  int i ;
+int  BeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
+  int i, nw = 0 ;
   uint64_t  accum = p->accum ;
   uint32_t  insert = p->insert ;
   uint32_t *stream = p->stream ;
-  while(n[0] > 0 ){     // loop until end of list (negative value)
+
+  if(insert < 0) return 0;      // ERROR: not in insert mode
+
+  while(n[0] > 0 ){     // loop until end of list (non positive value)
+    nw += n[0] ;
     for(i=0 ; i<n[0] ; i++){
       BE64_PUT_NBITS(accum, insert, w32[i], nbits[0], stream) ;
     }
@@ -234,21 +265,26 @@ void  BeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   p->accum = accum ;
   p->insert = insert ;
   p->stream = stream ;
+  return nw ;
 }
 
-// little endian style extraction of unsigned values from a packing stream
+// little endian style extraction of unsigned values from a bit stream
 // p     : stream                                [INOUT]
 // w32   : array of unsigned values extracted    [OUT]
 // nbits : array of nuber of bits to keep        [IN]
 // n     : number of unsigned values to extract  [IN]
 // n[i], nbits[i] is an associated (nbits , n) pair
 // n[i] <= 0 marks the end of the pair list
-void  LeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
-  int i ;
+int  LeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
+  int i, nw = 0 ;
   uint64_t  accum = p->accum ;
   uint32_t  xtract = p->xtract ;
   uint32_t *stream = p->stream ;
-  while(n[0] > 0 ){     // loop until end of list (negative value)
+
+  if(xtract < 0) return 0;      // ERROR: not in extract mode
+
+  while(n[0] > 0 ){     // loop until end of list (non positive value)
+    nw += n[0] ;
     for(i=0 ; i<n[0] ; i++){
       LE64_GET_NBITS(accum, xtract, w32[i], nbits[0], stream) ;
     }
@@ -258,21 +294,26 @@ void  LeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   p->accum = accum ;
   p->xtract = xtract ;
   p->stream = stream ;
+  return nw ;
 }
 
-// big endian style extraction of unsigned values from a packing stream
+// big endian style extraction of unsigned values from a bit stream
 // p     : stream                                [INOUT]
 // w32   : array of unsigned values extracted    [OUT]
 // nbits : array of nuber of bits to keep        [IN]
 // n     : number of unsigned values to extract  [IN]
 // n[i], nbits[i] is an associated (nbits , n) pair
 // n[i] <= 0 marks the end of the pair list
-void  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
-  int i ;
+int  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
+  int i, nw = 0 ;
   uint64_t  accum = p->accum ;
   uint32_t  xtract = p->xtract ;
   uint32_t *stream = p->stream ;
-  while(n[0] > 0 ){     // loop until end of list (negative value)
+
+  if(xtract < 0) return 0;      // ERROR: not in extract mode
+
+  while(n[0] > 0 ){     // loop until end of list (non positive value)
+    nw += n[0] ;
     for(i=0 ; i<n[0] ; i++){
       BE64_GET_NBITS(accum, xtract, w32[i], nbits[0], stream) ;
     }
@@ -282,5 +323,6 @@ void  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   p->accum = accum ;
   p->xtract = xtract ;
   p->stream = stream ;
+  return nw ;
 }
 
