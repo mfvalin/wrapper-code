@@ -18,7 +18,7 @@
 #include <stdint.h>
 #include <sys/time.h>
 
-#include <misc_timers.h>
+#include <rmn/misc_timers.h>
 #include <rmn/bi_endian_pack.h>
 
 #if !defined(NPTS)
