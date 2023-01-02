@@ -1,8 +1,9 @@
 program lorenzo_test
   use lorenzo_mod
+  use rmn_timers
   use ISO_C_BINDING
   implicit none
-#include <misc_timers.hf>
+! #include <rmn/misc_timers.hf>
 
 #if ! defined(NI)
 #define NI 128
@@ -24,7 +25,7 @@ program lorenzo_test
   integer(C_INT64_T), dimension(NTIMES) :: t
   real(kind=4) :: ns, avg
 
-  freq = cycles_counter_freq()
+  freq = timer_freq()
   ns = freq
   ns = 1.0E9/freq
   f  = 888
@@ -48,9 +49,9 @@ program lorenzo_test
 
   do k = 1, NTIMES
     f = fr
-    t(k) = elapsed_cycles()
+    t(k) = timer_cycles()
     call lorenzopredictinplace(f, ni, lnio, nj)
-    t(k) = elapsed_cycles() - t(k)
+    t(k) = timer_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
   print 2,"=== generic ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
@@ -62,9 +63,9 @@ program lorenzo_test
 
   do k = 1, NTIMES
     f = fr
-    t(k) = elapsed_cycles()
+    t(k) = timer_cycles()
     call lorenzopredictinplace_f(f, ni, lnio, nj)
-    t(k) = elapsed_cycles() - t(k)
+    t(k) = timer_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
   print 2,"=== Fortran ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
@@ -76,9 +77,9 @@ program lorenzo_test
 
   do k = 1, NTIMES
     f = fr
-    t(k) = elapsed_cycles()
+    t(k) = timer_cycles()
     call lorenzopredictinplace_c(f, ni, lnio, nj)
-    t(k) = elapsed_cycles() - t(k)
+    t(k) = timer_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
   print 2,"=== C       ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
@@ -91,9 +92,9 @@ program lorenzo_test
   print 2,"=== predicted not in place ==="
   f = fr
   do k = 1, NTIMES
-    t(k) = elapsed_cycles()
+    t(k) = timer_cycles()
     call lorenzopredict(f, pred, ni, lnio, lnid, nj)
-    t(k) = elapsed_cycles() - t(k)
+    t(k) = timer_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
   print 2,"=== generic ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
@@ -105,9 +106,9 @@ program lorenzo_test
 
   f = fr
   do k = 1, NTIMES
-    t(k) = elapsed_cycles()
+    t(k) = timer_cycles()
     call lorenzopredict_f(f, pred, ni, lnio, lnid, nj)
-    t(k) = elapsed_cycles() - t(k)
+    t(k) = timer_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
   print 2,"=== Fortran ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
@@ -119,9 +120,9 @@ program lorenzo_test
 
   f = fr
   do k = 1, NTIMES
-    t(k) = elapsed_cycles()
+    t(k) = timer_cycles()
     call lorenzopredict_c(f, pred, ni, lnio, lnid, nj)
-    t(k) = elapsed_cycles() - t(k)
+    t(k) = timer_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
   print 2,"=== C       ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
@@ -136,9 +137,9 @@ program lorenzo_test
   do k = 1, NTIMES
     fp = fr
     call lorenzopredictinplace(fp, ni, lnio, nj)
-    t(k) = elapsed_cycles()
+    t(k) = timer_cycles()
     call lorenzounpredictinplace(fp, ni, lnio, nj)
-    t(k) = elapsed_cycles() - t(k)
+    t(k) = timer_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
   print 2,"=== generic ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
@@ -158,9 +159,9 @@ program lorenzo_test
   do k = 1, NTIMES
     fp = fr
     call lorenzopredictinplace_f(fp, ni, lnio, nj)
-    t(k) = elapsed_cycles()
+    t(k) = timer_cycles()
     call lorenzounpredictinplace_f(fp, ni, lnio, nj)
-    t(k) = elapsed_cycles() - t(k)
+    t(k) = timer_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
   print 2,"=== Fortran ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
@@ -180,9 +181,9 @@ program lorenzo_test
   do k = 1, NTIMES
     fp = fr
     call lorenzopredictinplace_c(fp, ni, lnio, nj)
-    t(k) = elapsed_cycles()
+    t(k) = timer_cycles()
     call lorenzounpredictinplace_c(fp, ni, lnio, nj)
-    t(k) = elapsed_cycles() - t(k)
+    t(k) = timer_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
   print 2,"=== C       ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
@@ -204,9 +205,9 @@ program lorenzo_test
   call lorenzopredict(fr, pred, ni, lnio, lnid, nj)
   f = 999
   do k = 1, NTIMES
-    t(k) = elapsed_cycles()
+    t(k) = timer_cycles()
     call lorenzounpredict(f, pred, ni, lnio, lnid, nj)
-    t(k) = elapsed_cycles() - t(k)
+    t(k) = timer_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
   print 2,"=== generic ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
@@ -226,9 +227,9 @@ program lorenzo_test
   call lorenzopredict(fr, pred, ni, lnio, lnid, nj)
   f = 999
   do k = 1, NTIMES
-    t(k) = elapsed_cycles()
+    t(k) = timer_cycles()
     call lorenzounpredict_f(f, pred, ni, lnio, lnid, nj)
-    t(k) = elapsed_cycles() - t(k)
+    t(k) = timer_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
   print 2,"=== Fortran ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
@@ -248,9 +249,9 @@ program lorenzo_test
   call lorenzopredict(fr, pred, ni, lnio, lnid, nj)
   f = 999
   do k = 1, NTIMES
-    t(k) = elapsed_cycles()
+    t(k) = timer_cycles()
     call lorenzounpredict_c(f, pred, ni, lnio, lnid, nj)
-    t(k) = elapsed_cycles() - t(k)
+    t(k) = timer_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
   print 2,"=== C       ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'

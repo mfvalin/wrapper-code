@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <sys/time.h>
 
-#include <misc_timers.h>
+#include <rmn/misc_timers.h>
 
 #if !defined(NPTS)
 #define NPTS 128
@@ -49,7 +49,19 @@ int main(int argc, char **argv){
       if(data2[j][i] != (2*i + 3*j + 5) ) errors++;
     }
   }
-  printf("LorenzoPredict_c    : errors = %d\n\n",errors);
+  printf("LorenzoUnpredict_c    : errors = %d\n\n",errors);
+
+  LorenzoPredict_c(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) ;
+  for(i=0 ; i<8 ; i++) printf("%d ",pred[NPTS][i]); printf("\n");
+  LorenzoUnpredict_c_(&data2[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) ;
+  for(i=0 ; i<8 ; i++) printf("%d ",data2[NPTS][i]); printf("\n");
+  errors = 0 ;
+  for(j=0 ; j<NPTS ; j++){
+    for(i=0 ; i<NPTS ; i++){
+      if(data2[j][i] != (2*i + 3*j + 5) ) errors++;
+    }
+  }
+  printf("LorenzoUnpredict_c_   : errors = %d\n\n",errors);
 
 //   LorenzoPredictShort(&data[0][0], &pred2[0][0], NPTS, NPTS, NPTS, NPTS) ;
 //   for(i=0 ; i<8 ; i++) printf("%d ",pred2[NPTS][i]); printf("\n");
@@ -72,4 +84,7 @@ int main(int argc, char **argv){
 
   TIME_LOOP(tmin, tmax, tavg, NTIMES, (NPTS*NPTS), buf, bufsiz, LorenzoUnpredict_c(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) )
   printf("LorenzoUnpredict_c  : %s\n",buf);
+
+  TIME_LOOP(tmin, tmax, tavg, NTIMES, (NPTS*NPTS), buf, bufsiz, LorenzoUnpredict_c_(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) )
+  printf("LorenzoUnpredict_c_ : %s\n",buf);
 }

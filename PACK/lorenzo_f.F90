@@ -33,21 +33,32 @@ interface
     integer(C_INT32_T), dimension(lnio,nj), intent(IN)  :: orig
   end subroutine lorenzopredictinplace_c
 
-  ! the C version seems slower that the Fortran version
+  subroutine lorenzounpredict(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoUnpredict_c')
+    import :: C_INT32_T
+    implicit none
+    integer(C_INT32_T), intent(IN), value :: ni, lnio, lnid, nj
+    integer(C_INT32_T), dimension(lnio,nj), intent(OUT)  :: orig
+    integer(C_INT32_T), dimension(lnid,nj), intent(IN) :: diff
+  end subroutine lorenzounpredict
   subroutine lorenzounpredict_c(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoUnpredict_c')
     import :: C_INT32_T
     implicit none
     integer(C_INT32_T), intent(IN), value :: ni, lnio, lnid, nj
-    integer(C_INT32_T), dimension(lnio,nj), intent(IN)  :: orig
-    integer(C_INT32_T), dimension(lnid,nj), intent(OUT) :: diff
+    integer(C_INT32_T), dimension(lnio,nj), intent(OUT)  :: orig
+    integer(C_INT32_T), dimension(lnid,nj), intent(IN) :: diff
   end subroutine lorenzounpredict_c
 
-  ! the C version seems slower that the Fortran version
+  subroutine lorenzounpredictinplace(orig, ni, lnio, nj) bind(C,name='LorenzoUnpredictInplace_c')
+    import :: C_INT32_T
+    implicit none
+    integer(C_INT32_T), intent(IN), value :: ni, lnio, nj
+    integer(C_INT32_T), dimension(lnio,nj), intent(INOUT)  :: orig
+  end subroutine lorenzounpredictinplace
   subroutine lorenzounpredictinplace_c(orig, ni, lnio, nj) bind(C,name='LorenzoUnpredictInplace_c')
     import :: C_INT32_T
     implicit none
     integer(C_INT32_T), intent(IN), value :: ni, lnio, nj
-    integer(C_INT32_T), dimension(lnio,nj), intent(IN)  :: orig
+    integer(C_INT32_T), dimension(lnio,nj), intent(INOUT)  :: orig
   end subroutine lorenzounpredictinplace_c
 end interface
 
@@ -75,34 +86,6 @@ subroutine lorenzopredict_f(orig, diff, ni, lnio, lnid, nj) bind(C,name='Lorenzo
   enddo
 end subroutine lorenzopredict_f
 
-#if 0
-! 5 point Lorenzo predictor (centered derivatives)
-subroutine lorenzopredict2_f(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoPredict2_f')
-  implicit none
-  integer(C_INT32_T), intent(IN), value :: ni, lnio, lnid, nj
-  integer(C_INT32_T), dimension(lnio,nj), intent(IN)  :: orig
-  integer(C_INT32_T), dimension(lnid,nj), intent(OUT) :: diff
-  integer :: i, j
-
-  diff(1,1) = orig(1,1)                ! bottom row no prediction for first point
-  diff(2,1) = orig(2,1) - orig(1,1)    ! bottom row 1 point prediction for second point
-  diff(1,2) = orig(1,2) - orig(1,1)    ! first point of second row, 1 point prediction
-  diff(2,2) = orig(2,2) - ( orig(1,2) + orig(2,1) - orig(1,1) )  ! second point row 2, 3 point prediction
-  do i = 3, ni
-    diff(i,1) = orig(i,1) - (orig(i-1,1)*2 - orig(i-2,1))                   ! bottom row, 2 point prediction
-    diff(i,2) = orig(i,2) - ( orig(i-1,2) + (orig(i,1) - orig(i-2,1))/2 )   ! second row, 3 point prediction
-  enddo
-  do j = 3 , nj                                 ! all rows except 2 bottom rows
-    diff(1,j) = orig(1,j) - (orig(1,j-1)*2 - orig(1,j-2) )         ! first column, 2 point prediction along j
-    diff(2,j) = orig(2,j) - ( orig(2,j-1) + (orig(1,j) - orig(1,j-2))/2 )  ! second column, 3 point prediction
-    do i = 3, ni
-      diff(i,j) = orig(i,j) - &
-                ( orig(i-1,j-1) + ( orig(i,j-1) - orig(i-2,j-1) + orig(i-1,j) - orig(i-1,j-2) )/2 )  ! 5 point prediction
-    enddo
-  enddo
-end subroutine lorenzopredict2_f
-#endif
-
 ! Lorenzo restoration
 ! upon exit, orig contains values restored from prediction in diff
 ! the Fortran version seems to have a performance >= C version
@@ -124,15 +107,6 @@ subroutine lorenzounpredict_f(orig, diff, ni, lnio, lnid, nj) bind(C,name='Loren
     enddo
   enddo
 end subroutine lorenzounpredict_f
-
-! the Fortran version seems to have a performance >= C version
-subroutine lorenzounpredict(orig, diff, ni, lnio, lnid, nj)
-  implicit none
-  integer(C_INT32_T), intent(IN), value :: ni, lnio, lnid, nj
-  integer(C_INT32_T), dimension(lnio,nj), intent(OUT) :: orig
-  integer(C_INT32_T), dimension(lnid,nj), intent(IN)  :: diff
-  call lorenzounpredict_f(orig, diff, ni, lnio, lnid, nj)
-end subroutine lorenzounpredict
 
 ! in place Lorenzo prediction
 ! upon exit, f contains original value - predicted alue
@@ -174,13 +148,5 @@ subroutine lorenzounpredictinplace_f(f, ni, lni, nj) bind(C,name='LorenzoUnpredi
     enddo
   enddo
 end subroutine lorenzounpredictinplace_f
-
-! the Fortran version seems to have a performance >= C version
-subroutine lorenzounpredictinplace(f, ni, lni, nj)
-  implicit none
-  integer(C_INT32_T), intent(IN), value :: ni, lni, nj
-  integer(C_INT32_T), dimension(lni,nj), intent(INOUT) :: f
-  call lorenzounpredictinplace_f(f, ni, lni, nj)
-end subroutine lorenzounpredictinplace
 
 end module lorenzo_mod
