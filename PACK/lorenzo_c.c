@@ -135,31 +135,85 @@ void LorenzoPredictInplace_c(int32_t * restrict orig, int ni, int lnio, int nj){
 // nj   : number of rows
 // NOTE : no SIMD version exists, as the process is fully recursive
 // NOTE : with the Intel compiler, it seems slower than the Fortran version
+// void LorenzoUnpredict_c(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj){
+//   int i ;
+// 
+//   orig[0] = diff[0] ;                                    // restore first point of bottom row
+//   for(i=1 ; i<ni ; i++) orig[i] = diff[i] + orig[i-1] ;  // restore bottom row
+// 
+//   while(--nj > 0){
+//     orig += lnio ; 
+//     diff += lnid ;
+//     orig[0] = diff[0] + orig[0-lnio] ;                   // first point in row (1D prediction)
+//     // (original - predicted) + predicted
+//     for(i=1 ; i<ni ; i++) orig[i] = diff[i] + (orig[i-1] + orig[i-lnio] - orig[i-1-lnio]) ;
+//   }
+// }
+
 void LorenzoUnpredict_c(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj){
   int i ;
+  int32_t *top, *bot ;
+  int32_t d00, d01, d10, d11 ;
+//   d01 d11   unpredict : d11 = d11 + d01 + d10 - d00
+//   d00 d10
 
-  orig[0] = diff[0] ;                                    // restore first point of bottom row
-  for(i=1 ; i<ni ; i++) orig[i] = diff[i] + orig[i-1] ;  // restore bottom row
+  d00 = orig[0] = diff[0] ;         // restore first point of bottom row
+  for(i=1 ; i<ni ; i++) {           // restore rest of bottom row
+    d00 = orig[i] = diff[i] + d00 ;
+  }
 
   while(--nj > 0){
+    bot = orig ;
     orig += lnio ; 
     diff += lnid ;
-    orig[0] = diff[0] + orig[0-lnio] ;                   // first point in row (1D prediction)
-    // (original - predicted) + predicted
-    for(i=1 ; i<ni ; i++) orig[i] = diff[i] + (orig[i-1] + orig[i-lnio] - orig[i-1-lnio]) ;
+    top = diff ;
+    d01 = orig[0] = top[0] + bot[0] ;                // first point in row (1D prediction)
+    d00 = bot[0] ;
+    for(i=1 ; i<ni ; i++) {
+      d10 = bot[i] ;
+      d11 = top[i] ;
+      d01 = orig[i] = (d11 + d01) + (d10 - d00) ;    // (original - predicted) + predicted
+      d00 = d10 ;
+    }
   }
 }
 
-void LorenzoUnpredictInplace_c(int32_t * restrict orig, int ni, int lnio, int nj){
-  int i ;
+// void LorenzoUnpredictInplace_c(int32_t * restrict orig, int ni, int lnio, int nj){
+//   int i ;
+// 
+//   for(i=1 ; i<ni ; i++) orig[i] = orig[i] + orig[i-1] ;  // restore bottom row
+// 
+//   while(--nj > 0){
+//     orig += lnio ; 
+//     orig[0] = orig[0] + orig[0-lnio] ;                   // first point in row (1D prediction)
+//     // (original - predicted) + predicted
+//     for(i=1 ; i<ni ; i++) orig[i] = orig[i] + (orig[i-1] + orig[i-lnio] - orig[i-1-lnio]) ;
+//   }
+// }
 
-  for(i=1 ; i<ni ; i++) orig[i] = orig[i] + orig[i-1] ;  // restore bottom row
+void LorenzoUnpredictInplace_c(int32_t *orig, int ni, int lnio, int nj){
+  int i ;
+  int32_t *top, *bot ;
+  int32_t d00, d01, d10, d11 ;
+//   d01 d11   unpredict : d11 = d11 + d01 + d10 - d00
+//   d00 d10
+
+  d00 = orig[0] ;
+  for(i=1 ; i<ni ; i++) { d00 = orig[i] = orig[i] + d00 ; } // restore rest of bottom row
 
   while(--nj > 0){
+    bot   = orig ;
     orig += lnio ; 
-    orig[0] = orig[0] + orig[0-lnio] ;                   // first point in row (1D prediction)
-    // (original - predicted) + predicted
-    for(i=1 ; i<ni ; i++) orig[i] = orig[i] + (orig[i-1] + orig[i-lnio] - orig[i-1-lnio]) ;
+    top   = orig ;
+    d01 = orig[0] = top[0] + bot[0] ;                // first point in row (1D prediction)
+    d00 = bot[0] ;
+
+    for(i=1 ; i<ni ; i++) {
+      d10 = bot[i] ;
+      d11 = top[i] ;
+      d01 = orig[i] = (d11 + d01) + (d10 - d00) ;    // (original - predicted) + predicted
+      d00 = d10 ;
+    }
   }
 }
 
