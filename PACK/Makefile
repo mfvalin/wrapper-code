@@ -33,7 +33,7 @@ INCLUDES = average_2x2.h    cdf53.h        cpu_type.h        idwt53.h \
            misc_types.h     pack_stream.h  rmn/bi_endian_pack.h  cdf97.h  \
            ieee_quantize.h  misc_endian.h  misc_helpers.h    misc_pack.h \
            rmn/misc_timers.h    pack_macros.h  smooth124.h       fast_endian.h \
-           misc_zfp.h       misc_analyze.h misc_simd.h       misc_encode.h
+           misc_zfp.h       misc_analyze.h misc_simd.h       rmn/misc_encode.h
 
 ${LIBDIR}/libmisc.a: recompile_${MOD} $(OBJECTS)
 	mkdir -p ${LIBDIR}
@@ -47,7 +47,7 @@ recompile_${MOD} :  $(INCLUDES)
 all_tests : test_compress test_lorenzo test_pack test_pack_macros \
             test_quantize test_float_info test_helpers test_averages \
             test_cdf97 test_cdf53 test_endian test_endian_f \
-            test_ieeequantize
+            test_ieeequantize test_encode
 
 test_compress : test_compress.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; \
@@ -60,6 +60,12 @@ test_compress.$(MOD).exe : tests/test_compress.F90 ${LIBDIR}/libmisc.a
 test_bits_needed : test_bits_needed.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
 test_bits_needed.$(MOD).exe : tests/test_bits_needed.c ${LIBDIR}/libmisc.a
+	(module load $(MOD)$(EXT) >/dev/null ; \
+	$$CC -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} -lmisc -o $@ ; )
+
+test_encode : test_encode.$(MOD).exe
+	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
+test_encode.$(MOD).exe : tests/test_encode.c ${LIBDIR}/libmisc.a
 	(module load $(MOD)$(EXT) >/dev/null ; \
 	$$CC -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} -lmisc -o $@ ; )
 
