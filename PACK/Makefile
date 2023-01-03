@@ -5,7 +5,7 @@ SHELL = /bin/bash
 VAR = TT
 DEF =
 LIBDIR = lib_${MOD}
-VPATH = obj_${MOD}
+VPATH = obj_${MOD}:rmn
 
 .SUFFIXES :
 .SUFFIXES : .F90 .c .o
@@ -26,14 +26,14 @@ OBJECTS = lorenzo_c.c.o cdf97.c.o cdf53.c.o idwt53.c.o analyze_8x8.c.o misc_anal
           ieee_quantize.c.o misc_floats.c.o verify.c.o misc_operators.c.o misc_zfp.c.o \
 	  zfpx_quantize.c.o misc_encode.c.o \
           lorenzo_f.F90.o misc_operators_mod.F90.o misc_helpers_mod.F90.o rmn_timers_mod.F90.o \
-          rmn_zfpx_mod.F90.o analyze_data.F90.o
+          rmn_stream_pack_mod.F90.o rmn_zfpx_mod.F90.o analyze_data.F90.o rmn_encode_mod.F90.o
 
 INCLUDES = average_2x2.h    cdf53.h        cpu_type.h        idwt53.h \
            lorenzo.h        misc_floats.h  misc_operators.h  misc_swizzle.h  \
-           misc_types.h     pack_stream.h  rmn/bi_endian_pack.h  cdf97.h  \
+           misc_types.h     pack_stream.h  bi_endian_pack.h  cdf97.h  \
            ieee_quantize.h  misc_endian.h  misc_helpers.h    misc_pack.h \
-           rmn/misc_timers.h    pack_macros.h  smooth124.h       fast_endian.h \
-           misc_zfp.h       misc_analyze.h misc_simd.h       rmn/misc_encode.h
+           misc_timers.h    pack_macros.h  smooth124.h       fast_endian.h \
+           misc_zfp.h       misc_analyze.h misc_simd.h       misc_encode.h
 
 ${LIBDIR}/libmisc.a: recompile_${MOD} $(OBJECTS)
 	mkdir -p ${LIBDIR}
@@ -63,7 +63,7 @@ test_bits_needed.$(MOD).exe : tests/test_bits_needed.c ${LIBDIR}/libmisc.a
 	(module load $(MOD)$(EXT) >/dev/null ; \
 	$$CC -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} -lmisc -o $@ ; )
 
-test_encode : test_encode.$(MOD).exe
+test_encode : test_encode.$(MOD).exe misc_encode.h
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
 test_encode.$(MOD).exe : tests/test_encode.c ${LIBDIR}/libmisc.a
 	(module load $(MOD)$(EXT) >/dev/null ; \
