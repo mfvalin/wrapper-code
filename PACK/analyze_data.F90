@@ -46,6 +46,8 @@ contains
     integer, dimension(:,:), pointer :: bits
 
     real, dimension(lni,64) :: z
+    real, dimension(ni,nj) :: zzi
+    real, dimension(:,:), pointer :: pzzi
     pointer(pz, z)
     integer, dimension(:), allocatable :: boundi, boundj
     integer, dimension(64,64) :: q, ql, tnb, tnb2, tnbo, residu, tnbr, qr
@@ -59,6 +61,17 @@ contains
     integer, dimension(32) :: tbl, tblo
     integer, dimension(lni,nj) :: qqq
     integer, dimension(64,64) :: qzfp
+    type(C_PTR) :: pzfp
+    integer :: Ssize
+    integer, dimension(34) :: bitpop32
+
+    print *,'Calling ZfpCompressReal'
+    i = ZfpCompress_set_debug(1)
+    pzfp = ZfpCompressReal(zi, ni, nj, 1, quantum, 0, Ssize)
+    print *,'Ssize =',Ssize
+    i = ZfpExpandReal(zzi, ni, nj, 1, pzfp, Ssize)
+    pzzi(1:ni,i:nj) => zi(1:ni*nj)
+    print *,'maxerr = ',maxval(abs(pzzi-zzi))
 
     ni0 = (ni+63)/64
     nj0 = (nj+63)/64
@@ -86,6 +99,7 @@ contains
 
     bits = 0
 !     quantum = 1.0
+    bitpop32 = 0 ! set bit population to 0
     do j0 = 1, nj0
       njl = boundj(j0+1) - boundj(j0)                ! dimension along j of local tile
       do i0 = 1, ni0
@@ -95,11 +109,12 @@ contains
         bits(i0,j0) = float_quantize_simple(z, q, nil, 64, 64, njl, quantum, t)
         ql = 0
         call lorenzopredict(q, ql, nil, 64, 64, njl)
-!         i = to_isignmag(ql, ql, 4096)
+!         i = to_zigzag(ql, ql, 4096)
         do j = 1, njl
         do i = 1, nil
-          tnb(i,j)  = BitsNeeded_u32(to_isignmag_32(ql(i,j)))
-          tnbo(i,j) = BitsNeeded_u32(to_isignmag_32(q(i,j)))
+          tnb(i,j)  = BitsNeeded_u32(to_zigzag_32(ql(i,j)))
+          bitpop32(tnb(i,j)) = bitpop32(tnb(i,j)) + 1
+          tnbo(i,j) = BitsNeeded_u32(to_zigzag_32(q(i,j)))
         enddo
         enddo
         if(i0 == 9 .and. j0 == 7)then  ! tile(9,7)
@@ -109,16 +124,16 @@ contains
 !             q(i,j) = i**2 - 2*i*j - j*j ! + 1 * (rand() - .5)
 !           enddo
 !           enddo
-          call lorenzopredict(q, ql, 64, 64, 64, 64)
-          call lorenzopredict2_f(q, qzfp, 64, 64, 64, 64)
+          call lorenzopredict(q, ql, nil, 64, 64, njl)
+!           call lorenzopredict2_f(q, qzfp, 64, 64, 64, 64)
 !           call zfpx_gather_64_64(q, 64, qzfp, 4)
-          do j = 57, 1, -8
-            print 32, '<',j,q(1:16,j),q(17:63:3,j)
-            print 32, '+',j,qzfp(1:16,j),qzfp(17:63:3,j)
-!             print 32, '+',j,qzfp(1:16,j),qzfp(17:32,j)
-!             print 32, '|',j,qzfp(33:48,j),qzfp(49:64,j)
-            print 32, '-',j,ql(1:16,j),ql(17:63:3,j)
-          enddo
+!           do j = 57, 1, -8
+!             print 32, '<',j,q(1:16,j),q(17:63:3,j)
+!             print 32, '+',j,qzfp(1:16,j),qzfp(17:63:3,j)
+! !             print 32, '+',j,qzfp(1:16,j),qzfp(17:32,j)
+! !             print 32, '|',j,qzfp(33:48,j),qzfp(49:64,j)
+!             print 32, '-',j,ql(1:16,j),ql(17:63:3,j)
+!           enddo
           qr=999
           call lorenzounpredict(qr, ql, nil, 64, 64, njl)
           errors = sum(qr-q)
@@ -126,7 +141,7 @@ contains
 !           call avgres_2x2_2D_I32(q, avg2x2, residu, 64, 64, 64)
 !           do j = 1, 64
 !           do i = 1, 64
-!               tnbr(i,j) = BitsNeeded_u32(to_isignmag_32(residu(i,j)))
+!               tnbr(i,j) = BitsNeeded_u32(to_zigzag_32(residu(i,j)))
 !           enddo
 !           enddo
 !           totsaved = 0
@@ -163,10 +178,21 @@ contains
         endif
         nbits = 0
         nbits0 = 0
-        bsz = 5
+        bsz = 8
         do j1 = 1, njl, bsz
         do i1 = 1, nil, bsz
-          nbits = nbits + maxval(tnb(i1:min(i1+bsz-1,nil),j1:min(j1+bsz-1,njl))) * bsz*bsz
+          maxbits = maxval(tnb(i1:min(i1+bsz-1,nil),j1:min(j1+bsz-1,njl)))
+          do j = j1, min(j1+bsz-1,njl)
+          do i = i1, min(i1+bsz-1,nil)
+            if(tnb(i,j) > (maxbits+1)/2) then
+              nbits = nbits + maxbits
+            else
+              nbits = nbits + (maxbits+1)/2
+            endif
+          enddo
+          enddo
+          nbits = nbits + bsz*bsz
+!           nbits = nbits + maxbits * bsz*bsz
           nbits0 = nbits0 + 1
         enddo
         enddo
@@ -174,6 +200,7 @@ contains
       enddo
     enddo
     print *,"=== needed bits per point ==="
+    print '(34I8)', bitpop32(1:16)
     print *,"quantized", sum(bits(1:ni0,1:nj0)) *1.0 / (ni0*nj0)
     print *,"lorenzo  ",sum(bitsl(1:ni0,1:nj0)) *1.0 / (ni*nj)
 !     do j = nj0, 1, -1
