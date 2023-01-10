@@ -19,6 +19,7 @@ module rmn_stream_pack
   use ISO_C_BINDING
   implicit none
 
+  ! interfaces to the C functions (Le and Be flavors)
   interface
     ! STATIC inline void  LeStreamInit(bitstream *p, uint32_t *buffer){
     subroutine LeStreamInit(stream, buffer) bind(C, name='LeStreamInit')
@@ -116,7 +117,7 @@ module rmn_stream_pack
     integer(C_INT32_T) :: xtract  ! # of bits extractable from accumulator (0 <= xtract <= 64)
     type(C_PTR)        :: stream  ! pointer into packed stream (both insert and extract mode)
     type(C_PTR)        :: start   ! pointer to start of stream data storage
-    type(C_PTR)        :: stop    ! pointer to end of stream data storage (1 byte beyond stream buffer end)
+    type(C_PTR)        :: s_top   ! pointer to end of stream data storage (1 BYTE beyond stream buffer end)
   end type
 
   type :: le_stream               ! little endian type stream

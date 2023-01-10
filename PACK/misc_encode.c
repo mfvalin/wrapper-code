@@ -18,17 +18,23 @@
 #include <rmn/misc_encode.h>
 #include <immintrin.h>
 
-uint32_t stream_get_block_8x8(uint32_t * restrict src, int lni, uint32_t * restrict block){
-  int i, j ;
+uint32_t stream_get_block_8x8(uint32_t * restrict src, int lni, uint32_t * restrict block, uint32_t * restrict pop, uint32_t * restrict gain ){
+  int i, j, nbits, nbits0 ;
   uint32_t max = 0 ;
   uint32_t *block0 = block ;
+
   for(j=0 ; j<8 ; j++){
     for(i=0 ; i<8 ; i++) block[i] = src[i] ;
     src += lni ;
     block += 8 ;
   }
   for(i=0 ; i<64 ; i++) max = (block0[i] > max) ? block0[i] : max ; 
-  return 32 - _lzcnt_u32(max) ;
+  nbits = 32 - _lzcnt_u32(max) ;
+  for(i=0 ; i<33 ; i++) pop[i] = 0 ;
+  for(i=0 ; i<64 ; i++) pop[32-_lzcnt_u32(block0[i])]++ ;
+  for(i=1 ; i<33 ; i++) pop[i] = pop[i] + pop[i-1] ;
+  nbits0 = (nbits+1) / 2 ;
+  return nbits ;
 }
 
 void stream_encode_init(bitstream *bstream, void *buffer, size_t bufsize){
