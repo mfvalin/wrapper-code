@@ -84,7 +84,11 @@
 STATIC inline void FDWT53i_1D_inplace_full(int32_t *x, uint32_t n){
   int32_t i, em, ep, om, op ;
 
-  if(n<3) return ;           // no transform for 2 points
+  if(n == 2){                // special case for 2 points
+    x[1] -= x[0] ;
+    x[0] += (1 + x[1]) / 2 ;
+  }
+  if(n<3) return ;           // no transform for 1 point
 
   ep = x[2] ;
   em = x[0] ;
@@ -109,10 +113,14 @@ STATIC inline void FDWT53i_1D_inplace_full(int32_t *x, uint32_t n){
 STATIC inline void FDWT53i_1D_split_full(int32_t *x, int32_t *e, int32_t *o, uint32_t n){
   int32_t i, em, ep, om, op ;
 
-  if(n<3) {
+  if(n == 1) {
     e[0] = x[0] ;
-    if(n == 2) o[0] = x[1] ;
-    return ;           // no transform for 2 points
+    return ;           // no transform for 1 point
+  }
+  if(n == 2){                // special case for 2 points
+    *o = x[1] - x[0] ;
+    *e = x[0] + (1 + *o) / 2 ;
+    return ;
   }
 
   ep = x[2] ;
@@ -141,7 +149,11 @@ STATIC inline void FDWT53i_1D_inplace_split_full(int32_t *x, uint32_t n){
   int neven = (n+1)/2 ;
   int32_t t[nodd] ;
 
-  if(n<3) return ;           // no transform for 2 points
+  if(n == 2){                // special case for 2 points
+    x[1] -= x[0] ;
+    x[0] += (1 + x[1]) / 2 ;
+  }
+  if(n<3) return ;           // no transform for 1 point
 
   FDWT53i_1D_split_full(x, x, t, n) ;
   for(i=0 ; i<nodd ; i++) x[neven+i] = t[i] ;
@@ -155,6 +167,10 @@ STATIC inline void FDWT53i_1D_inplace_split_full(int32_t *x, uint32_t n){
 STATIC inline void IDWT53i_1D_inplace_full(int32_t *x, uint32_t n){
   int32_t i, em, ep, om, op ;
 
+  if(n == 2){
+    x[0] -= (1 + x[1]) / 2 ;
+    x[1] += x[0] ;
+  }
   if(n<3) return ;           // no transform for 2 points
 
   om = x[1] ;
@@ -178,10 +194,14 @@ STATIC inline void IDWT53i_1D_inplace_full(int32_t *x, uint32_t n){
 STATIC inline void IDWT53i_1D_split_full(int32_t *x, int32_t *e, int32_t *o, uint32_t n){
   int32_t i, em, ep, om, op ;
 
-  if(n<3) {
+  if(n == 1) {
     x[0] = e[0] ;
-    if(n == 2) x[1] = o[1] ;
-    return ;           // no transform for 2 points
+    return ;           // no transform for 1 point
+  }
+  if(n == 2){                // special case for 2 points
+    x[0] = *e - (1 + *o) / 2 ;
+    x[1] = *o + x[0] ;
+    return ;
   }
 
   om = *o ;                                o++ ;
@@ -210,6 +230,10 @@ STATIC inline void IDWT53i_1D_inplace_split_full(int32_t *x, uint32_t n){
   int neven = (n+1)/2 ;
   int32_t te[neven] ;
 
+  if(n == 2){
+    x[0] -= (1 + x[1]) / 2 ;
+    x[1] += x[0] ;
+  }
   if(n<3) return ;           // no transform for 2 points
 
   for(i=0 ; i<neven ; i++) te[i] = x[i] ;
@@ -263,6 +287,15 @@ void FDWT53i_2D_split_inplace(int32_t *x, int ni, int lni, int nj){
   int32_t *erow, *orow ;      // pointers to even row and odd row
   int32_t *orow2 ;            // where odd rows will end up after transform
 
+  if(nj == 2){                // special case for 2 rows
+    FDWT53i_1D_inplace_split_full(s    , ni) ;   // first even row
+    FDWT53i_1D_inplace_split_full(s+lni, ni) ;   // first odd row
+    for(i=0 ; i<ni ; i++) {
+      s[lni+i] -= s[i] ;                         // predict odd row
+      s[i]     += (1 + s[lni+i]) / 2 ;           // update even row
+    }
+    return ;
+  }
   // 1D transform on rows along i
   s    = x ;                           // pointer to first source row
   erow = x ;                           // pointer to first even row
@@ -329,6 +362,10 @@ void FDWT53i_2D_split_inplace_n(int32_t *x, int ni, int lni, int nj, int levels)
   }
 }
 
+void FDWT53i_8x8_3level(int32_t *x, int lni){
+  FDWT53i_2D_split_inplace_n(x, 8, lni, 8, 2) ;
+}
+
 // integer inverse wavelet transform
 // x    : integer data to be restored from wavelet transform
 // ni   : useful row length
@@ -346,6 +383,15 @@ void IDWT53i_2D_split_inplace(int32_t *x, int ni, int lni, int nj){
   int32_t *orow2 ;            // temporary pointer to odd row storage
   int32_t *row ;              // temporary pointer to row storage
 
+  if(nj == 2){        // special case for 2 rows
+    for(i=0 ; i<ni ; i++){
+      x[i]     -= (x[lni+i] + 1) / 2 ;         // unupdate even row
+      x[lni+i] += x[i] ;                       // unpredict odd row
+    }
+    IDWT53i_1D_inplace_split_full(x    , ni) ; // inverse 1D transform on row
+    IDWT53i_1D_inplace_split_full(x+lni, ni) ; // inverse 1D transform on row
+    return ;
+  }
   // "save" even rows
   erow = x ;
   erow2 = e ;
@@ -409,4 +455,8 @@ void IDWT53i_2D_split_inplace_n(int32_t *x, int ni, int lni, int nj, int levels)
   }
   IDWT53i_2D_split_inplace(x, ni, lni, nj) ;
 printf("inverse level %d done (%d x %d)\n", levels, ni, nj);
+}
+
+void IDWT53i_8x8_3level(int32_t *x, int lni){
+  IDWT53i_2D_split_inplace_n(x, 8, lni, 8, 2) ;
 }
