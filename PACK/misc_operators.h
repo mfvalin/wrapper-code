@@ -23,16 +23,95 @@ Library General Public License for more details.
 #define STATIC_DEFINED_HERE
 #endif
 
+#if defined(__x86_64__) && defined(__AVX2__)
+#include <immintrin.h>
+#endif
+
 #define MISC_OPERATORS
 
 // divide a signed integer by 2 with rounding toward +-infinity
 #define IDIV2R(x) (( (x) + 1 + ((x)>>31) ) >> 1 )
+#define IDIV2R_256(v) _mm256_srai_epi32(_mm256_add_epi32(_mm256_sub_epi32(v, _mm256_cmpeq_epi32(v, v)), _mm256_srai_epi32(v, 31)), 1)
+#define IDIV2R_128(v) _mm_srai_epi32(_mm_add_epi32(_mm_sub_epi32(v, _mm_cmpeq_epi32(v, v)), _mm_srai_epi32(v, 31)), 1)
+
+#if defined(__x86_64__) && defined(__AVX2__)
+static __m256i _mm256_idiv2r_epi32(__m256i v){
+  return IDIV2R_256(v) ;
+}
+static __m128i _mm_idiv2r_epi32(__m128i v){
+  return IDIV2R_128(v) ;
+}
+#endif
 
 // divide a signed integer by 4 with rounding toward +-infinity
 #define IDIV4R(x) (( (x) + 2 + ((x)>>31) ) >> 2 )
+#define IDIV4R_256(v) _mm256_srai_epi32(_mm256_sub_epi32(_mm256_add_epi32(v, _mm256_srai_epi32(v, 31)), _mm256_srli_epi32(_mm256_cmpeq_epi32(v, v), 1)), 2)
+#define IDIV4R_128(v) _mm_srai_epi32(_mm_sub_epi32(_mm_add_epi32(v, _mm_srai_epi32(v, 31)), _mm_srli_epi32(_mm_cmpeq_epi32(v, v), 1)), 2)
+
+#if defined(__x86_64__) && defined(__AVX2__)
+static __m256i _mm256_idiv4r_epi32(__m256i v){
+  return IDIV4R_256(v) ;
+}
+static __m128i _mm_idiv4r_epi32(__m128i v){
+  return IDIV4R_128(v) ;
+}
+#endif
 
 // divide a signed integer by 8 with rounding toward +-infinity
 #define IDIV8R(x) (( (x) + 4 + ((x)>>31) ) >> 3 )
+#define IDIV8R_256(v) _mm256_srai_epi32(_mm256_sub_epi32(_mm256_add_epi32(v, _mm256_srai_epi32(v, 31)), _mm256_srli_epi32(_mm256_cmpeq_epi32(v, v), 2)), 3)
+#define IDIV8R_128(v) _mm_srai_epi32(_mm_sub_epi32(_mm_add_epi32(v, _mm_srai_epi32(v, 31)), _mm_srli_epi32(_mm_cmpeq_epi32(v, v), 2)), 3)
+
+#if defined(__x86_64__) && defined(__AVX2__)
+static __m256i _mm256_idiv8r_epi32(__m256i v){
+  return IDIV8R_256(v) ;
+}
+static __m128i _mm_idiv8r_epi32(__m128i v){
+  return IDIV8R_128(v) ;
+}
+#endif
+
+// divide a signed integer by 2 with rounding toward zero
+#define IDIV2T(x) ((x) + (int32_t) ((uint32_t) (x) >> 31 ) ) >> 1 ;
+#define IDIV2T_256(v) _mm256_srai_epi32(_mm256_add_epi32(v, _mm256_srli_epi32(v, 31)), 1)
+#define IDIV2T_128(v) _mm_srai_epi32(_mm_add_epi32(v, _mm_srli_epi32(v, 31)), 1)
+
+#if defined(__x86_64__) && defined(__AVX2__)
+static __m256i _mm256_idiv2t_epi32(__m256i v){
+  return IDIV2T_256(v) ;
+}
+static __m128i _mm_idiv2t_epi32(__m128i v){
+  return IDIV2T_128(v) ;
+}
+#endif
+
+// divide a signed integer by 4 with rounding toward zero
+#define IDIV4T(x) ((x) + (int32_t) ((uint32_t) ( (x) >> 1 ) >> 30 ) ) >> 2 ;
+#define IDIV4T_256(v) _mm256_srai_epi32(_mm256_add_epi32(v, _mm256_srli_epi32(_mm256_srai_epi32(v, 1), 30)), 2)
+#define IDIV4T_128(v) _mm_srai_epi32(_mm_add_epi32(v, _mm_srli_epi32(_mm_srai_epi32(v, 1), 30)), 2)
+
+#if defined(__x86_64__) && defined(__AVX2__)
+static __m256i _mm256_idiv4t_epi32(__m256i v){
+  return IDIV4T_256(v) ;
+}
+static __m128i _mm_idiv4t_epi32(__m128i v){
+  return IDIV4T_128(v) ;
+}
+#endif
+
+// divide a signed integer by 8 with rounding toward zero
+#define IDIV8T(x) ((x) + (int32_t) ((uint32_t) ( (x) >> 1 ) >> 29 ) ) >> 3 ;
+#define IDIV8T_256(v) _mm256_srai_epi32(_mm256_add_epi32(v, _mm256_srli_epi32(_mm256_srai_epi32(v, 1), 29)), 3)
+#define IDIV8T_128(v) _mm_srai_epi32(_mm_add_epi32(v, _mm_srli_epi32(_mm_srai_epi32(v, 1), 29)), 3)
+
+#if defined(__x86_64__) && defined(__AVX2__)
+static __m256i _mm256_idiv8t_epi32(__m256i v){
+  return IDIV8T_256(v) ;
+}
+static __m128i _mm_idiv8t_epi32(__m128i v){
+  return IDIV8T_128(v) ;
+}
+#endif
 
 #define MAX(a,b) ( ((a) > (b)) ? (a) : (b) )
 #define MIN(a,b) ( ((a) < (b)) ? (a) : (b) )
