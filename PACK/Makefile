@@ -24,7 +24,7 @@ OBJECTS = lorenzo_c.c.o cdf97.c.o cdf53.c.o idwt53.c.o analyze_8x8.c.o misc_anal
 	  average_by_2_4_8.c.o average_2x2.c.o smooth124.c.o bi_endian_pack.c.o \
           misc_timers.c.o misc_pack.c.o float_info.c.o misc_swizzle.c.o misc_endian.c.o \
           ieee_quantize.c.o misc_floats.c.o verify.c.o misc_operators.c.o misc_zfp.c.o \
-	  zfpx_quantize.c.o misc_encode.c.o \
+	  zfpx_quantize.c.o misc_encode.c.o pack_test_utils.c.o \
           lorenzo_f.F90.o misc_operators_mod.F90.o misc_helpers_mod.F90.o rmn_timers_mod.F90.o \
           rmn_stream_pack_mod.F90.o rmn_zfpx_mod.F90.o analyze_data.F90.o rmn_encode_mod.F90.o
 
@@ -48,6 +48,12 @@ all_tests : test_compress test_lorenzo test_pack test_pack_macros \
             test_quantize test_float_info test_helpers test_averages \
             test_cdf97 test_cdf53 test_endian test_endian_f \
             test_ieeequantize test_encode
+
+test_compress_c : test_compress_c.$(MOD).exe
+	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
+test_compress_c.$(MOD).exe : tests/test_compress_c.c ${LIBDIR}/libmisc.a
+	(module load $(MOD)$(EXT) >/dev/null ; \
+	$$CC -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} -lmisc -o $@ ; )
 
 test_compress : test_compress.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; \
