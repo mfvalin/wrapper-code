@@ -448,7 +448,8 @@ program test_compress
   implicit none
 ! #include <misc_pack.hf>
   integer, external :: fnom, fstouv, fstnbr, fstinf, fstsui
-  integer :: iun, status, nrec, key, ni, nj, nk, irec, ilev, ilen
+  integer :: iun, status, nrec, key, nk, irec, ilev, ilen
+  integer, target :: ni, nj, ninj
   integer :: date,deet,npas,nbits,datyp,ip1,ip2,ip3,ig1,ig2,ig3,ig4
   integer :: swa,lng,dltf,ubc,extra1,extra2,extra3
   character(len=2) :: typvar
@@ -480,7 +481,42 @@ program test_compress
       integer(C_INT), intent(IN), value :: n, nbits
     end subroutine ieee_clip
   end interface
+  interface
+    function c_creat(name, mode) result(fd) bind(C,name='creat')
+      import :: C_CHAR, C_INT
+      implicit none
+      character(C_CHAR), dimension(*), intent(IN) :: name
+      integer(C_INT), intent(IN), value :: mode
+      integer(C_INT) :: fd
+    end function
+    function c_write(fd, buf, cnt) result(nc) bind(C, name='write')
+      import :: C_SIZE_T, C_PTR, C_INT
+      implicit none
+      integer(C_INT), intent(IN), value :: fd
+      type(C_PTR), intent(IN), value :: buf
+      integer(C_SIZE_T), intent(IN), value :: cnt
+      integer(C_SIZE_T) :: nc
+    end function
+    function c_read(fd, buf, cnt) result(nc) bind(C, name='read')
+      import :: C_SIZE_T, C_PTR, C_INT
+      implicit none
+      integer(C_INT), intent(IN), value :: fd
+      type(C_PTR), intent(IN), value :: buf
+      integer(C_SIZE_T), intent(IN), value :: cnt
+      integer(C_SIZE_T) :: nc
+    end function
+    function c_close(fd) result(status) bind(C,name='close')
+      import :: C_INT
+      implicit none
+      integer(C_INT), intent(IN), value :: fd
+      integer(C_INT) :: status
+    end function
+  end interface
   integer, dimension(:,:), pointer :: bits0
+  integer :: fd, fdstatus, fdmode, ipkind
+  real :: ipvalue
+  integer(C_SIZE_T) :: nc
+  character(len=128) :: c_fname, ipstring
 
   write(0,*)'======= compression algorithm test ======='
   iun=0
@@ -533,6 +569,37 @@ program test_compress
       if(nomvar(1:2) == varname(1:2)) then
         irec = irec + 1
         call fstluk(p,key,ni,nj,nk)
+! ==========================================================================
+        call CONVIP_plus( ip1, ipvalue, ipkind, -1, ipstring, .true. )  ! convert ip1
+        do i = 1, 20
+          if(ipstring(i:i) == ' ') then
+            ipstring(i:i) = '_'
+            exit
+          endif
+        enddo
+        write(c_fname,1111)'RAW/',trim(nomvar),'_'//trim(ipstring)   ! create file name
+1111 format(A,A,A,F10.10)
+        fdmode = INT(O'777')
+        fd = c_creat(trim(c_fname)//achar(0), fdmode) ! create raw file
+        if(fd > 0) then
+          ninj = 2         ! 2D data
+          nc = 4
+          nc = c_write(fd, C_LOC(ninj), nc)
+          nc = 4
+          nc = c_write(fd, C_LOC(ni), nc)
+          nc = 4
+          nc = c_write(fd, C_LOC(nj), nc)
+          nc = 4 * ni * nj
+          nc = c_write(fd, C_LOC(p(1)), nc)
+          print *,'INFO, wrote',nc+16,' bytes into ',trim(c_fname)
+          ninj = ni * nj ;
+          nc = 4
+          nc = c_write(fd, C_LOC(ninj), nc)
+          fdstatus = c_close(fd)
+        else
+          print *,'ERROR creating '//trim(c_fname)
+        endif
+! ==========================================================================
         q(1:ni*nj) = p(1:ni*nj)  !    aucun filtre
         nmiss = float_info(q, ni, ni, nj, maxvalue, minvalue, minabsvalue)
         write(6,*) 'maxvalue, minvalue, minabsvalue :',maxvalue, minvalue, minabsvalue
@@ -623,7 +690,7 @@ bits0 => array_stats_1(p, ni, ni, nj, quantum)
         call CONVIP_plus( ip1, p1, the_kind, -1, str_ip, .false. )
         write(6,*) nomvar, s(12), s(13), s(16), s(8), p1
 #endif
-        if(irec == 1) exit
+        if(irec == 10) exit
 !         if(irec == 25) exit
       endif
     endif
