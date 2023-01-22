@@ -49,6 +49,12 @@ all_tests : test_compress test_lorenzo test_pack test_pack_macros \
             test_cdf97 test_cdf53 test_endian test_endian_f \
             test_ieeequantize test_encode
 
+test_operators_c : test_operators_c.$(MOD).exe
+	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
+test_operators_c.$(MOD).exe : tests/test_operators_c.c ${LIBDIR}/libmisc.a
+	(module load $(MOD)$(EXT) >/dev/null ; \
+	$$CC -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} -lmisc -o $@ ; )
+
 test_compress_c : test_compress_c.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
 test_compress_c.$(MOD).exe : tests/test_compress_c.c ${LIBDIR}/libmisc.a

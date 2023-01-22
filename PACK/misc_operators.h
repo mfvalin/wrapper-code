@@ -71,8 +71,8 @@ static __m128i _mm_idiv8r_epi32(__m128i v){
 }
 #endif
 
-// divide a signed integer by 2 with rounding toward zero
-#define IDIV2T(x) ((x) + (int32_t) ((uint32_t) (x) >> 31 ) ) >> 1 ;
+// divide a signed integer by 2 truncating toward zero
+#define IDIV2T(x) ((x) + (int32_t) ((uint32_t) (x) >> 31 ) ) >> 1
 #define IDIV2T_256(v) _mm256_srai_epi32(_mm256_add_epi32(v, _mm256_srli_epi32(v, 31)), 1)
 #define IDIV2T_128(v) _mm_srai_epi32(_mm_add_epi32(v, _mm_srli_epi32(v, 31)), 1)
 
@@ -85,8 +85,8 @@ static __m128i _mm_idiv2t_epi32(__m128i v){
 }
 #endif
 
-// divide a signed integer by 4 with rounding toward zero
-#define IDIV4T(x) ((x) + (int32_t) ((uint32_t) ( (x) >> 1 ) >> 30 ) ) >> 2 ;
+// divide a signed integer by 4 truncating toward zero
+#define IDIV4T(x) ((x) + (int32_t) ((uint32_t) ( (x) >> 1 ) >> 30 ) ) >> 2
 #define IDIV4T_256(v) _mm256_srai_epi32(_mm256_add_epi32(v, _mm256_srli_epi32(_mm256_srai_epi32(v, 1), 30)), 2)
 #define IDIV4T_128(v) _mm_srai_epi32(_mm_add_epi32(v, _mm_srli_epi32(_mm_srai_epi32(v, 1), 30)), 2)
 
@@ -99,8 +99,8 @@ static __m128i _mm_idiv4t_epi32(__m128i v){
 }
 #endif
 
-// divide a signed integer by 8 with rounding toward zero
-#define IDIV8T(x) ((x) + (int32_t) ((uint32_t) ( (x) >> 1 ) >> 29 ) ) >> 3 ;
+// divide a signed integer by 8 truncating toward zero
+#define IDIV8T(x) ((x) + (int32_t) ((uint32_t) ( (x) >> 1 ) >> 29 ) ) >> 3
 #define IDIV8T_256(v) _mm256_srai_epi32(_mm256_add_epi32(v, _mm256_srli_epi32(_mm256_srai_epi32(v, 1), 29)), 3)
 #define IDIV8T_128(v) _mm_srai_epi32(_mm_add_epi32(v, _mm_srli_epi32(_mm_srai_epi32(v, 1), 29)), 3)
 
