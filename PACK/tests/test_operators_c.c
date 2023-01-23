@@ -230,25 +230,42 @@ int main(int argc, char **argv){
     lasti = whatp ;
   }
   printf("last i = %8.8x, Success\n", lasti) ;
-// tests bits needed
-  printf("BitsNeeded_u32, BitsNeeded_32 test : \n") ;
+// tests bits needed (32 and 64 bits)
+  printf("BitsNeeded_u32, BitsNeeded_32 test : ") ;
   for(i=1, whatp=1 ; i<33 ; i++, whatp *= 2){
     whatm = -whatp ;
-    printf("(%10d) BitsNeeded_u32(%8.8x) = %2d, BitsNeeded_32(%10d|%8.8x) = %2d, BitsNeeded_32(%10d|%8.8x) = %2d\n"
-    , whatp-1, whatp-1, BitsNeeded_u32(whatp-1), whatp-1, whatp-1, BitsNeeded_32(whatp-1), whatm, whatm, BitsNeeded_32(whatm)) ;
     if(BitsNeeded_u32(whatp-1) != (i-1) || BitsNeeded_32(whatp-1) != i || BitsNeeded_32(whatm) != i ){
-    e_exit(1) ;
+      printf("(%10d) BitsNeeded_u32(%8.8x) = %2d, BitsNeeded_32(%10d|%8.8x) = %2d, BitsNeeded_32(%10d|%8.8x) = %2d\n",
+             whatp-1, whatp-1, BitsNeeded_u32(whatp-1), whatp-1, whatp-1, BitsNeeded_32(whatp-1), whatm, whatm, BitsNeeded_32(whatm)) ;
+      e_exit(1) ;
     }
   }
   printf("Success\n") ;
-  printf("BitsNeeded_u64, BitsNeeded_64 test : \n") ;
+  printf("BitsNeeded_u64, BitsNeeded_64 test : ") ;
   int64_t whatp64, whatm64 ;
   for(i=1, whatp64=1 ; i<65 ; i++, whatp64 += whatp64){
     whatm64 = -whatp64 ;
-    printf("(%19ld) BitsNeeded_u64(%16.16lx) = %2d, BitsNeeded_64(%19ld|%16.16lx) = %2d, BitsNeeded_64(%20ld|%16.16lx) = %2d\n"
-    , whatp64-1, whatp64-1, BitsNeeded_u64(whatp64-1), whatp64-1, whatp64-1, BitsNeeded_64(whatp64-1), whatm64, whatm64, BitsNeeded_64(whatm64)) ;
     if(BitsNeeded_u64(whatp64-1) != (i-1) || BitsNeeded_64(whatp64-1) != i || BitsNeeded_64(whatm64) != i ){
-    e_exit(1) ;
+      printf("(%19ld) BitsNeeded_u64(%16.16lx) = %2d, BitsNeeded_64(%19ld|%16.16lx) = %2d, BitsNeeded_64(%20ld|%16.16lx) = %2d\n",
+             whatp64-1, whatp64-1, BitsNeeded_u64(whatp64-1), whatp64-1, whatp64-1, BitsNeeded_64(whatp64-1), whatm64, whatm64, BitsNeeded_64(whatm64)) ;
+      e_exit(1) ;
+    }
+  }
+  printf("Success\n") ;
+// test pop counts
+  printf("pop count 32 test : ") ;
+  for(i=0, whatp=0 ; i<33 ; i++, whatp = (whatp << 1) | 1){
+    if(popcnt_32(whatp) != i){
+      printf("popcnt_32(%8.8x) : expected %2d, got %2d\n", whatp, i, popcnt_32(whatp)) ;
+      e_exit(1) ;
+    }
+  }
+  printf("Success\n") ;
+  printf("pop count 64 test : ") ;
+  for(i=0, whatp64=0 ; i<65 ; i++, whatp64 = (whatp64 << 1) | 1){
+    if(popcnt_64(whatp64) != i){
+      printf("popcnt_64(%8.8x) : expected %2d, got %2d\n", whatp, i, popcnt_64(whatp)) ;
+      e_exit(1) ;
     }
   }
   printf("Success\n") ;

@@ -141,6 +141,37 @@ static __m128i _mm_idiv8t_epi32(__m128i v){
 #define RMASK31(nbits)  (~((~0)  << nbits))
 #define RMASK63(nbits)  (~((~0l) << nbits))
 
+// population count
+STATIC inline uint32_t popcnt_32(uint32_t what){
+  uint32_t cnt ;
+#if defined(__x86_64__)
+  // X86 family of processors
+  __asm__ __volatile__ ("popcnt{l %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
+#else
+  cnt = 0 ;
+  while(what & 1){
+    cnt++ ;
+    what >> = 1 ;
+  }
+#endif
+  return cnt ;
+}
+
+STATIC inline uint32_t popcnt_64(uint64_t what){
+  uint64_t cnt ;
+#if defined(__x86_64__)
+  // X86 family of processors
+  __asm__ __volatile__ ("popcnt{ %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
+#else
+  cnt = 0 ;
+  while(what & 1){
+    cnt++ ;
+    what >> = 1 ;
+  }
+#endif
+  return cnt ;
+}
+
 // leading zeros count (32 bit value)
 STATIC inline uint32_t lzcnt_32(uint32_t what){
   uint32_t cnt ;
