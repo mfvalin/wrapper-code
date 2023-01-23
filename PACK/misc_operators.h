@@ -14,6 +14,8 @@ Library General Public License for more details.
 */
 #if ! defined(IN_FORTRAN_CODE) && ! defined(__GFORTRAN__)
 
+// C interfaces and declarations
+
 #if ! defined(MISC_OPERATORS)
 
 #include <stdint.h>
@@ -402,6 +404,9 @@ STATIC inline int Nint(float what){
 #endif
 
 #else
+
+!  Fortran interfaces and declarations
+
   interface BitsNeeded_u  ! generic interface
     function BitsNeeded_u32(what) result(nbits) bind(C,name='BitsNeeded_u32')
       import C_INT32_T
@@ -540,6 +545,52 @@ STATIC inline int Nint(float what){
       implicit none
       integer(C_INT32_T), dimension(1,*), intent(IN)  :: src
       integer(C_INT32_T), dimension(1,*), intent(OUT) :: dest
+      integer(C_INT32_T), intent(IN), value :: n
+      integer(C_INT32_T) :: r
+    end function
+  end interface
+
+  interface to_negabinary
+    function to_negabinary_32(what) result(r) bind(C,name='int_to_negabinary')
+      import C_INT32_T
+      implicit none
+      integer(C_INT32_T), intent(IN), value :: what
+      integer(C_INT32_T) :: r
+    end function
+    function to_negabinary_32_0(src, n) result(r) bind(C,name='v_int_to_negabinary')
+      import C_INT32_T
+      implicit none
+      integer(C_INT32_T), intent(INOUT)  :: src
+      integer(C_INT32_T), intent(IN), value :: n
+      integer(C_INT32_T) :: r
+    end function
+    function to_negabinary_32_1(src, n) result(r) bind(C,name='v_int_to_negabinary')
+      import C_INT32_T
+      implicit none
+      integer(C_INT32_T), dimension(*), intent(INOUT)  :: src
+      integer(C_INT32_T), intent(IN), value :: n
+      integer(C_INT32_T) :: r
+    end function
+  end interface
+
+  interface from_negabinary
+    function from_negabinary_32(what) result(r) bind(C,name='negabinary_to_int')
+      import C_INT32_T
+      implicit none
+      integer(C_INT32_T), intent(IN), value :: what
+      integer(C_INT32_T) :: r
+    end function
+    function from_negabinary_32_0(src, n) result(r) bind(C,name='v_negabinary_to_int')
+      import C_INT32_T
+      implicit none
+      integer(C_INT32_T), intent(INOUT)  :: src
+      integer(C_INT32_T), intent(IN), value :: n
+      integer(C_INT32_T) :: r
+    end function
+    function from_negabinary_32_1(src, n) result(r) bind(C,name='v_negabinary_to_int')
+      import C_INT32_T
+      implicit none
+      integer(C_INT32_T), dimension(*), intent(INOUT)  :: src
       integer(C_INT32_T), intent(IN), value :: n
       integer(C_INT32_T) :: r
     end function
