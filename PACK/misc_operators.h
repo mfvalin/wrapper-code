@@ -45,11 +45,11 @@ static __m128i _mm_idiv2r_epi32(__m128i v){
 
 // divide a signed integer by 4 with rounding toward +-infinity
 #define IDIV4R(x) (( (x) + 2 + ((x)>>31) ) >> 2 )
-#define IDIV4R_256(v) _mm256_srai_epi32(_mm256_sub_epi32(_mm256_add_epi32(v, _mm256_srai_epi32(v, 31)), _mm256_srli_epi32(_mm256_cmpeq_epi32(v, v), 1)), 2)
-#define IDIV4R_128(v) _mm_srai_epi32(_mm_sub_epi32(_mm_add_epi32(v, _mm_srai_epi32(v, 31)), _mm_srli_epi32(_mm_cmpeq_epi32(v, v), 1)), 2)
+#define IDIV4R_256(v) _mm256_srai_epi32(_mm256_sub_epi32(_mm256_add_epi32(v, _mm256_srai_epi32(v, 31)), _mm256_slli_epi32(_mm256_cmpeq_epi32(v, v), 1)), 2)
+#define IDIV4R_128(v) _mm_srai_epi32(_mm_sub_epi32(_mm_add_epi32(v, _mm_srai_epi32(v, 31)), _mm_slli_epi32(_mm_cmpeq_epi32(v, v), 1)), 2)
 
 #if defined(__x86_64__) && defined(__AVX2__)
-static __m256i _mm256_idiv4r_epi32(__m256i v){
+static inline __m256i _mm256_idiv4r_epi32(__m256i v){
   return IDIV4R_256(v) ;
 }
 static __m128i _mm_idiv4r_epi32(__m128i v){
@@ -59,8 +59,8 @@ static __m128i _mm_idiv4r_epi32(__m128i v){
 
 // divide a signed integer by 8 with rounding toward +-infinity
 #define IDIV8R(x) (( (x) + 4 + ((x)>>31) ) >> 3 )
-#define IDIV8R_256(v) _mm256_srai_epi32(_mm256_sub_epi32(_mm256_add_epi32(v, _mm256_srai_epi32(v, 31)), _mm256_srli_epi32(_mm256_cmpeq_epi32(v, v), 2)), 3)
-#define IDIV8R_128(v) _mm_srai_epi32(_mm_sub_epi32(_mm_add_epi32(v, _mm_srai_epi32(v, 31)), _mm_srli_epi32(_mm_cmpeq_epi32(v, v), 2)), 3)
+#define IDIV8R_256(v) _mm256_srai_epi32(_mm256_sub_epi32(_mm256_add_epi32(v, _mm256_srai_epi32(v, 31)), _mm256_slli_epi32(_mm256_cmpeq_epi32(v, v), 2)), 3)
+#define IDIV8R_128(v) _mm_srai_epi32(_mm_sub_epi32(_mm_add_epi32(v, _mm_srai_epi32(v, 31)), _mm_slli_epi32(_mm_cmpeq_epi32(v, v), 2)), 3)
 
 #if defined(__x86_64__) && defined(__AVX2__)
 static __m256i _mm256_idiv8r_epi32(__m256i v){
@@ -126,12 +126,20 @@ static __m128i _mm_idiv8t_epi32(__m128i v){
 #define NEEDBITS(range,needed) { uint64_t rng = (range) ; needed = 1; while (rng >>= 1) needed++ ; }
 
 // 32 and 64 bit left aligned masks
-#define LMASK32(nbits)  ((~0)   << (32-nbits))
-#define LMASK64(nbits)  ((~0l)  << (64-nbits))
+#define LMASK32(nbits)  ((nbits) ? ((~0 )  << (32-nbits)) : 0 )
+#define LMASK64(nbits)  ((nbits) ? ((~0l)  << (64-nbits)) : 0 )
+
+// 32 and 64 bit left aligned masks (nbits == 0) NOT supported
+#define LMASK32Z(nbits)  ((~0 )  << (32-nbits))
+#define LMASK64Z(nbits)  ((~0l)  << (64-nbits))
 
 // 32 and 64 bit right aligned masks
-#define RMASK32(nbits)  (~((~0)  << nbits))
-#define RMASK64(nbits)  (~((~0l) << nbits))
+#define RMASK32(nbits)  (((nbits) == 32) ? (~0 ) : (~((~0)  << nbits)))
+#define RMASK64(nbits)  (((nbits) == 64) ? (~0l) : (~((~0l) << nbits)))
+
+// 31 and 63 bit right aligned masks (same as above but faster, assuming 32/64 bit case not needed)
+#define RMASK31(nbits)  (~((~0)  << nbits))
+#define RMASK63(nbits)  (~((~0l) << nbits))
 
 // leading zeros count (32 bit value)
 STATIC inline uint32_t lzcnt_32(uint32_t what){
