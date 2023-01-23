@@ -207,6 +207,9 @@ STATIC inline int32_t isign_32(int32_t what){
   return (what >> 31) ;
 }
 
+#define TO_ZIGZAG(x)   ( ((x) << 1) ^ ((x) >> 31) )
+#define FROM_ZIGZAG(x) ( ((x) >> 1) ^ (-((x) & 1)) )
+
 // convert to sign and magnitude form, sign is Least Significant Bit
 STATIC inline uint32_t to_zigzag_32(int32_t what){
   return (what << 1) ^ (what >> 31) ;
@@ -236,6 +239,35 @@ STATIC inline int32_t v_from_zigzag_32(uint32_t * restrict src, int32_t * restri
     max = (dst[i] > max) ? dst[i] : max ;
   }
   return max ;
+}
+
+#define NBMASK 0xaaaaaaaau /* negabinary<-> 2's complement binary conversion mask */
+
+#define TO_NEGABINARY(x)   ( ((uint32_t)(x) + NBMASK) ^ NBMASK  )
+#define FROM_NEGABINARY(x) ( (int32_t)(((x) ^ NBMASK) - NBMASK) )
+
+// signed integer (2's complement) to negabinary (base -2) conversion
+STATIC inline uint32_t int_to_negabinary(int32_t x)
+{
+  return ((uint32_t)x + NBMASK) ^ NBMASK;
+}
+
+STATIC inline void v_int_to_negabinary(int32_t x, int32_t n)
+{
+  int i ;
+  for(i=0 ; i<n ; i++) x = int_to_negabinary(x) ;
+}
+
+// negabinary (base -2) to signed integer (2's complement) conversion
+STATIC inline int32_t negabinary_to_int(uint32_t x)
+{
+  return (int32_t)((x ^ NBMASK) - NBMASK);
+}
+
+STATIC inline void v_negabinary_to_int(uint32_t x, int32_t n)
+{
+  int i ;
+  for(i=0 ; i<n ; i++) x = negabinary_to_int(x) ;
 }
 
 // number of bits needed to represent a 32 bit unsigned number

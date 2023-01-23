@@ -199,4 +199,57 @@ int main(int argc, char **argv){
     }
   }
   printf("Success\n") ;
+// tests zigzag
+  printf("zigzag test : ") ;
+  int32_t lasti ;
+  int32_t whatp , whatm ;
+  uint32_t zigp, zigm ;
+  for(i=-1 ; i<0x7FFFFFFF ; i++){
+    whatp = i+1 ;
+    whatm = -whatp ;
+    zigp = TO_ZIGZAG(whatp) ;
+    zigm = TO_ZIGZAG(whatm) ;
+    if(FROM_ZIGZAG(zigp) != whatp || FROM_ZIGZAG(zigm) != whatm){
+      printf("ZIGZAG expected (%8.8x %8.8x), got (%8.8x %8.8x)\n", whatp, whatm, FROM_ZIGZAG(zigp), FROM_ZIGZAG(zigm)) ;
+      e_exit(1) ;
+    }
+    lasti = whatp ;
+  }
+  printf("last i = %8.8x, Success\n", lasti) ;
+// test negabinaty
+  printf("negabinary test : ") ;
+  for(i=-1 ; i<0x7FFFFFFF ; i++){
+    whatp = i+1 ;
+    whatm = -whatp ;
+    zigp = TO_NEGABINARY(whatp) ;
+    zigm = TO_NEGABINARY(whatm) ;
+    if(FROM_NEGABINARY(zigp) != whatp || FROM_NEGABINARY(zigm) != whatm){
+      printf("NEGABINARY expected (%8.8x %8.8x), got (%8.8x %8.8x)\n", whatp, whatm, FROM_NEGABINARY(zigp), FROM_NEGABINARY(zigm)) ;
+      e_exit(1) ;
+    }
+    lasti = whatp ;
+  }
+  printf("last i = %8.8x, Success\n", lasti) ;
+// tests bits needed
+  printf("BitsNeeded_u32, BitsNeeded_32 test : \n") ;
+  for(i=1, whatp=1 ; i<33 ; i++, whatp *= 2){
+    whatm = -whatp ;
+    printf("(%10d) BitsNeeded_u32(%8.8x) = %2d, BitsNeeded_32(%10d|%8.8x) = %2d, BitsNeeded_32(%10d|%8.8x) = %2d\n"
+    , whatp-1, whatp-1, BitsNeeded_u32(whatp-1), whatp-1, whatp-1, BitsNeeded_32(whatp-1), whatm, whatm, BitsNeeded_32(whatm)) ;
+    if(BitsNeeded_u32(whatp-1) != (i-1) || BitsNeeded_32(whatp-1) != i || BitsNeeded_32(whatm) != i ){
+    e_exit(1) ;
+    }
+  }
+  printf("Success\n") ;
+  printf("BitsNeeded_u64, BitsNeeded_64 test : \n") ;
+  int64_t whatp64, whatm64 ;
+  for(i=1, whatp64=1 ; i<65 ; i++, whatp64 += whatp64){
+    whatm64 = -whatp64 ;
+    printf("(%19ld) BitsNeeded_u64(%16.16lx) = %2d, BitsNeeded_64(%19ld|%16.16lx) = %2d, BitsNeeded_64(%20ld|%16.16lx) = %2d\n"
+    , whatp64-1, whatp64-1, BitsNeeded_u64(whatp64-1), whatp64-1, whatp64-1, BitsNeeded_64(whatp64-1), whatm64, whatm64, BitsNeeded_64(whatm64)) ;
+    if(BitsNeeded_u64(whatp64-1) != (i-1) || BitsNeeded_64(whatp64-1) != i || BitsNeeded_64(whatm64) != i ){
+    e_exit(1) ;
+    }
+  }
+  printf("Success\n") ;
 }
