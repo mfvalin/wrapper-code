@@ -144,7 +144,7 @@ static __m128i _mm_idiv8t_epi32(__m128i v){
 // leading zeros count (32 bit value)
 STATIC inline uint32_t lzcnt_32(uint32_t what){
   uint32_t cnt ;
-#if defined(__x86_64__x)
+#if defined(__x86_64__)
   // X86 family of processors
   __asm__ __volatile__ ("lzcnt{l %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
 #elif defined(__aarch64__)
@@ -171,7 +171,7 @@ STATIC inline uint32_t lnzcnt_32(uint32_t what){
 // leading zeros count (64 bit value)
 STATIC inline uint32_t lzcnt_64(uint64_t what){
   uint64_t cnt ;
-#if defined(__x86_64__x)
+#if defined(__x86_64__)
   // X86 family of processors
   __asm__ __volatile__ ("lzcnt{ %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
 #elif defined(__aarch64__)
