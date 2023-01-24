@@ -22,6 +22,7 @@
 
 // protect against multiple include
 #if ! defined(TIME_LOOP_TOP)
+#include <stdio.h>
 #include <stdint.h>
 
 #if ! defined(STATIC)
