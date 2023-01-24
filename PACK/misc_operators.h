@@ -31,6 +31,11 @@ Library General Public License for more details.
 
 #define MISC_OPERATORS
 
+#if defined(__x86_64__) && defined(__AVX2__)
+static inline __m128i _mm_lower128(__m256i v256) { return _mm256_extracti128_si256(v256, 0) ; }
+static inline __m128i _mm_upper128(__m256i v256) { return _mm256_extracti128_si256(v256, 1) ; }
+#endif
+
 // convert a float to a rounded integer
 #define FLOAT_TO_INT(x) ( (x)<0 ? (int)((x)-0.5) : (int)((x)+0.5) )
 static inline int32_t float_to_int(float x) {

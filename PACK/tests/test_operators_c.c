@@ -10,6 +10,7 @@ static int32_t xt8[] = {-2, -1, -1, -1, -1, -1, -1, -1, -1,  0,  0,  0,  0,  0, 
 static int32_t xr2[] = {-8, -8, -7, -7, -6, -6, -5, -5, -4, -4, -3, -3, -2, -2, -1, -1,  0,  1,  1,  2,  2,  3,  3,  4,  4,  5,  5,  6,  6,  7,  7,  8,  8} ;
 static int32_t xr4[] = {-4, -4, -4, -3, -3, -3, -3, -2, -2, -2, -2, -1, -1, -1, -1,  0,  0,  0,  1,  1,  1,  1,  2,  2,  2,  2,  3,  3,  3,  3,  4,  4,  4} ;
 static int32_t xr8[] = {-2, -2, -2, -2, -2, -1, -1, -1, -1, -1, -1, -1, -1,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,  2,  2,  2,  2,  2} ;
+static int32_t xi[]  = { 999, 0, 1, 2, 3, 4, 5, 6, 7, 999 } ;
 
 static int compare(int32_t *a, int32_t *b, int n){
   int i, e = 0 ;
@@ -29,6 +30,7 @@ int main(int argc, char **argv){
 #if defined(__x86_64__) && defined(__AVX2__)
   __m128i v128 ;
   __m256i v256 ;
+  __m128i v128lo, v128hi ;
 #endif
 // test float to int conversion macro and function(rounded)
   printf("float to int rounding test : ") ;
@@ -43,6 +45,22 @@ int main(int argc, char **argv){
     }
   }
   printf("Success\n") ;
+// extract 128 bits from 256 bit register
+#if defined(__x86_64__) && defined(__AVX2__)
+  printf("extract upper/lower 128 bits : ");
+  v256 = _mm256_loadu_si256((__m256i *) (xi + 1)) ;
+  v128lo = _mm_lower128(v256) ;
+  v128hi = _mm_upper128(v256) ;
+  _mm_storeu_si128((__m128i *)(dst  ), v128lo) ;
+  _mm_storeu_si128((__m128i *)(dst+4), v128hi) ;
+  for(i=0 ; i<8 ; i++) {
+    if(i != dst[i]){
+      printf("expecting %d, got %d\n", i, dst[i]) ;
+      e_exit(1) ;
+    }
+  }
+  printf("Success\n") ;
+#endif
 // test divide and truncate or round macros
   for(i = 0 ; i < NP ; i++) src[i] = i - NP/2;
   printf("ORIG  ") ; for(i = 0 ; i < NP ; i++) printf("%4d", src[i]) ; printf("\n\n") ;
