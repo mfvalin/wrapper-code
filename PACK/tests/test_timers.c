@@ -11,8 +11,8 @@ int main(int argc, char **argv){
   tf = cycles_counter_freq() ;    // counter frequency in Hz
   t = 1.0 ;
   t  /= tf ;                      // one time counter cycle in seconds
-  t0 = elapsed_cycles() ;         // fine grain timer
-  tu = elapsed_us() ;             // medium grain timer
+  t0 = elapsed_cycles() ;         // fine grain timer   (nanoseconds)
+  tu = elapsed_us() ;             // medium grain timer (microsecond)
   tu = elapsed_us() -tu ;
   t1 = elapsed_cycles() ;
   printf("call to elapsed_us = %ld cycles, %8.2g seconds\n", (t1-t0)/2, (t1-t0)/2*t) ;
