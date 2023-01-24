@@ -24,11 +24,25 @@ static void e_exit(int n){
 
 int main(int argc, char **argv){
   int32_t src[NP], dst[NP+8] ;
-  int32_t i, x, err ;
+  int32_t i, j, x, err ;
+  float f ;
 #if defined(__x86_64__) && defined(__AVX2__)
   __m128i v128 ;
   __m256i v256 ;
 #endif
+// test float to int conversion macro and function(rounded)
+  printf("float to int rounding test : ") ;
+  err = 0 ;
+  for(f=-3.5f ; f <= 3.5f ; f+=.25f){
+    if( (f < 0.0f) && ( FLOAT_TO_INT(f) != (int)(f - .5f) ) ) err++ ;
+    if( (f > 0.0f) && ( FLOAT_TO_INT(f) != (int)(f + .5f) ) ) err++ ;
+    if( (f == 0.0f) && ( FLOAT_TO_INT(f) != 0 ) ) err++ ;
+    if(err){
+      printf("float = %10f, int = %3d, %3d\n", f, FLOAT_TO_INT(f), float_to_int(f)) ;
+      e_exit(1) ;
+    }
+  }
+  printf("Success\n") ;
 // test divide and truncate or round macros
   for(i = 0 ; i < NP ; i++) src[i] = i - NP/2;
   printf("ORIG  ") ; for(i = 0 ; i < NP ; i++) printf("%4d", src[i]) ; printf("\n\n") ;

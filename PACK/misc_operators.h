@@ -31,6 +31,12 @@ Library General Public License for more details.
 
 #define MISC_OPERATORS
 
+// convert a float to a rounded integer
+#define FLOAT_TO_INT(x) ( (x)<0 ? (int)((x)-0.5) : (int)((x)+0.5) )
+static inline int32_t float_to_int(float x) {
+  return FLOAT_TO_INT(x) ;
+}
+
 // divide a signed integer by 2 with rounding toward +-infinity
 #define IDIV2R(x) (( (x) + 1 + ((x)>>31) ) >> 1 )
 #define IDIV2R_256(v) _mm256_srai_epi32(_mm256_add_epi32(_mm256_sub_epi32(v, _mm256_cmpeq_epi32(v, v)), _mm256_srai_epi32(v, 31)), 1)
