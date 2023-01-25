@@ -46,8 +46,23 @@ int main(int argc, char **argv){
            emax, emin) ;
     e_exit(1) ;
   }
-  ieee_prop prop = ieee_properties(xf, NP);
-  printf("\nproperties emin = %d, emax = %d, allp = %d, allm = %d", prop.emin, prop.emax, prop.allp, prop.allm) ;
+  ieee_prop prop = ieee_properties(xf, NP);   // test full array
+  printf("Success\n") ;
+  printf("properties full array  (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(prop), prop.emin, prop.emax, prop.allp, prop.allm) ;
+  if(prop.emin != 127 || prop.emax != 131 || prop.allp != 0 || prop.allm != 0) {
+    printf("\nexpected(got) emin = 127(%d), emax = 131(%d), allp = 1(%d), allm = 0(%d) : ", prop.emin, prop.emax, prop.allp, prop.allm) ;
+    e_exit(1) ;
+  }
+  printf("Success\n") ;
+  prop = ieee_properties(xf, NP/2);           // test bottom of array (all negative)
+  printf("properties bottom half (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(prop), prop.emin, prop.emax, prop.allp, prop.allm) ;
+  if(prop.emin != 127 || prop.emax != 131 || prop.allp != 0 || prop.allm != 1) {
+    printf("\nexpected(got) emin = 127(%d), emax = 131(%d), allp = 1(%d), allm = 0(%d) : ", prop.emin, prop.emax, prop.allp, prop.allm) ;
+    e_exit(1) ;
+  }
+  printf("Success\n") ;
+  prop = ieee_properties(xf+NP/2, NP/2+1);    // test top of array (all non negative)
+  printf("properties top half    (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(prop), prop.emin, prop.emax, prop.allp, prop.allm) ;
   if(prop.emin != 127 || prop.emax != 131 || prop.allp != 1 || prop.allm != 0) {
     printf("\nexpected(got) emin = 127(%d), emax = 131(%d), allp = 1(%d), allm = 0(%d) : ", prop.emin, prop.emax, prop.allp, prop.allm) ;
     e_exit(1) ;

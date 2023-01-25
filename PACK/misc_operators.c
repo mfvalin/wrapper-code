@@ -41,7 +41,7 @@ ieee_prop ieee_properties(float *f, int n){
     t = (t == 0) ? (0xFFu << 24) : t ;         // ignore values of 0
     emin = (t < emin) ? t : emin ;
   }
-  allp >>= 31 ;                                  // 0 if all numbers are non negative
+  allp >>= 31 ;  allp = allp ? 0 : 1 ;           // 1 if all numbers are non negative
   allm >>= 31 ;                                  // 1 if all numbers are negative
   prop.emax = emax >> 24 ;                       // exponent WITH IEEE bias (127)
   prop.emin = emin >> 24 ;                       // exponent WITH IEEE bias (127)
@@ -64,8 +64,8 @@ ieee_prop ieee_properties_64(float *f){  // special case (frequent occurrance) u
     t = (t == 0) ? (0xFFu << 24) : t ;         // ignore values of 0
     emin = (t < emin) ? t : emin ;
   }
-  allp >>= 31 ;
-  allm >>= 31 ;
+  allp >>= 31 ; allp = allp ? 0 : 1 ;            // 1 if all numbers are non negative
+  allm >>= 31 ;                                  // 1 if all numbers are negative
   prop.emax = emax >> 24 ;                       // exponent WITH IEEE bias (127)
   prop.emin = emin >> 24 ;                       // exponent WITH IEEE bias (127)
   prop.allp = allp ;
