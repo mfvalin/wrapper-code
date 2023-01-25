@@ -44,12 +44,43 @@ recompile_${MOD} :  $(INCLUDES)
 	rm -f obj_$(MOD)/*.o
 	touch recompile_${MOD}
 
-all_tests : test_compress test_lorenzo test_pack test_pack_macros \
-            test_quantize test_float_info test_helpers test_averages \
-            test_cdf97 test_cdf53 test_endian test_endian_f \
-            test_ieeequantize test_encode test_pack_value test_timers \
-            test_operators_c test_compress_c test_bits_needed
+# all_tests : test_compress test_lorenzo test_pack test_pack_macros \
+#             test_quantize test_float_info test_helpers test_averages \
+#             test_cdf97 test_cdf53 test_endian test_endian_f \
+#             test_ieeequantize test_encode test_pack_value test_timers \
+#             test_operators_c test_compress_c test_bits_needed
+all_tests : \
+	test_pack_value test_timers test_operators_c test_compress_c test_compress \
+	test_bits_needed test_operators test_analyze test_lorenzo test_pack test_pack_macros \
+	test_bi_endian_pack test_zfp test_quantize test_ieeequantize test_float_info \
+	test_helpers test_average_2x2 test_averages test_cdf97 test_cdf53 test_idwt53 \
+	test_endian test_endian_f test_floats test_smooth124 test_lorenzo_c
+# 
+# 	items needing librmn or libzfp 
+#       will be loaded with the static version
+# 
+test_analyze : test_analyze.$(MOD).exe
+	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
+test_analyze.$(MOD).exe : tests/test_analyze.F90 ${LIBDIR}/libmisc.a
+	(module load $(MOD)$(EXT) >/dev/null ; \
+	$$FTN -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} -lmisc $$LIBECCC/lib/libzfp.a -o $@ ; )
 
+test_compress : test_compress.$(MOD).exe
+	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; \
+	rm -f sample_compressed ; ./$< sample $(VAR) sample_compressed) || true
+test_compress.$(MOD).exe : tests/test_compress.F90 ${LIBDIR}/libmisc.a
+	(module load $(MOD)$(EXT) >/dev/null ; echo "LD_RUN_PATH=$$LD_RUN_PATH" ; \
+	$$FTN -fopenmp -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} \
+	-lmisc $$LIBECCC/lib/librmn.a $$LIBECCC/lib/libzfp.a -o $@ -Wl,-rpath,$$LD_RUN_PATH; )
+
+test_zfp : test_zfp.$(MOD).exe
+	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< .001 ) || true
+test_zfp.$(MOD).exe : tests/test_zfp.c ${LIBDIR}/libmisc.a
+	(module load $(MOD)$(EXT) >/dev/null ; \
+	$$CC $(OPT) $(DEF) -I. -I$${LIBECCC}/include $^ -L${LIBDIR} -lmisc $$LIBECCC/lib/libzfp.a -lm -o $@ )
+# 
+# 	items needing neither librmn nor libzfp
+# 
 test_pack_value : test_pack_value.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
 test_pack_value.$(MOD).exe : tests/test_pack_value.c ${LIBDIR}/libmisc.a
@@ -74,14 +105,6 @@ test_compress_c.$(MOD).exe : tests/test_compress_c.c ${LIBDIR}/libmisc.a
 	(module load $(MOD)$(EXT) >/dev/null ; \
 	$$CC -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} -lmisc -o $@ ; )
 
-test_compress : test_compress.$(MOD).exe
-	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; \
-	rm -f sample_compressed ; ./$< sample $(VAR) sample_compressed) || true
-test_compress.$(MOD).exe : tests/test_compress.F90 ${LIBDIR}/libmisc.a
-	(module load $(MOD)$(EXT) >/dev/null ; echo "LD_RUN_PATH=$$LD_RUN_PATH" ; \
-	$$FTN -fopenmp -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} \
-	-lmisc $$LIBECCC/lib/librmn.a $$LIBECCC/lib/libzfp.a -o $@ -Wl,-rpath,$$LD_RUN_PATH; )
-
 test_bits_needed : test_bits_needed.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
 test_bits_needed.$(MOD).exe : tests/test_bits_needed.c ${LIBDIR}/libmisc.a
@@ -97,12 +120,6 @@ test_encode.$(MOD).exe : tests/test_encode.c ${LIBDIR}/libmisc.a
 test_operators : test_operators.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
 test_operators.$(MOD).exe : tests/test_operators.F90 ${LIBDIR}/libmisc.a
-	(module load $(MOD)$(EXT) >/dev/null ; \
-	$$FTN -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} -lmisc -o $@ ; )
-
-test_analyze : test_analyze.$(MOD).exe
-	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
-test_analyze.$(MOD).exe : tests/test_analyze.F90 ${LIBDIR}/libmisc.a
 	(module load $(MOD)$(EXT) >/dev/null ; \
 	$$FTN -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} -lmisc -o $@ ; )
 
@@ -129,12 +146,6 @@ test_bi_endian_pack : test_bi_endian_pack.$(MOD).exe
 test_bi_endian_pack.$(MOD).exe : tests/test_bi_endian_pack.c ${LIBDIR}/libmisc.a
 	(module load $(MOD)$(EXT) >/dev/null ; \
 	$$CC $(OPT) $(DEF) -I. $^ -L${LIBDIR} -lmisc -o $@ )
-
-test_zfp : test_zfp.$(MOD).exe
-	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< .001 ) || true
-test_zfp.$(MOD).exe : tests/test_zfp.c ${LIBDIR}/libmisc.a
-	(module load $(MOD)$(EXT) >/dev/null ; \
-	$$CC $(OPT) $(DEF) -I. -I$${LIBECCC}/include $^ -L${LIBDIR} -L$${LIBECCC}/lib -lmisc -lzfp -lm -o $@ )
 
 test_quantize : test_quantize.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
