@@ -259,7 +259,7 @@ int main(int argc, char **argv){
   printf("lzcnt_64 test : ") ;
   for(i=0, mask64u=(~0l) ; i<65 ; i++, mask64u >>= 1){
     if(i != lzcnt_64(mask64u)){
-      printf("lzcnt_64(%8.8x) expected %d, got %d\n", mask64, i, lzcnt_32(mask64u));
+      printf("lzcnt_64(%16.16lx) expected %d, got %d\n", mask64, i, lzcnt_32(mask64u));
       e_exit(1) ;
     }
   }
@@ -267,7 +267,7 @@ int main(int argc, char **argv){
   printf("lnzcnt_64 test : ") ;
   for(i=64, mask64u=(~0l) ; i>=0 ; i--, mask64u <<= 1){
     if(i != lnzcnt_64(mask64u)){
-      printf("lnzcnt_64(%8.8x) expected %d, got %d\n", mask32, i, lnzcnt_64(mask64u));
+      printf("lnzcnt_64(%16.16lx) expected %d, got %d\n", mask64u, i, lnzcnt_64(mask64u));
       e_exit(1) ;
     }
   }

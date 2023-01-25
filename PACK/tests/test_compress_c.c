@@ -122,8 +122,8 @@ int main(int argc, char **argv){
   }else{
     bki = ni/8 ;
     bkj = nj/8 ;
-    fprintf(stderr,"INFO: ndim = %d, ni = %d, nj = %d, nk = %d, %x x %d blocks, data[0,last] = %11f %11f (%s)\n", 
-            ndim, ni, nj, nk, data[0], bki, bkj, data[ni*nj*nk-1], argv[1]) ;
+    fprintf(stderr,"INFO: ndim = %d, ni = %d, nj = %d, nk = %d, , %x x %d blocks, data[0,last] = %11f %11f (%s)\n", 
+            ndim, ni, nj, nk, bki, bkj, data[0], data[ni*nj*nk-1], argv[1]) ;
   }
 
   d  = malloc(ni*nj*nk*sizeof(float)) ;
