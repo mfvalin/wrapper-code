@@ -1,2 +1,0 @@
-#define IN_FORTRAN_CODE
-#include <rmn/misc_timers.h>
