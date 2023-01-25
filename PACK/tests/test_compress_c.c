@@ -110,6 +110,7 @@ int main(int argc, char **argv){
 
   if(argc < 2){
     fprintf(stderr,"USAGE: %s file_name\n", argv[0]) ;
+    exit(1) ;
   }
   ndim = 2 ; ni = nj = nk = 1 ;
   if(argc >2) ndim = atoi(argv[2]) ;
