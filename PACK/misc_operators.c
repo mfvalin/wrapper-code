@@ -22,6 +22,55 @@
 #include <math.h>
 #include <stdlib.h>
 
+// get the IEEE exponent of the largest float (absolute value)
+// and the smallest non zero float (absolute value)  in float array f
+// if all values of f are 0.0, 255 will be returned for the minimum exponent
+uint32_t ieee_minmax_exponent(float *f, int n){
+  int i ;
+  uint32_t *uf = (uint32_t *) f ;
+  uint32_t t, emax = 0 , emin = 0xFF << 24 ;
+
+  for(i=0 ; i<n ; i++){
+    t = uf[i] << 1 ;                  // get rid of sign, exponent in upper 8 bits
+    emax = (t > emax) ? t : emax ;
+    t = (t == 0) ? emin : t ;         // ignore values of 0
+    emin = (t < emin) ? t : emin ;
+  }
+  emax >>= 24 ;                       // exponent WITH IEEE bias (127)
+  emin >>= 24 ;                       // exponent WITH IEEE bias (127)
+  return emax | (emin << 8) ;         // emax and emin
+}
+
+// get the IEEE exponent of the largest float (absolute value) in float array f
+uint32_t ieee_max_exponent(float *f, int n){
+  int i ;
+  uint32_t *uf = (uint32_t *) f ;
+  uint32_t t, emax = 0 ;
+
+  for(i=0 ; i<n ; i++){
+    t = uf[i] << 1 ;                  // get rid of sign, exponent in upper 8 bits
+    emax = (t > emax) ? t : emax ;
+  }
+  emax >>= 24 ;                       // exponent WITH IEEE bias (127)
+  return emax ;
+}
+
+// get the IEEE exponent of the smallest non zero float (absolute value) in float array f
+// if all values of f are 0.0, 255 will be returned
+uint32_t ieee_min_exponent(float *f, int n){
+  int i ;
+  uint32_t *uf = (uint32_t *) f ;
+  uint32_t t, emin = 0xFF << 24 ;     // largest possible exponent
+
+  for(i=0 ; i<n ; i++){
+    t = uf[i] << 1 ;                  // get rid of sign, exponent in upper 8 bits
+    t = (t == 0) ? emin : t ;         // ignore values of 0
+    emin = (t < emin) ? t : emin ;
+  }
+  emin >>= 24 ;                       // exponent WITH IEEE bias (127)
+  return emin ;
+}
+
 int32_t vBitsNeeded_u32(uint32_t * restrict what, int32_t * restrict bits, int nn){
   int i, needed=0 ;
   int n = (nn < 0) ? -nn : nn ;

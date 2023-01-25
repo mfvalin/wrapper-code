@@ -49,6 +49,12 @@ all_tests : test_compress test_lorenzo test_pack test_pack_macros \
             test_cdf97 test_cdf53 test_endian test_endian_f \
             test_ieeequantize test_encode
 
+test_pack_value : test_pack_value.$(MOD).exe
+	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
+test_pack_value.$(MOD).exe : tests/test_pack_value.c ${LIBDIR}/libmisc.a
+	(module load $(MOD)$(EXT) >/dev/null ; \
+	$$CC -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} -lmisc -o $@ ; )
+
 test_timers : test_timers.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
 test_timers.$(MOD).exe : tests/test_timers.c ${LIBDIR}/libmisc.a
@@ -59,7 +65,7 @@ test_operators_c : test_operators_c.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
 test_operators_c.$(MOD).exe : tests/test_operators_c.c ${LIBDIR}/libmisc.a
 	(module load $(MOD)$(EXT) >/dev/null ; \
-	$$CC -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} -lmisc -o $@ ; )
+	$$CC -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} -lmisc -lm -o $@ ; )
 
 test_compress_c : test_compress_c.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true

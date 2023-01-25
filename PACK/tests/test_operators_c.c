@@ -27,11 +27,26 @@ int main(int argc, char **argv){
   int32_t src[NP], dst[NP+8] ;
   int32_t i, j, x, err ;
   float f ;
+  float xf[NP] ;
 #if defined(__x86_64__) && defined(__AVX2__)
   __m128i v128 ;
   __m256i v256 ;
   __m128i v128lo, v128hi ;
 #endif
+// IEEE min and max exponent test
+  printf("IEEE exponents : ") ;
+  for(i=0 ; i<NP ; i++) xf[i] = (i - NP/2) * 1.01f ;
+  uint32_t emax = ieee_max_exponent(xf, NP) ;
+  uint32_t emin = ieee_min_exponent(xf, NP) ;
+  uint32_t eminmax = ieee_minmax_exponent(xf, NP) ;
+  printf("x = %f -> %f -> %f -> %f -> %f, emin = %d, emax = %d, eminmax = %4.4x : ", 
+         xf[0], xf[NP/2-1], xf[NP/2], xf[NP/2+1], xf[NP-1], emin, emax, eminmax) ;
+  if(emin != 127 || emax != 131 || emin != (eminmax >> 8) || emax != (eminmax & 0xFF) ) {
+    printf("expecting emax = 131, got %d, emin = 127, got %d, eminmax = 7f83, got %8.8x\n",
+           emax, emin, eminmax) ;
+    e_exit(1) ;
+  }
+  printf("Success\n") ;
 // test float to int conversion macro and function(rounded)
   printf("float to int rounding test : ") ;
   err = 0 ;

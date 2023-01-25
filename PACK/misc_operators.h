@@ -407,6 +407,10 @@ STATIC inline int Nint(float what){
   return i ;
 }
 
+uint32_t ieee_max_exponent(float *f, int n) ;      // IEEE exponent of the largest float (absolute value) in float array f
+uint32_t ieee_min_exponent(float *f, int n) ;      // IEEE exponent of the smallest non zero float (absolute value) in float array f
+uint32_t ieee_minmax_exponent(float *f, int n) ;   // IEEE exponents of the largest and the smallest non zero float (absolute value)
+
 #if defined(STATIC_DEFINED_HERE)
 #undef STATIC
 #undef STATIC_DEFINED_HERE
