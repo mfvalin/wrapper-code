@@ -33,20 +33,27 @@ int main(int argc, char **argv){
   __m256i v256 ;
   __m128i v128lo, v128hi ;
 #endif
+
 // IEEE min and max exponent test
-  printf("IEEE exponents : ") ;
+  printf("IEEE properties : ") ;
   for(i=0 ; i<NP ; i++) xf[i] = (i - NP/2) * 1.01f ;
   uint32_t emax = ieee_max_exponent(xf, NP) ;
   uint32_t emin = ieee_min_exponent(xf, NP) ;
-  uint32_t eminmax = ieee_minmax_exponent(xf, NP) ;
-  printf("x = %f -> %f -> %f -> %f -> %f, emin = %d, emax = %d, eminmax = %4.4x : ", 
-         xf[0], xf[NP/2-1], xf[NP/2], xf[NP/2+1], xf[NP-1], emin, emax, eminmax) ;
-  if(emin != 127 || emax != 131 || emin != (eminmax >> 8) || emax != (eminmax & 0xFF) ) {
-    printf("expecting emax = 131, got %d, emin = 127, got %d, eminmax = 7f83, got %8.8x\n",
-           emax, emin, eminmax) ;
+  printf("x = %f -> %f -> %f -> %f -> %f, emin = %d, emax = %d : ", 
+         xf[0], xf[NP/2-1], xf[NP/2], xf[NP/2+1], xf[NP-1], emin, emax) ;
+  if(emin != 127 || emax != 131) {
+    printf("expecting emax = 131, got %d, emin = 127, got %d\n",
+           emax, emin) ;
+    e_exit(1) ;
+  }
+  ieee_prop prop = ieee_properties(xf, NP);
+  printf("\nproperties emin = %d, emax = %d, allp = %d, allm = %d", prop.emin, prop.emax, prop.allp, prop.allm) ;
+  if(prop.emin != 127 || prop.emax != 131 || prop.allp != 1 || prop.allm != 0) {
+    printf("\nexpected(got) emin = 127(%d), emax = 131(%d), allp = 1(%d), allm = 0(%d) : ", prop.emin, prop.emax, prop.allp, prop.allm) ;
     e_exit(1) ;
   }
   printf("Success\n") ;
+
 // test float to int conversion macro and function(rounded)
   printf("float to int rounding test : ") ;
   err = 0 ;
@@ -60,9 +67,10 @@ int main(int argc, char **argv){
     }
   }
   printf("Success\n") ;
-// extract 128 bits from 256 bit register
+
+// extract 128 bits from 256 bit register (X86_64)
 #if defined(__x86_64__) && defined(__AVX2__)
-  printf("extract upper/lower 128 bits : ");
+  printf("AVX2 SIMD extract upper/lower 128 bits : ");
   v256 = _mm256_loadu_si256((__m256i *) (xi + 1)) ;
   v128lo = _mm_lower128(v256) ;
   v128hi = _mm_upper128(v256) ;
@@ -76,6 +84,7 @@ int main(int argc, char **argv){
   }
   printf("Success\n") ;
 #endif
+
 // test divide and truncate or round macros
   for(i = 0 ; i < NP ; i++) src[i] = i - NP/2;
   printf("ORIG  ") ; for(i = 0 ; i < NP ; i++) printf("%4d", src[i]) ; printf("\n\n") ;
@@ -144,6 +153,7 @@ int main(int argc, char **argv){
   printf("IDIV8R ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xr8, NP)) ; if(err) e_exit(1) ;
   printf("\n") ;
 #endif
+
 // test mask macros
   int32_t mask32 = -1 ;
   int64_t mask64 = -1l ;
@@ -211,6 +221,7 @@ int main(int argc, char **argv){
     }
   }
   printf("Success\n") ;
+
 // test lzcnt/lnzcnt functions
   uint32_t mask32u ;
   uint64_t mask64u ;
@@ -245,7 +256,8 @@ int main(int argc, char **argv){
       e_exit(1) ;
     }
   }
-  printf("Success\n") ;
+  printf("Success\n") ;\
+
 // tests zigzag
   printf("zigzag test : ") ;
   int32_t lasti ;
@@ -263,6 +275,7 @@ int main(int argc, char **argv){
     lasti = whatp ;
   }
   printf("last i = %8.8x, Success\n", lasti) ;
+
 // test negabinaty
   printf("negabinary test : ") ;
   for(i=-1 ; i<0x7FFFFFFF ; i++){
@@ -277,6 +290,7 @@ int main(int argc, char **argv){
     lasti = whatp ;
   }
   printf("last i = %8.8x, Success\n", lasti) ;
+
 // tests bits needed (32 and 64 bits)
   printf("BitsNeeded_u32, BitsNeeded_32 test : ") ;
   for(i=1, whatp=1 ; i<33 ; i++, whatp *= 2){
@@ -299,6 +313,7 @@ int main(int argc, char **argv){
     }
   }
   printf("Success\n") ;
+
 // test pop counts
   printf("pop count 32 test : ") ;
   for(i=0, whatp=0 ; i<33 ; i++, whatp = (whatp << 1) | 1){

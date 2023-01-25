@@ -25,6 +25,82 @@
 // get the IEEE exponent of the largest float (absolute value)
 // and the smallest non zero float (absolute value)  in float array f
 // if all values of f are 0.0, 255 will be returned for the minimum exponent
+// get sign properties (all >-0 , all <0)
+ieee_prop ieee_properties(float *f, int n){
+  int i ;
+  uint32_t *uf = (uint32_t *) f ;
+  uint32_t t, emax = 0 , emin = 0xFFu << 24 ;
+  uint32_t allp = 0, allm = 0xFFFFFFFFu ;
+  ieee_prop prop;
+
+  for(i=0 ; i<n ; i++){
+    allp |= uf[i] ;                   // upper bit will remain 0 if >= 0 floats only
+    allm &= uf[i] ;                   // upper bit will remain 1 if < 0 floats only
+    t = uf[i] << 1 ;                  // get rid of sign, exponent in upper 8 bits
+    emax = (t > emax) ? t : emax ;
+    t = (t == 0) ? (0xFFu << 24) : t ;         // ignore values of 0
+    emin = (t < emin) ? t : emin ;
+  }
+  allp >>= 31 ;                                  // 0 if all numbers are non negative
+  allm >>= 31 ;                                  // 1 if all numbers are negative
+  prop.emax = emax >> 24 ;                       // exponent WITH IEEE bias (127)
+  prop.emin = emin >> 24 ;                       // exponent WITH IEEE bias (127)
+  prop.allp = allp ;
+  prop.allm = allm ;
+  return prop ;         // emax and emin
+}
+ieee_prop ieee_properties_64(float *f){  // special case (frequent occurrance) used for 8x8 block
+  int i ;
+  uint32_t *uf = (uint32_t *) f ;
+  uint32_t t, emax = 0 , emin = 0xFFu << 24 ;
+  uint32_t allp = 0, allm = 0xFFFFFFFFu ;
+  ieee_prop prop;
+
+  for(i=0 ; i<64 ; i++){
+    allp |= uf[i] ;                   // upper bit will remain 0 if >= 0 floats only
+    allm &= uf[i] ;                   // upper bit will remain 1 if < 0 floats only
+    t = uf[i] << 1 ;                  // get rid of sign, exponent in upper 8 bits
+    emax = (t > emax) ? t : emax ;
+    t = (t == 0) ? (0xFFu << 24) : t ;         // ignore values of 0
+    emin = (t < emin) ? t : emin ;
+  }
+  allp >>= 31 ;
+  allm >>= 31 ;
+  prop.emax = emax >> 24 ;                       // exponent WITH IEEE bias (127)
+  prop.emin = emin >> 24 ;                       // exponent WITH IEEE bias (127)
+  prop.allp = allp ;
+  prop.allm = allm ;
+  return prop ;         // emax and emin
+}
+
+ieee_prop ieee_get_block(float *restrict src, float *restrict dst, int ni, int lni, int nj){
+  int i, j ;
+  float *dst0 = dst ;
+  ni &= 15 ; nj &= 15 ;        // hint that ni and nj are small (<=8)
+  if(ni == 8 && nj == 8){      // 8x8 block
+    for(j=0 ; j<8 ; j++){
+      for(i=0 ; i<8; i++){
+        dst[i] = src[i] ;
+      }
+      dst += 8 ;
+      src += lni ;
+    }
+    return ieee_properties_64(dst) ;
+  }else{
+    for(j=0 ; j<nj ; j++){
+      for(i=0 ; i<ni; i++){
+        dst[i] = src[i] ;
+      }
+      dst += 8 ;
+      src += lni ;
+    }
+  }
+    return ieee_properties(dst, ni*nj) ;
+}
+
+// get the IEEE exponent of the largest float (absolute value)
+// and the smallest non zero float (absolute value)  in float array f
+// if all values of f are 0.0, 255 will be returned for the minimum exponent
 uint32_t ieee_minmax_exponent(float *f, int n){
   int i ;
   uint32_t *uf = (uint32_t *) f ;

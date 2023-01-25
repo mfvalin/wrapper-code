@@ -31,6 +31,17 @@ Library General Public License for more details.
 
 #define MISC_OPERATORS
 
+// properties of an array of IEEE floats
+typedef struct{
+  uint8_t emax ;  // largest float (absolute value) exponent
+  uint8_t emin ;  // smallest non zero float (absolute value) exponent
+  uint8_t allp ;  // 0 if all non negative numbers
+  uint8_t allm ;  // 1 if all negative numbers
+} ieee_prop ;
+ieee_prop ieee_properties(float *f, int n);
+ieee_prop ieee_properties_64(float *f);
+ieee_prop ieee_get_block(float *restrict src, float *restrict dst, int ni, int lni, int nj);
+
 #if defined(__x86_64__) && defined(__AVX2__)
 static inline __m128i _mm_lower128(__m256i v256) { return _mm256_extracti128_si256(v256, 0) ; }
 static inline __m128i _mm_upper128(__m256i v256) { return _mm256_extracti128_si256(v256, 1) ; }
@@ -409,7 +420,6 @@ STATIC inline int Nint(float what){
 
 uint32_t ieee_max_exponent(float *f, int n) ;      // IEEE exponent of the largest float (absolute value) in float array f
 uint32_t ieee_min_exponent(float *f, int n) ;      // IEEE exponent of the smallest non zero float (absolute value) in float array f
-uint32_t ieee_minmax_exponent(float *f, int n) ;   // IEEE exponents of the largest and the smallest non zero float (absolute value)
 
 #if defined(STATIC_DEFINED_HERE)
 #undef STATIC
