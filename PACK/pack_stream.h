@@ -40,7 +40,7 @@
   end type
 #else
 
-#include <pack_macros.h>
+#include <rmn/pack_macros.h>
 
 #if ! defined(ABS)
 #define ABS(val)  ((val) < 0) ? (-(val)) : (val)

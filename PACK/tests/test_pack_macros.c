@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <sys/time.h>
 
-#include <pack_macros.h>
+#include <rmn/pack_macros.h>
 // need RMASK operators
 #include <rmn/misc_operators.h>
 

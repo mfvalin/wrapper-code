@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <sys/time.h>
 
-#include <pack_macros.h>
+#include <rmn/pack_macros.h>
 
 #define TIMING_PACK 67108864
 #define MAX_PACK 4096
