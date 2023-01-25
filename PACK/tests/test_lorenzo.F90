@@ -3,7 +3,6 @@ program lorenzo_test
   use rmn_timers
   use ISO_C_BINDING
   implicit none
-! #include <rmn/misc_timers.hf>
 
 #if ! defined(NI)
 #define NI 128
