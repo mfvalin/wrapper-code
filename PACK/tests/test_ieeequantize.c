@@ -23,7 +23,7 @@
 #include <float.h>
 
 #include <rmn/misc_operators.h>
-#include <misc_types.h>
+#include <rmn/misc_types.h>
 
 #include <ieee_quantize.h>
 #include <ieee_quantize.h>

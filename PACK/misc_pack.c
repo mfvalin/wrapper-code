@@ -21,7 +21,7 @@
 #include <immintrin.h>
 #endif
 
-#include <misc_types.h>
+#include <rmn/misc_types.h>
 #include <rmn/misc_operators.h>
 #include <misc_pack.h>
 

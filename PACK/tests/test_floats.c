@@ -19,7 +19,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <misc_types.h>
+#include <rmn/misc_types.h>
 #include <rmn/misc_timers.h>
 #include <misc_floats.h>
 // int verify_upper(uint32_t *a, uint32_t *b, int n);

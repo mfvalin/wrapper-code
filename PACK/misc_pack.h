@@ -117,7 +117,7 @@ end interface
 #include <stdint.h>
 #include <stddef.h>
 
-#include <misc_types.h>
+#include <rmn/misc_types.h>
 
 // determine how many bits are needed to represent value x
 static inline uint32_t NeedBits(int32_t nx){

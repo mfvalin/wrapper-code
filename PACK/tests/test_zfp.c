@@ -17,7 +17,7 @@
 #include <math.h>
 
 #include <rmn/misc_timers.h>
-#include <misc_types.h>
+#include <rmn/misc_types.h>
 #include <misc_pack.h>
 #include <rmn/misc_operators.h>
 #include <lorenzo.h>

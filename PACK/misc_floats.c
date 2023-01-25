@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include <misc_types.h>
+#include <rmn/misc_types.h>
 #include <misc_floats.h>
 
 #if ! defined(STATIC)
