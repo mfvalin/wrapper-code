@@ -10,7 +10,7 @@
 #include <fast_endian.h>
 #include <fast_endian.h>
 
-#include <misc_timers.h>
+#include <rmn/misc_timers.h>
 #define NTIMES 100000
 
 // make sure that NPTS is (multiple of 32) - 1 to exercize all code branches

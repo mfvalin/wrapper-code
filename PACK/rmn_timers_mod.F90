@@ -71,12 +71,27 @@ contains
     integer(C_INT64_T) :: cycles
     cycles = c_elapsed_cycles()
   end function
+  function elapsed_cycles() result(cycles)       ! read time base counter in ticks
+    implicit none
+    integer(C_INT64_T) :: cycles
+    cycles = c_elapsed_cycles()
+  end function
   function timer_us() result(us)               ! read wall clock time in microseconds
     implicit none
     integer(C_INT64_T) :: us
     us = c_elapsed_us()
   end function
+  function elapsed_us() result(us)               ! read wall clock time in microseconds
+    implicit none
+    integer(C_INT64_T) :: us
+    us = c_elapsed_us()
+  end function
   function timer_freq() result(freq)           ! get time base counter frequency in Hertz
+    implicit none
+    integer(C_INT64_T) :: freq
+    freq = c_cycles_counter_freq()
+  end function
+  function cycles_counter_freq() result(freq)           ! get time base counter frequency in Hertz
     implicit none
     integer(C_INT64_T) :: freq
     freq = c_cycles_counter_freq()

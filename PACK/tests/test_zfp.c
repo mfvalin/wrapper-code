@@ -16,10 +16,10 @@
 #include <string.h>
 #include <math.h>
 
-#include <misc_timers.h>
+#include <rmn/misc_timers.h>
 #include <misc_types.h>
 #include <misc_pack.h>
-#include <misc_operators.h>
+#include <rmn/misc_operators.h>
 #include <lorenzo.h>
 #include <misc_zfp.h>
 #include <misc_analyze.h>

@@ -47,7 +47,8 @@ recompile_${MOD} :  $(INCLUDES)
 all_tests : test_compress test_lorenzo test_pack test_pack_macros \
             test_quantize test_float_info test_helpers test_averages \
             test_cdf97 test_cdf53 test_endian test_endian_f \
-            test_ieeequantize test_encode
+            test_ieeequantize test_encode test_pack_value test_timers \
+            test_operators_c test_compress_c test_bits_needed
 
 test_pack_value : test_pack_value.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
@@ -199,7 +200,7 @@ test_endian_f : test_endian_f.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
 test_endian_f.$(MOD).exe : tests/test_endian_f.F90 ${LIBDIR}/libmisc.a
 	(module load $(MOD)$(EXT) >/dev/null ; \
-	$$FTN $(OPT) $(DEF) -DCDF53 -I. $^ -L${LIBDIR} -lmisc -o $@ )
+	$$FTN $(OPT) $(DEF) -DCDF53 -I. -Iinclude_$(MOD) $^ -L${LIBDIR} -lmisc -o $@ )
 
 test_floats : test_floats.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true

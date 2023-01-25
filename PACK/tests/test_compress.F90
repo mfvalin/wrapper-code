@@ -198,7 +198,7 @@ end subroutine tile
 subroutine population(p, n, msg)
   use ISO_C_BINDING
   implicit none
-#include <misc_operators.h>
+#include <rmn/misc_operators.h>
   integer(C_INT32_t), intent(IN), dimension(n) :: p
   integer(C_INT32_t), intent(IN) :: n
   character(len=*) :: msg
@@ -220,7 +220,7 @@ subroutine wavelet(p, q, ni, nj)
   integer, intent(IN) :: ni, nj
   real, dimension(ni,nj), intent(IN)  :: p
   real, dimension(ni,nj), intent(OUT) :: q
-#include <misc_operators.h>
+#include <rmn/misc_operators.h>
   interface
     subroutine FDWT53i_2D_split_inplace_n(x, ni, lni, nj, levels) bind(C, name='FDWT53i_2D_split_inplace_n')
       import :: C_INT32_T
@@ -287,7 +287,7 @@ subroutine lorenzo12(p, q, ni, nj) ! Lorenzo predictor
   integer :: i, j
   integer(C_INT32_t), dimension(34) :: pop
   integer(C_INT32_t), dimension(ni,nj) :: iq
-#include <misc_operators.h>
+#include <rmn/misc_operators.h>
   call quant12i(p, iq, ni, nj)
   call population(iq, ni*nj, 'lorenzo12 avant')
 !   print *,'entropy =',BitEntropy(iq, ni*nj, 16, 0)
@@ -321,7 +321,7 @@ subroutine lorenzo(p, q, ni, nj) ! Lorenzo predictor
   integer :: i, j
   integer(C_INT32_t), dimension(34) :: pop
   integer(C_INT32_t), dimension(ni,nj) :: iq
-#include <misc_operators.h>
+#include <rmn/misc_operators.h>
   call quant16i(p, iq, ni, nj)
   call population(iq, ni*nj, 'lorenzo avant')
 !   print *,'entropy =',BitEntropy(iq, ni*nj, 16, 0)

@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <immintrin.h>
-#include <misc_operators.h>
+#include <rmn/misc_operators.h>
 
 int main(int argc, char **argv){
   int i, n=0 ;

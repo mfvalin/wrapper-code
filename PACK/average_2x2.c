@@ -26,7 +26,7 @@
 
 #define STATIC static
 // import integer averaging rounded operators IDIV4R and IDIV2R
-#include <misc_operators.h>
+#include <rmn/misc_operators.h>
 #undef STATIC
 #define STATIC extern
 

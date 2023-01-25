@@ -17,7 +17,7 @@
 #endif
 
 #define STATIC extern
-#include <misc_operators.h>
+#include <rmn/misc_operators.h>
 
 #include <math.h>
 #include <stdlib.h>

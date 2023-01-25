@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <misc_timers.h>
-#include <misc_operators.h>
+#include <rmn/misc_timers.h>
+#include <rmn/misc_operators.h>
 #include <average_2x2.h>
 
 #define NTIMES 10000

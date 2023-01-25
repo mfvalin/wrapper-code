@@ -2,9 +2,9 @@
 #include <stdlib.h>
 
 #include <misc_pack.h>
-#include <misc_operators.h>
-#include <misc_timers.h>
-#include <misc_timers.h>
+#include <rmn/misc_operators.h>
+#include <rmn/misc_timers.h>
+#include <rmn/misc_timers.h>
 
 int main(int argc, char **argv){
   float *zi ;

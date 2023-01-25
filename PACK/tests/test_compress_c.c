@@ -11,7 +11,7 @@
 #include <idwt53.h>
 #include <misc_pack.h>
 #include <lorenzo.h>
-#include <misc_operators.h>
+#include <rmn/misc_operators.h>
 
 static inline int indx3(int i, int j, int k, int ni, int nj,  int nk){
   return (i + ni*j + nj*k) ;

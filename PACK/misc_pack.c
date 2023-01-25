@@ -22,7 +22,7 @@
 #endif
 
 #include <misc_types.h>
-#include <misc_operators.h>
+#include <rmn/misc_operators.h>
 #include <misc_pack.h>
 
 #if ! defined(__INTEL_COMPILER_UPDATE)
