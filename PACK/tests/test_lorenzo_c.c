@@ -10,7 +10,7 @@
 
 #define NTIMES 100000
 
-#include <lorenzo.h>
+#include <rmn/lorenzo.h>
 
 int main(int argc, char **argv){
   int32_t data[NPTS+1][NPTS] ;

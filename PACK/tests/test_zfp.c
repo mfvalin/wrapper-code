@@ -20,7 +20,7 @@
 #include <rmn/misc_types.h>
 #include <misc_pack.h>
 #include <rmn/misc_operators.h>
-#include <lorenzo.h>
+#include <rmn/lorenzo.h>
 #include <misc_zfp.h>
 #include <misc_analyze.h>
 

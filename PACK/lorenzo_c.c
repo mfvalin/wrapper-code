@@ -22,7 +22,7 @@
 #define STATIC static
 #endif
 
-#include <lorenzo.h>
+#include <rmn/lorenzo.h>
 
 // plain C version for cases where ni < 9
 static void LorenzoPredictShort(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj){

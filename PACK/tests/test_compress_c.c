@@ -10,7 +10,7 @@
 
 #include <idwt53.h>
 #include <misc_pack.h>
-#include <lorenzo.h>
+#include <rmn/lorenzo.h>
 #include <rmn/misc_operators.h>
 
 static inline int indx3(int i, int j, int k, int ni, int nj,  int nk){
