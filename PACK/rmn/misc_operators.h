@@ -32,11 +32,19 @@ Library General Public License for more details.
 #define MISC_OPERATORS
 
 // properties of an array of IEEE floats
+// typedef struct{
+//   uint8_t emax ;  // largest float (absolute value) exponent
+//   uint8_t emin ;  // smallest non zero float (absolute value) exponent
+//   uint8_t allp ;  // 0 if all non negative numbers
+//   uint8_t allm ;  // 1 if all negative numbers
+// } ieee_prop ;
 typedef struct{
-  uint8_t emax ;  // largest float (absolute value) exponent
-  uint8_t emin ;  // smallest non zero float (absolute value) exponent
-  uint8_t allp ;  // 0 if all non negative numbers
-  uint8_t allm ;  // 1 if all negative numbers
+  uint32_t emax:8 ,  // largest float (absolute value) exponent
+           emin:8 ,  // smallest non zero float (absolute value) exponent
+           allp:4 ,  // 0 if all non negative numbers
+           allm:4 ,  // 1 if all negative numbers
+           zero:4 ,  // 1 if zero values detected
+           spare : 4 ;
 } ieee_prop ;
 ieee_prop ieee_properties(float *f, int n);
 ieee_prop ieee_properties_64(float *f);
