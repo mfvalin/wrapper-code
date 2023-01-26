@@ -8,6 +8,6 @@ module rmn_misc_helpers
 #include <pack_stream.h>
 #include <rmn/lorenzo.h>
 #include <cpu_type.h>
-#include <idwt53.h>
+#include <rmn/idwt53.h>
 #include <smooth124.h>
 end module

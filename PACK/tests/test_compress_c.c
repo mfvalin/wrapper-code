@@ -8,7 +8,7 @@
 #include <fcntl.h>
 #include <string.h>
 
-#include <idwt53.h>
+#include <rmn/idwt53.h>
 #include <rmn/misc_pack.h>
 #include <rmn/lorenzo.h>
 #include <rmn/misc_operators.h>

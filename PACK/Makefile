@@ -16,7 +16,7 @@ VPATH = obj_${MOD}:rmn
 	$$CC -c -I. -I$$LIBECCC/include $(OPT) $(DEF) $< -o obj_$(MOD)/$@ ; )
 %.F90.o: %.F90
 	(module load $(MOD)$(EXT) >/dev/null ; mkdir -p obj_$(MOD) include_$(MOD) ; \
-	$$FTN -c -I. -Iinclude_$(MOD) -I$$LIBECCC/include $(OPT) $(DEF) $< -o obj_$(MOD)/$@ ; \
+	$$FTN -c -I. -I./rmn -Iinclude_$(MOD) -I$$LIBECCC/include $(OPT) $(DEF) $< -o obj_$(MOD)/$@ ; \
 	mv *.mod include_$(MOD)/. )
 
 # the order of the Fortran objects is NOT arbitrary, there are dependencies
