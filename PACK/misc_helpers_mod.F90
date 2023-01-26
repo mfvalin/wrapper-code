@@ -3,7 +3,7 @@ module rmn_misc_helpers
   implicit none
 #define IN_FORTRAN_CODE
 #include <rmn/misc_operators.h>
-#include <misc_pack.h>
+#include <rmn/misc_pack.h>
 #include <misc_swizzle.h>
 #include <pack_stream.h>
 #include <rmn/lorenzo.h>

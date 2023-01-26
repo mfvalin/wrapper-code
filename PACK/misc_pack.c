@@ -23,7 +23,7 @@
 
 #include <rmn/misc_types.h>
 #include <rmn/misc_operators.h>
-#include <misc_pack.h>
+#include <rmn/misc_pack.h>
 
 #if ! defined(__INTEL_COMPILER_UPDATE)
 #pragma GCC optimize "tree-vectorize"

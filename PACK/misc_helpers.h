@@ -18,6 +18,6 @@
 #include <rmn/misc_operators.h>
 #include <rmn/misc_timers.h>
 #include <rmn/misc_types.h>
-#include <misc_pack.h>
+#include <rmn/misc_pack.h>
 
 #endif

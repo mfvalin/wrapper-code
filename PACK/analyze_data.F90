@@ -19,7 +19,7 @@ module analyze_data_mod
   use rmn_misc_operators
   use rmn_zfpx
   implicit none
-#include <misc_pack.hf>
+#include <rmn/misc_pack.hf>
 #define IN_FORTRAN_CODE
 ! #include <misc_operators.h>
 #include <average_2x2.h>

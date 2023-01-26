@@ -5,7 +5,7 @@
 module analyze_data_mod
   use ISO_C_BINDING
   implicit none
-#include <misc_pack.hf>
+#include <rmn/misc_pack.hf>
 
 contains
 
