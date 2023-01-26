@@ -5,7 +5,7 @@ interface
     implicit none
 #define IgnoreTypeKindRank s, d
 #define ExtraAttributes
-#include <rmn/IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTKR.hf>
     integer(C_INT32_T), intent(IN), value :: n
   end subroutine
 
@@ -15,7 +15,7 @@ interface
     implicit none
 #define IgnoreTypeKindRank s, d
 #define ExtraAttributes
-#include <rmn/IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTKR.hf>
     integer(C_INT32_T), intent(IN), value :: n
   end subroutine
 
@@ -25,7 +25,7 @@ interface
     implicit none
 #define IgnoreTypeKindRank s, d
 #define ExtraAttributes
-#include <rmn/IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTKR.hf>
     integer(C_INT32_T), intent(IN), value :: n
   end subroutine
 
@@ -35,7 +35,7 @@ interface
     implicit none
 #define IgnoreTypeKindRank s, d
 #define ExtraAttributes
-#include <rmn/IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTKR.hf>
     integer(C_INT32_T), intent(IN), value :: n
   end subroutine
 
@@ -45,7 +45,7 @@ interface
     implicit none
 #define IgnoreTypeKindRank s, d
 #define ExtraAttributes
-#include <rmn/IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTKR.hf>
     integer(C_INT32_T), intent(IN), value :: n
   end subroutine
 
@@ -55,7 +55,7 @@ interface
     implicit none
 #define IgnoreTypeKindRank s, d
 #define ExtraAttributes
-#include <rmn/IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTKR.hf>
     integer(C_INT32_T), intent(IN), value :: n
   end subroutine
 

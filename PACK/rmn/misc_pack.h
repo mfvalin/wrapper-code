@@ -89,7 +89,7 @@ interface float_info  ! generic interface for both missing and no missing cases
     implicit none
 #define IgnoreTypeKindRank zz
 #define ExtraAttributes 
-#include <rmn/IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTKR.hf>
     integer(C_INT), intent(IN), value :: ni, lni, nj
 !   real(C_FLOAT), dimension(lni,nj)), intent(IN) :: zz
     real(C_FLOAT), intent(OUT) :: maxval, minval, minabs
@@ -101,7 +101,7 @@ interface float_info  ! generic interface for both missing and no missing cases
     implicit none
 #define IgnoreTypeKindRank zz
 #define ExtraAttributes 
-#include <rmn/IgnoreTypeKindRank.hf>
+#include <rmn/IgnoreTKR.hf>
     integer(C_INT), intent(IN), value :: ni, lni, nj, spmask
 !   real(C_FLOAT), dimension(lni,nj), intent(IN) :: zz
     real(C_FLOAT), intent(OUT) :: maxval, minval, minabs, spval
