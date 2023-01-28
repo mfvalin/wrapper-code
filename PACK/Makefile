@@ -54,7 +54,12 @@ all_tests : \
 	test_bits_needed test_operators test_analyze test_lorenzo test_pack test_pack_macros \
 	test_bi_endian_pack test_zfp test_quantize test_ieeequantize test_float_info \
 	test_helpers test_average_2x2 test_averages test_cdf97 test_cdf53 test_idwt53 \
-	test_endian test_endian_f test_floats test_smooth124 test_lorenzo_c
+	test_endian test_endian_f test_floats test_smooth124 test_lorenzo_c \
+	test_success
+test_success :
+	@echo =============================================
+	@echo executable for all tests successfully created
+	@echo =============================================
 # 
 # 	items needing librmn or libzfp 
 #       will be loaded with the static version
