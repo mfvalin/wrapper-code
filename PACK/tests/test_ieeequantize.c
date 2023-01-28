@@ -34,7 +34,7 @@
 #define NEXP 4
 
 int main(){
-  FloatUint x1, x2, x3, y, z0, z, t0, t1, t2, fi0, fo0 ;
+  FloatInt x1, x2, x3, y, z0, z, t0, t1, t2, fi0, fo0 ;
   uint32_t e, e0, m ;
   int i, j, nbits, nbits0 ;
   float r ;

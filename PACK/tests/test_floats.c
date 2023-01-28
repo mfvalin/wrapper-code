@@ -47,7 +47,7 @@ int main(int argc, char **argv){
   uint64_t t[NTIMES] ;
   double bias, avg ;
   int nexpbits ;
-  FloatUint fmax ;
+  FloatInt fmax ;
 
   freq = cycles_counter_freq() ;
   nano = 1000000000 ;
