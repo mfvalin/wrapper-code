@@ -17,22 +17,24 @@
 #include <stdint.h>
 #include <stddef.h>
 
-typedef union{
-  uint32_t u ;
-  float    f ;
-} FloatUint ;
+// typedef union{
+//   uint32_t u ;
+//   float    f ;
+// } FloatUint ;
 
 typedef union{
+  uint32_t u ;
   int32_t i ;
   float   f ;
 } FloatInt;
 
-typedef union{
-  uint64_t ul ;
-  double   d ;
-} DoubleUlong;
+// typedef union{
+//   uint64_t ul ;
+//   double   d ;
+// } DoubleUlong;
 
 typedef union{
+  uint64_t ul ;
   int64_t l ;
   double  d ;
 } DoubleLong;

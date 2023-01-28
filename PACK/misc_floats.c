@@ -165,7 +165,7 @@ void fp32_bf16(void *f32, uint32_t *u16, int32_t n){
 // return maximum absolute value that can be represented by a 16 bit float
 // using nexp (<=8) bits for the exponent field
 float nf16_floatmax(int nexp){
-  FloatUint top ;
+  FloatInt top ;
   uint32_t s8 = (8 - nexp) ;
   uint32_t fexp = (0x7F >> s8) ;
   if(nexp == 8) fexp-- ;
@@ -182,10 +182,10 @@ float nf16_floatmax(int nexp){
 // NOTE: add overflow to infinity argument, set top = 0x7FFF0000u in that case
 void fp32_nf16(void *f32, uint32_t *u16, int32_t n, int32_t nexp){
   int32_t i ;
-  FloatUint *u32 = f32 ;
+  FloatInt *u32 = f32 ;
   uint32_t round, fexp, sign, top ;
   uint32_t s8 ;
-  FloatUint nfac, z ;
+  FloatInt nfac, z ;
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m256i vi, v8, vs, vt, vr, vn, v1, v32, vm ;
   __m256  vf ;
@@ -464,10 +464,10 @@ void bf16_fp32(void *f32, uint32_t *u16, int32_t n){
 // NOTE: may want to add infinity option, and decode 7FFF as infinity
 void nf16_fp32(void *f32, uint32_t *u16, int32_t n, int nexp){
   int32_t i ;
-  FloatUint *u32 = f32 ;
+  FloatInt *u32 = f32 ;
   uint32_t top, fexp, sign ;
   uint32_t s8 ;
-  FloatUint nfac, z ;
+  FloatInt nfac, z ;
 //   bf16_fp32(f32, u16, n) ;
 //   return ;
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)

@@ -43,7 +43,7 @@ void quantize_setup(float *z,            // array to be quantized (IEEE 754 32 b
 {
   int i, j, j0 ;
   float mi[VL], ma[VL], mia[VL], za[VL], z0[VL] ;
-  FloatUint rng ;
+  FloatInt rng ;
   float maxabs, minabs ;
 
   for(i=0 ; i<VL && i<n ; i++) z0[i] = z[i] ;
@@ -119,7 +119,7 @@ void ieee_clip(void *f, int n, int nbits){
 // with a reduced size exponent and a reduced size mantissa (nm bits)
 // this new "reduced size float" is treated as an integer when restoring sign if needed
 STATIC inline int32_t ieee_f_to_q(float f, int32_t e0, int32_t round, float t0, int nm, int32_t limit, int32_t sbit){
-  FloatUint z, x1, y ;
+  FloatInt z, x1, y ;
   int sign, ex ;
   int q ;                       // final result
   z.f = f ;                     // float will be mostly manipulated as an unsigned integer
@@ -149,7 +149,7 @@ STATIC inline int32_t ieee_f_to_q(float f, int32_t e0, int32_t round, float t0, 
 // t1 * t2 might generate an overflow, which is why they MUST be applied separately using 2 multiplies
 STATIC inline float ieee_q_to_f_2(int32_t q, float t1, float t2, int nm, int32_t sbit, int32_t neg){
   int sign ;
-  FloatUint q1 ;
+  FloatInt q1 ;
   float f ;                     // final result
   sign = (q < 0) ? 1 : 0 ;      // get sign
   sign = sign & sbit ;          // possibly unsigned quantized value
@@ -163,7 +163,7 @@ STATIC inline float ieee_q_to_f_2(int32_t q, float t1, float t2, int nm, int32_t
 // single factor version if t1 * t2 are known not to create an overflow
 STATIC inline float ieee_q_to_f_1(int32_t q, float t1t2, int nm, int32_t sbit, int32_t neg){
   int sign ;
-  FloatUint q1 ;
+  FloatInt q1 ;
   float f ;                     // final result
   sign = (q < 0) ? 1 : 0 ;      // get sign
   sign = sign & sbit ;          // possibly unsigned quantized value
@@ -196,7 +196,7 @@ int32_t ieee_quantize(float *f,        // array to quantize (IEEE 754 32 bit flo
                       qhead *h)        // quantization setup information (INPUT+OUTPUT)
 {
   int i, e0, nm ;
-  FloatUint z0, t0 ;
+  FloatInt z0, t0 ;
   int32_t round, min, max ;
   int32_t limit, sbit ;
   float fmaxa ;    // largest absolute value in array
@@ -244,7 +244,7 @@ int32_t ieee_quantize_v4(float *f,        // array to quantize (IEEE 754 32 bit 
                       qhead *h)        // quantization control information (INPUT+OUTPUT)
 {
   int i, j, e0, nm ;
-  FloatUint z0, t0 ;
+  FloatInt z0, t0 ;
   int32_t round ;
   int32_t limit, sbit ;
   int32_t vl ;
@@ -292,7 +292,7 @@ int32_t ieee_unquantize(float *f,      // restored array (IEEE 754 32 bit float)
                         qhead *h)      // quantization control information (INPUT)
 {
   int i ;
-  FloatUint t1, t2 ;
+  FloatInt t1, t2 ;
   int nm ;
   int nexp, e0, nbits ;
   int32_t sbit, neg ;
@@ -329,7 +329,7 @@ fprintf(stdout,"BOP\n");
 // IEEE 32 bit floating point to half precision (16 bit) IEEE floating point
 // any number >= 65520 will be coded as infinity in FP16
 STATIC inline uint16_t ieee_fp32_to_fp16(float f){
-  FloatUint z, y ;
+  FloatInt z, y ;
   uint32_t sign ;
   uint32_t round = 0x1000 ;
   uint32_t limit = ((127+16) << 23) | 0x7FFFFF ; // largest representable FP16
@@ -352,7 +352,7 @@ void fp32_to_fp16(float *f, uint16_t *q, int n){
 }
 
 STATIC inline uint32_t ieee_fp32_to_fp24(float f){
-  FloatUint z ;
+  FloatInt z ;
   uint32_t mant, exp, sign ;
   uint32_t round = 1 << 7 ;
   z.f = f ;
@@ -408,7 +408,7 @@ void fp32_to_fp24_scaled(float *f, uint32_t *q, int n, float scale){
 // current code will not behave correctly if upper 16 bits after sign bit in float are 1 (NaN)
 // removing comments makes code safe
 void fp32_to_bf16(float *f, uint16_t *q, int n){
-  FloatUint z ;
+  FloatInt z ;
   uint32_t round = 1 << 15 ;
 //   uint32_t sign ;
   int i ;
@@ -427,7 +427,7 @@ void fp32_to_bf16(float *f, uint16_t *q, int n){
 // the infinity argment value is used as a result if the FP16 exponent is 31
 // (the sign of the FP16 value will be preserved)
 STATIC inline float ieee_fp16_to_fp32(uint16_t q, uint32_t infinity){
-  FloatUint z, y ;
+  FloatInt z, y ;
   int sign ;
   int e0;
   sign = q & 0x8000 ;    // position of FP16 sign bit
@@ -460,7 +460,7 @@ void fp24_to_fp32(float *f, void *f24, int n, void *inf){
   int i0, i ;
 //   int mant, exp, sign ;
 //   uint32_t *q = f24 ;
-//   FloatUint z[4] ;
+//   FloatInt z[4] ;
 //   uint32_t Inf = 0X7F800000 ; //  IEEE Infinity
 
   for(i0=0 ; i0<n-3 ; i0+=4){
@@ -506,7 +506,7 @@ void fp16_to_fp32_scaled(float *f, void *f16, int n, void *inf, float scale){
 
 // brain float (16 bit) to IEEE 32 bit floating point
 void bf16_to_fp32(float *f, uint16_t *q, int n){
-  FloatUint z ;
+  FloatInt z ;
   int i ;
   for(i = 0 ; i < n ; i++){
     z.u = q[i] ;
