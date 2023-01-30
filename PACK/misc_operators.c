@@ -17,11 +17,75 @@
 #endif
 
 #define STATIC extern
+#include <rmn/misc_types.h>
 #include <rmn/misc_operators.h>
 
 #include <math.h>
 #include <stdlib.h>
+#include <stdio.h>
 
+// ieee_prop struct to block header
+extern inline uint16_t encode_ieee_header(ieee_prop prop){
+  uint16_t header ;   // MSB -> LSB emax:8, full:1, same_exp:1, npti:3, nptj:3          (short block)
+                      //            emax:8, full:1, same_exp:1, allp:1, allm:1, spare:4 (full 8x8 block)
+
+  header = prop.emax << 8 ;             // common part
+  header |= (prop.mima << 6) ;
+  if(prop.npti == 8 && prop.nptj == 8){ // full block (npti * nptj == 64)
+    header |= (1 << 7) ;                // full block flag
+    header |= (prop.allp << 5) ;
+    header |= (prop.allm << 4) ;
+  }else{                                // short block (npti * nptj < 64)
+    header |= ((prop.npti - 1) << 3) ;
+    header |= (prop.nptj - 1) ;
+  }
+  return header ;
+}
+
+// block header to ieee_prop struct
+extern inline ieee_prop decode_ieee_header(uint16_t header){
+  ieee_prop prop ;
+  int full ;
+
+  prop.emax = header >> 8 ;            // common part
+  prop.emin = 0 ;                      // unknown
+  prop.mima = (1 & (header >> 6)) ;
+  prop.resv = 0 ;
+  prop.zero = 0 ;                      // don't care
+  full = (1 & (header >> 7)) ;
+  if(full){                            // full block (npti * nptj == 64)
+    prop.npti = 8 ;
+    prop.nptj = 8 ;
+    prop.allp = (1 & (header >> 5)) ;
+    prop.allm = (1 & (header >> 4)) ;
+  }else{                                // short block (npti * nptj < 64)
+    prop.npti = ((header >> 3) & 7) + 1 ;
+    prop.nptj = (header & 7) + 1 ;
+    prop.allp = 0 ;                     // always false for short blocks
+    prop.allm = 0 ;
+  }
+  return prop ;
+}
+
+// encode properties into ieee_prop sruct
+static inline ieee_prop make_ieee_prop(uint32_t allp, uint32_t allm, uint32_t emin, uint32_t emax, uint32_t zero){
+  ieee_prop prop;
+
+  allp >>= 31 ;  allp = allp ? 0 : 1 ;           // 1 if all numbers are non negative
+  allm >>= 31 ;                                  // 1 if all numbers are negative
+  prop.emax = emax >> 24 ;                       // largest exponent WITH IEEE bias (127)
+  prop.emin = emin >> 24 ;                       // smallest exponent WITH IEEE bias (127)
+  prop.allp = allp ;                             // 1 if all numbers are non negative
+  prop.allm = allm ;                             // 1 if all numbers are negative
+  prop.zero = zero ? 0 : 1 ;                     // 1 if zero value detected
+  prop.mima = (prop.emax == prop.emin) && (allp | allm) && (zero) ;    // same exponent and sign throughout
+  prop.resv = 0 ;                                // reserved for future use, MUST be zero for now
+  prop.npti = 0 ;                                // unknown at this point, will be inserted later
+  prop.nptj = 0 ;                                // unknown at this point, will be inserted later
+// printf("make_ieee_prop : emax = %d, emin = %d, mima = %d, allp = %d, allm = %d, zero = %d\n", 
+//        prop.emax, prop.emin, prop.mima, prop.allp, prop.allm, prop.zero) ;
+  return prop ;
+}
 // get the IEEE exponent of the largest float (absolute value)
 // and the smallest non zero float (absolute value)  in float array f
 // if all values of f are 0.0, 255 will be returned for the minimum exponent
@@ -29,30 +93,37 @@
 ieee_prop ieee_properties(float *f, int n){
   int i ;
   uint32_t *uf = (uint32_t *) f ;
-  uint32_t t, emax = 0 , emin = 0xFFu << 24 ;
+  uint32_t t, emax = 0 , emin = 0xFFu << 24, zero = 0xFFu << 24 ;
   uint32_t allp = 0, allm = 0xFFFFFFFFu ;
   ieee_prop prop;
 
+  if(n > 64 || n < 0){
+    printf("ieee_properties ERROR : invalid number of points : expected 1 -> 64, got %d\n", n) ;
+    prop.resv = 0xF ;
+    return prop ;
+  }
   for(i=0 ; i<n ; i++){
     allp |= uf[i] ;                   // upper bit will remain 0 if >= 0 floats only
     allm &= uf[i] ;                   // upper bit will remain 1 if < 0 floats only
     t = uf[i] << 1 ;                  // get rid of sign, exponent in upper 8 bits
+    zero = (t < zero) ? t : zero ;    // smallest value, including zero
     emax = (t > emax) ? t : emax ;
     t = (t == 0) ? (0xFFu << 24) : t ;         // ignore values of 0
     emin = (t < emin) ? t : emin ;
   }
-  allp >>= 31 ;  allp = allp ? 0 : 1 ;           // 1 if all numbers are non negative
-  allm >>= 31 ;                                  // 1 if all numbers are negative
-  prop.emax = emax >> 24 ;                       // exponent WITH IEEE bias (127)
-  prop.emin = emin >> 24 ;                       // exponent WITH IEEE bias (127)
-  prop.allp = allp ;
-  prop.allm = allm ;
-  return prop ;         // emax and emin
+  prop = make_ieee_prop(allp, allm, emin, emax, zero) ;
+  if(n != 64) {                           // short block, only flag kept is mima (same exponent)
+    if( prop.allp != 1) prop.mima = 0 ;   // and only if all numbers are non negative
+    prop.allp = prop.allm = 0 ;           // suppress allm and allp flags
+  }else{
+    prop.npti = prop.nptj = 8 ;          // full 8x8 block
+  }
+  return prop ;
 }
-ieee_prop ieee_properties_64(float *f){  // special case (frequent occurrance) used for 8x8 block
+ieee_prop ieee_properties_64(float *f){  // special case (frequent occurrance) used for 8x8 blocks
   int i ;
   uint32_t *uf = (uint32_t *) f ;
-  uint32_t t, emax = 0 , emin = 0xFFu << 24 ;
+  uint32_t t, emax = 0 , emin = 0xFFu << 24, zero = 0xFFu << 24 ;
   uint32_t allp = 0, allm = 0xFFFFFFFFu ;
   ieee_prop prop;
 
@@ -60,64 +131,193 @@ ieee_prop ieee_properties_64(float *f){  // special case (frequent occurrance) u
     allp |= uf[i] ;                   // upper bit will remain 0 if >= 0 floats only
     allm &= uf[i] ;                   // upper bit will remain 1 if < 0 floats only
     t = uf[i] << 1 ;                  // get rid of sign, exponent in upper 8 bits
-    emax = (t > emax) ? t : emax ;
-    t = (t == 0) ? (0xFFu << 24) : t ;         // ignore values of 0
-    emin = (t < emin) ? t : emin ;
+    zero = (t < zero) ? t : zero ;    // smallest absolute value, including zero
+    emax = (t > emax) ? t : emax ;    // largest absolute value
+    t = (t == 0) ? (0xFFu << 24) : t ;         // ignore values of 0 for emin
+    emin = (t < emin) ? t : emin ;    // smallest absolute value (larger than 0)
   }
-  allp >>= 31 ; allp = allp ? 0 : 1 ;            // 1 if all numbers are non negative
-  allm >>= 31 ;                                  // 1 if all numbers are negative
-  prop.emax = emax >> 24 ;                       // exponent WITH IEEE bias (127)
-  prop.emin = emin >> 24 ;                       // exponent WITH IEEE bias (127)
-  prop.allp = allp ;
-  prop.allm = allm ;
-  return prop ;         // emax and emin
+  prop = make_ieee_prop(allp, allm, emin, emax, zero) ;
+  prop.npti = prop.nptj = 8 ;         // full 8x8 block
+  return prop ;
 }
 
-ieee_prop ieee_get_block(float *restrict src, float *restrict dst, int ni, int lni, int nj){
-  int i, j ;
-  float *dst0 = dst ;
-  ni &= 15 ; nj &= 15 ;        // hint that ni and nj are small (<=8)
-  if(ni == 8 && nj == 8){      // 8x8 block
-    for(j=0 ; j<8 ; j++){
-      for(i=0 ; i<8; i++){
-        dst[i] = src[i] ;
-      }
-      dst += 8 ;
-      src += lni ;
+// encode IEEE float block as a sequence of 16 bit tokens
+ieee_prop ieee_encode_block_16(float xf[64], int ni, int nj, uint16_t *restrict stream){
+  int i, n = ni*nj ;
+  uint32_t *xi = (uint32_t *) xf ;
+  uint16_t header  ;
+  FloatInt factor ;
+  int16_t *t = (int16_t *) stream ;
+  int32_t tmp ;
+  uint32_t utmp ;
+  ieee_prop prop ;
+
+  if(ni < 1 || ni > 8 || nj < 1 || nj > 8){
+    printf("ieee_encode_block_16 ERROR : invalid number of points : expected (1-8) x (1-8), got %d x %d\n", ni, nj) ;
+    prop.resv = 0xF ;
+    return prop ;
+  }
+  prop = (ni == 8 && nj == 8) ? ieee_properties_64(xf) : ieee_properties(xf, ni*nj) ;
+  prop.npti = ni ;   // add block dimensions
+  prop.nptj = nj ;
+  stream[0] = encode_ieee_header(prop) ;
+// printf("ieee_encode_block_16 : emax = %d, emin = %d, mima = %d, allp = %d, allm = %d, zero = %d\n", 
+//        prop.emax, prop.emin, prop.mima, prop.allp, prop.allm, prop.zero) ;
+
+//   allp and allm CANNOT be set if ni*nj != 64
+  if(prop.mima) {                                                   // same max exponent, same sign, no zero
+// printf("encode : mima ") ;
+    for(i=0 ; i<n ; i++){
+      utmp = (xi[i] & 0x7FFFFF) + 0x40 ;                            // mantissa rounding
+      utmp >>= 7 ;                                                  // upper 16 bits of mantissa (rounded)
+      utmp = (utmp > 0xFFFF) ? 0xFFFF : utmp ;                      // clipped at 0xFFFF
+      stream[i+1] = utmp ;
+//       stream[i+1] = (xi[i] >> 7) & 0xFFFFu ;                        // keep upper 16 bits of mantissa (truncated)
     }
-    return ieee_properties_64(dst) ;
-  }else{
-    for(j=0 ; j<nj ; j++){
-      for(i=0 ; i<ni; i++){
-        dst[i] = src[i] ;
-      }
-      dst += 8 ;
-      src += lni ;
+  }else if(prop.allp){                                              // all numbers are non negative
+    factor.i = (127 + 142 - prop.emax) << 23 ;                      // largest number will be 2**16 - 1
+// printf("encode : allp factor = %f ", factor.f) ;
+    for(i=0 ; i<n ; i++){
+      tmp = factor.f * xf[i] + 0.5f ;
+      tmp = (tmp > 0xFFFF) ? 0xFFFF : tmp ;
+      stream[i+1] = tmp ;
+    }
+  }else if(prop.allm){                                              // all numbers negative
+    factor.i = (127 + 142 - prop.emax) << 23 ;                      // largest number will be 2**16 - 1
+    factor.f = -factor.f ;
+// printf("encode : allm factor = %f ", factor.f) ;
+    for(i=0 ; i<n ; i++){
+      tmp = factor.f * xf[i] + 0.5f ;
+      tmp = (tmp > 0xFFFF) ? 0xFFFF : tmp ;
+      stream[i+1] = tmp ;
+    }
+  }else{                                                            // range of exponents, mixed signs
+    factor.i = (127 + 141 - prop.emax) << 23 ;                      // largest number will be 2**15 - 1
+// printf("encode : factor = %f ", factor.f) ;
+    for(i=0 ; i<n ; i++){
+      tmp = factor.f * xf[i] + ((xf[i] < 0) ? -0.5f : 0.5f) ;
+      tmp = (tmp > 0x7FFF) ? 0x7FFF : tmp ;
+//       tmp = (tmp < -0x7FFF) ? -0x7FFF : tmp ;
+      t[i+1] = tmp ;
     }
   }
-    return ieee_properties(dst, ni*nj) ;
+// printf(" ni = %d(%d), nj = %d(%d)\n", prop.npti, ni, prop.nptj, nj) ;
+  return prop ;
+}
+
+// decode IEEE float block as a sequence of 16 bit tokens
+// xf 
+ieee_prop ieee_decode_block_16(float xf[64], int ni, int nj, uint16_t *restrict stream){
+  int i, n = ni*nj ;
+  uint32_t *xi = (uint32_t *) xf ;
+  FloatInt factor, fi ;
+  int16_t *t = (int16_t *) stream ;
+  int32_t tmp ;
+  uint32_t sign = 0 ;
+  ieee_prop prop ;
+
+  prop = decode_ieee_header(stream[0]) ;
+  if(prop.npti  != ni || prop.nptj != nj){
+    for(i=0 ; i<n ; i++) xi[i] = 0xFF8 << 19 ;         // NaN
+    printf("ieee_decode_block_16 : ERROR, inconsistent dimensions : expected %d x %d , got %d x %d\n", prop.npti, prop.nptj, ni, nj) ;
+    prop.resv = 0xF ;   // error flag
+    return prop ;
+  }
+// printf("decode : ni = %d(%d), nj = %d(%d), allm = %d, allp = %d, mima = %d\n", 
+//        prop.npti, ni, prop.nptj, nj, prop.allm, prop.allp, prop0.mima) ;
+  if(prop.mima) {                                                   // same max exponent, same sign
+    if(prop.allm) sign = 1 << 31 ;
+//  printf("decode mima sign = %8.8d\n", sign) ;
+    for(i=0 ; i<n ; i++){
+      tmp = stream[i+1] ;
+      fi.i = (prop.emax << 23) | (tmp << 7) | sign ;                // restore upper 16 bits of mantissa
+      xf[i] = fi.f ;
+    }
+  }else if(prop.allp){                                              // all numbers positive
+    factor.i = (127 - 142 + prop.emax) << 23 ;                      // largest number will be 2**16 - 1
+//  printf("decode allp factor = %f\n", factor.f) ;
+    for(i=0 ; i<n ; i++){
+      xf[i] = factor.f * stream[i+1] ;
+    }
+  }else if(prop.allm){                                              // all numbers negative
+    factor.i = (127 - 142 + prop.emax) << 23 ;                      // largest number will be 2**16 - 1
+    factor.f = -factor.f ;
+//  printf("decode allm factor = %f\n", factor.f) ;
+    for(i=0 ; i<n ; i++){
+      xf[i] = factor.f * stream[i+1] ;
+    }
+  }else{                                                            // range of exponents, mixed signs
+    factor.i = (127 - 141 + prop.emax) << 23 ;                      // largest number will be 2**15 - 1
+// printf("decode factor = %f\n", factor.f) ;
+    for(i=0 ; i<n ; i++){
+      xf[i] = factor.f * t[i+1] ;
+    }
+  }
+  return prop ;
+}
+
+// copy a block of (1 <= ni <= 8) x (1 <= nj <=8) floats into array dst
+// src   : float array
+// ni    : row size
+// nj    : number of rows
+// lni   : storage length of rows
+// dst   : float array to receive copied block
+// return ieee properties for block 
+// N.B.  : Fortran storage order is assumed
+ieee_prop ieee_get_block(float *restrict src, float dst[64], int ni, int lni, int nj){
+  int i, j ;
+  float *dst0 = dst ;
+  ieee_prop prop ;
+
+  if(ni * nj > 64 || ni * nj < 0){
+    printf("ieee_get_block ERROR : invalid number of points : expected 1 -> 64, got %d\n", ni*nj) ;
+    prop.resv = 0xF ;
+    return prop ;
+  }
+  ni &= 15 ; nj &= 15 ;        // hint that ni and nj are small (<=8)
+  if(ni == 8 && nj == 8){      // full 8x8 block
+    for(j=0 ; j<8 ; j++){
+      for(i=0 ; i<8; i++){     // fetch row
+        dst[i] = src[i] ;
+      }
+      dst += 8 ;               // next row
+      src += lni ;
+    }
+    prop = ieee_properties_64(dst) ;
+  }else{                       // short block
+    for(j=0 ; j<nj ; j++){
+      for(i=0 ; i<ni; i++){    // fetch row
+        dst[i] = src[i] ;
+      }
+      dst += 8 ;               // next row
+      src += lni ;
+    }
+    prop = ieee_properties(dst, ni*nj) ;
+  }
+  return prop ;
 }
 
 // get the IEEE exponent of the largest float (absolute value)
 // and the smallest non zero float (absolute value)  in float array f
 // if all values of f are 0.0, 255 will be returned for the minimum exponent
-uint32_t ieee_minmax_exponent(float *f, int n){
-  int i ;
-  uint32_t *uf = (uint32_t *) f ;
-  uint32_t t, emax = 0 , emin = 0xFF << 24 ;
-
-  for(i=0 ; i<n ; i++){
-    t = uf[i] << 1 ;                  // get rid of sign, exponent in upper 8 bits
-    emax = (t > emax) ? t : emax ;
-    t = (t == 0) ? emin : t ;         // ignore values of 0
-    emin = (t < emin) ? t : emin ;
-  }
-  emax >>= 24 ;                       // exponent WITH IEEE bias (127)
-  emin >>= 24 ;                       // exponent WITH IEEE bias (127)
-  return emax | (emin << 8) ;         // emax and emin
-}
+// uint32_t ieee_minmax_exponent(float *f, int n){
+//   int i ;
+//   uint32_t *uf = (uint32_t *) f ;
+//   uint32_t t, emax = 0 , emin = 0xFF << 24 ;
+// 
+//   for(i=0 ; i<n ; i++){
+//     t = uf[i] << 1 ;                  // get rid of sign, exponent in upper 8 bits
+//     emax = (t > emax) ? t : emax ;
+//     t = (t == 0) ? emin : t ;         // ignore values of 0
+//     emin = (t < emin) ? t : emin ;
+//   }
+//   emax >>= 24 ;                       // exponent WITH IEEE bias (127)
+//   emin >>= 24 ;                       // exponent WITH IEEE bias (127)
+//   return emax | (emin << 8) ;         // emax and emin
+// }
 
 // get the IEEE exponent of the largest float (absolute value) in float array f
+// n : number of values in array f
 uint32_t ieee_max_exponent(float *f, int n){
   int i ;
   uint32_t *uf = (uint32_t *) f ;
@@ -133,6 +333,7 @@ uint32_t ieee_max_exponent(float *f, int n){
 
 // get the IEEE exponent of the smallest non zero float (absolute value) in float array f
 // if all values of f are 0.0, 255 will be returned
+// n : number of values in array f
 uint32_t ieee_min_exponent(float *f, int n){
   int i ;
   uint32_t *uf = (uint32_t *) f ;
@@ -147,6 +348,11 @@ uint32_t ieee_min_exponent(float *f, int n){
   return emin ;
 }
 
+// vector version of BitsNeeded_u32
+// what      : array of unsigned 32 bit integers
+// nn        : ABS(nn) = number of values in array what
+//             if nn < 0, do not update table bits with population counts
+// bits      : cumulative bits needed count
 int32_t vBitsNeeded_u32(uint32_t * restrict what, int32_t * restrict bits, int nn){
   int i, needed=0 ;
   int n = (nn < 0) ? -nn : nn ;
@@ -158,6 +364,11 @@ int32_t vBitsNeeded_u32(uint32_t * restrict what, int32_t * restrict bits, int n
   return needed ;
 }
 
+// vector version of BitsNeeded_32
+// what      : array of signed 32 bit integers
+// nn        : ABS(nn) = number of values in array what
+//             if nn < 0, do not update table bits with population counts
+// bits      : cumulative bits needed count
 int32_t vBitsNeeded_32(int32_t * restrict what, int32_t * restrict bits, int nn){
   int i, needed=0 ;
   int n = (nn < 0) ? -nn : nn ;
@@ -169,6 +380,11 @@ int32_t vBitsNeeded_32(int32_t * restrict what, int32_t * restrict bits, int nn)
   return needed ;
 }
 
+// vector version of BitsNeeded_u64
+// what      : array of unsigned 64 bit integers
+// nn        : ABS(nn) = number of values in array what
+//             if nn < 0, do not update table bits with population counts
+// bits      : cumulative bits needed count
 int32_t vBitsNeeded_u64(uint64_t * restrict what, int32_t * restrict bits, int nn){
   int i, needed=0 ;
   int n = (nn < 0) ? -nn : nn ;
@@ -180,6 +396,11 @@ int32_t vBitsNeeded_u64(uint64_t * restrict what, int32_t * restrict bits, int n
   return needed ;
 }
 
+// vector version of BitsNeeded_64
+// what      : array of signed 64 bit integers
+// nn        : ABS(nn) = number of values in array what
+//             if nn < 0, do not update table bits with population counts
+// bits      : cumulative bits needed count
 int32_t vBitsNeeded_64(int64_t * restrict what, int32_t * restrict bits, int nn){
   int i, needed=0 ;
   int n = (nn < 0) ? -nn : nn ;

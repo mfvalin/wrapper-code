@@ -31,24 +31,23 @@ Library General Public License for more details.
 
 #define MISC_OPERATORS
 
-// properties of an array of IEEE floats
-// typedef struct{
-//   uint8_t emax ;  // largest float (absolute value) exponent
-//   uint8_t emin ;  // smallest non zero float (absolute value) exponent
-//   uint8_t allp ;  // 0 if all non negative numbers
-//   uint8_t allm ;  // 1 if all negative numbers
-// } ieee_prop ;
+// properties of float array, 32 bits total
 typedef struct{
   uint32_t emax:8 ,  // largest float (absolute value) exponent
            emin:8 ,  // smallest non zero float (absolute value) exponent
-           allp:4 ,  // 0 if all non negative numbers
-           allm:4 ,  // 1 if all negative numbers
-           zero:4 ,  // 1 if zero values detected
-           spare : 4 ;
+           allp:1 ,  // 1 if all non negative numbers
+           allm:1 ,  // 1 if all negative numbers
+           zero:1 ,  // 1 if zero values detected
+           mima:1 ,  // 1 if same exponent and no zero
+           resv:4 ,  // reserved for future use
+           npti:4 ,  // nuber of points in row (1-8)
+           nptj:4 ;  // number of rows (1-8)
 } ieee_prop ;
 ieee_prop ieee_properties(float *f, int n);
 ieee_prop ieee_properties_64(float *f);
 ieee_prop ieee_get_block(float *restrict src, float *restrict dst, int ni, int lni, int nj);
+ieee_prop ieee_encode_block_16(float xf[64], int ni, int nj, uint16_t *restrict stream);
+ieee_prop ieee_decode_block_16(float xf[64], int ni, int nj, uint16_t *restrict stream);
 
 #if defined(__x86_64__) && defined(__AVX2__)
 static inline __m128i _mm_lower128(__m256i v256) { return _mm256_extracti128_si256(v256, 0) ; }
@@ -270,13 +269,12 @@ STATIC inline int32_t isign_32(int32_t what){
   return (what >> 31) ;
 }
 
-#define TO_ZIGZAG(x)   ( ((x) << 1) ^ ((x) >> 31) )
-#define FROM_ZIGZAG(x) ( ((x) >> 1) ^ (-((x) & 1)) )
+#define TO_ZIGZAG(x)   ( ((int32_t)(x) << 1) ^ ((int32_t)(x) >> 31) )
+#define FROM_ZIGZAG(x) ( ((uint32_t)(x) >> 1) ^ (-((uint32_t)(x) & 1)) )
 
 // convert to sign and magnitude form, sign is Least Significant Bit
 STATIC inline uint32_t to_zigzag_32(int32_t what){
   return (what << 1) ^ (what >> 31) ;
-//   return (iabs_32(what) << 1) - isign_32(what) ;
 }
 
 // convert from sign and magnitude form, sign is Least Significant Bit

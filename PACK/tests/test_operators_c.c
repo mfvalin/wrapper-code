@@ -2,7 +2,12 @@
 #include <stdio.h>
 
 #include <rmn/misc_operators.h>
-#define NP 33
+#include <rmn/misc_types.h>
+
+#define NP   33
+#define NPF  15
+#define NPFI 5
+#define NPFJ 3
 
 static int32_t xt2[] = {-8, -7, -7, -6, -6, -5, -5, -4, -4, -3, -3, -2, -2, -1, -1,  0,  0,  0,  1,  1,  2,  2,  3,  3,  4,  4,  5,  5,  6,  6,  7,  7,  8} ;
 static int32_t xt4[] = {-4, -3, -3, -3, -3, -2, -2, -2, -2, -1, -1, -1, -1,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  2,  2,  2,  2,  3,  3,  3,  3,  4} ;
@@ -12,7 +17,34 @@ static int32_t xr4[] = {-4, -4, -4, -3, -3, -3, -3, -2, -2, -2, -2, -1, -1, -1, 
 static int32_t xr8[] = {-2, -2, -2, -2, -2, -1, -1, -1, -1, -1, -1, -1, -1,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,  2,  2,  2,  2,  2} ;
 static int32_t xi[]  = { 999, 0, 1, 2, 3, 4, 5, 6, 7, 999 } ;
 
-static int compare(int32_t *a, int32_t *b, int n){
+static float xs1[NPF+64] ;
+static float xs2[NPF+64] ;
+
+static void init_floats(){
+  int i ;
+  FloatInt f ;
+  float start = 1.0f;
+
+  for(i=0 ; i<NPF/2 ; i++){
+    f.i = (127 << 23) | (0x7FFFFF >> 3*i) ;
+    xs1[i] = f.f ;
+    xs1[NPF-1-i] = -f.f ;
+    if(i == NPF/2 - 1){
+      f.f = start ;
+      f.i |= 0x7FFFFF ;
+      start = f.f ;
+    }
+    xs2[i] = start ;
+    xs2[NPF-1-i] = -start ;
+    start *= 1.321f ;
+  }
+  xs1[NPF/2] = 0.0f ;
+  xs2[NPF/2] = 0.0f ;
+//   for(i=0 ; i<NPF/2 ; i++){ printf("%11.8f", xs1[i]) ; } ;  printf("\n") ;
+  for(i=0 ; i<NPF ; i++){ printf("%11.7f", xs2[i]) ; } ;  printf("\n") ;
+}
+
+static int compare_int(int32_t *a, int32_t *b, int n){
   int i, e = 0 ;
   for(i=0 ; i<n ; i++) e += ( (a[i] == b[i]) ? 0 : 1 ) ;
   return e ;
@@ -23,17 +55,100 @@ static void e_exit(int n){
   exit(n) ;
 }
 
+static void fill_64(float *src, int n, float f64[64]){
+  int i, j ;
+  for(i=0, j=0 ; i<64 ; i++, j=(j+1 >= n) ? 0 : j+1){
+    f64[i] = src[j] ;
+  }
+}
+
 int main(int argc, char **argv){
   int32_t src[NP], dst[NP+8] ;
   int32_t i, j, x, err ;
   float f ;
-  float xf[NP] ;
+  float xf[NP], xf1[NPF+64] ;
+  FloatInt fi ;
 #if defined(__x86_64__) && defined(__AVX2__)
   __m128i v128 ;
   __m256i v256 ;
   __m128i v128lo, v128hi ;
 #endif
+  ieee_prop prop ;
+  uint16_t stream16[65] ;
 
+  init_floats() ;
+  printf("\n") ;
+  prop = ieee_properties(xs1, NPF/2) ;
+  for(i=0 ; i<NPF/2 ; i++) printf("%11.7f", xs1[i]) ; printf("\n") ;
+  printf("emax = %d, emin = %d, mima = %d %s%s%s, n = %d\n", 
+         prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", NPF/2 );
+  prop = ieee_encode_block_16(xs1, NPF/2, 1, stream16) ;
+  for(i=0 ; i<NPF/2 ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
+  prop = ieee_decode_block_16(xf1, NPF/2, 1, stream16) ;
+  for(i=0 ; i<NPF/2 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
+  printf("=======================================================================================\n") ;
+  prop = ieee_properties(xs1, 65) ;
+  printf("expected error : prop.resv = %x\n", prop.resv) ;
+  printf("=======================================================================================\n") ;
+
+  prop = ieee_properties(xs1, NPF/2+1) ;
+  for(i=0 ; i<NPF/2+1 ; i++) printf("%11.7f", xs1[i]) ; printf("\n") ;
+  printf("emax = %d, emin = %d, mima = %d %s%s%s, n = %d\n", 
+         prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", NPF/2+1 );
+  prop = ieee_encode_block_16(xs1, NPF/2+1, 1, stream16) ;
+  for(i=0 ; i<NPF/2+1 ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
+  prop = ieee_decode_block_16(xf1, NPF/2+1, 1, stream16) ;
+  for(i=0 ; i<NPF/2+1 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
+  printf("=======================================================================================\n") ;
+
+  fill_64(xs1, NPF/2+1, xf1) ;
+  prop = ieee_properties_64(xf1) ;
+  for(i=0 ; i<NPF/2+1 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
+  printf("emax = %d, emin = %d, mima = %d %s%s%s, n = %d\n", 
+         prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", 64 );
+  prop = ieee_encode_block_16(xf1, 8, 8, stream16) ;
+  for(i=0 ; i<NPF/2+1 ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
+  prop = ieee_decode_block_16(xf1, 8, 8, stream16) ;
+  for(i=0 ; i<NPF/2+1 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
+  printf("=======================================================================================\n") ;
+
+  prop = ieee_properties(xs1, NPF) ;
+  for(i=0 ; i<NPF ; i++) printf("%11.7f", xs1[i]) ; printf("\n") ;
+  printf("emax = %d, emin = %d, mima = %d %s%s%s, n = %d\n", 
+         prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", NPF );
+  prop = ieee_encode_block_16(xs1, NPFI, NPFJ, stream16) ;
+  for(i=0 ; i<NPF ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
+  prop = ieee_decode_block_16(xf1, NPFI, NPFJ, stream16) ;
+  for(i=0 ; i<NPF ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
+  printf("=======================================================================================\n") ;
+
+  prop = ieee_properties(xs1+NPF/2+1, NPF/2) ;
+  for(i=NPF/2+1 ; i<NPF ; i++) printf("%11.7f", xs1[i]) ; printf("\n") ;
+  printf("emax = %d, emin = %d, mima = %d %s%s%s, n = %d\n", 
+         prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", NPF/2  );
+  prop = ieee_encode_block_16(xs1+NPF/2+1, NPF/2, 1, stream16) ;
+  for(i=0 ; i<NPF/2 ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
+  prop = ieee_decode_block_16(xf1, NPF/2, 1, stream16) ;
+  for(i=0 ; i<NPF/2 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
+  printf("=======================================================================================\n") ;
+
+  fill_64(xs1+NPF/2+1, NPF/2, xf1) ;
+  prop = ieee_properties_64(xf1) ;
+  for(i=NPF/2+1 ; i<NPF ; i++) printf("%11.7f", xs1[i]) ; printf("\n") ;
+  printf("emax = %d, emin = %d, mima = %d %s%s%s, n = %d\n", 
+         prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", 64 );
+  prop = ieee_encode_block_16(xf1, 8, 8, stream16) ;
+  for(i=0 ; i<NPF/2 ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
+  prop = ieee_decode_block_16(xf1, 8, 8, stream16) ;
+  for(i=0 ; i<NPF/2 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
+  printf("=======================================================================================\n") ;
+  prop = ieee_encode_block_16(xf1, 7, 9, stream16) ;
+  printf("expected error : prop.resv = %x\n", prop.resv) ;
+  printf("=======================================================================================\n") ;
+  prop = ieee_decode_block_16(xf1, 16, 4, stream16) ;
+  printf("expected error : prop.resv = %x\n", prop.resv) ;
+  printf("=======================================================================================\n") ;
+return 0 ;
 // IEEE min and max exponent test
   printf("IEEE properties : ") ;
   for(i=0 ; i<NP ; i++) xf[i] = (i - NP/2) * 1.01f ;
@@ -46,7 +161,7 @@ int main(int argc, char **argv){
            emax, emin) ;
     e_exit(1) ;
   }
-  ieee_prop prop = ieee_properties(xf, NP);   // test full array
+  prop = ieee_properties(xf, NP);   // test full array
   printf("Success\n") ;
   printf("properties full array  (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(prop), prop.emin, prop.emax, prop.allp, prop.allm) ;
   if(prop.emin != 127 || prop.emax != 131 || prop.allp != 0 || prop.allm != 0) {
@@ -108,64 +223,64 @@ int main(int argc, char **argv){
   // scalar and X86 SIMD versions (128 and 256 bit, 4 and 8 elements)
 #if defined(__x86_64__) && defined(__AVX2__)
   for(i = 0 ; i < NP ; i++) dst[i] = IDIV2T(src[i]) ;
-  printf("IDIV2T ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xt2, NP)) ; if(err) e_exit(1) ;
+  printf("IDIV2T ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xt2, NP)) ; if(err) e_exit(1) ;
   for(i=0 ; i<NP ; i+=4) _mm_storeu_si128((__m128i *)(dst +  i), IDIV2T_128(_mm_loadu_si128((__m128i *)(src + i)))) ;
-  printf("128-2TV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xt2, NP)) ; if(err) e_exit(1) ;
+  printf("128-2TV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xt2, NP)) ; if(err) e_exit(1) ;
   for(i=0 ; i<NP ; i+=8) _mm256_storeu_si256((__m256i *)(dst + i), IDIV2T_256(_mm256_loadu_si256((__m256i *)(src + i)))) ;
-  printf("256-2TV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xt2, NP)) ; if(err) e_exit(1) ;
+  printf("256-2TV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xt2, NP)) ; if(err) e_exit(1) ;
 
   for(i = 0 ; i < NP ; i++) dst[i] = IDIV2R(src[i]) ;
-  printf("IDIV2R ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xr2, NP)) ; if(err) e_exit(1) ;
+  printf("IDIV2R ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xr2, NP)) ; if(err) e_exit(1) ;
   for(i=0 ; i<NP ; i+=4) _mm_storeu_si128((__m128i *)(dst +  i), IDIV2R_128(_mm_loadu_si128((__m128i *)(src + i)))) ;
-  printf("128-2RV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xr2, NP)) ; if(err) e_exit(1) ;
+  printf("128-2RV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xr2, NP)) ; if(err) e_exit(1) ;
   for(i=0 ; i<NP ; i+=8) _mm256_storeu_si256((__m256i *)(dst + i), IDIV2R_256(_mm256_loadu_si256((__m256i *)(src + i)))) ;
-  printf("256-2RV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xr2, NP)) ; if(err) e_exit(1) ;
+  printf("256-2RV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xr2, NP)) ; if(err) e_exit(1) ;
   printf("\n") ;
 
   for(i = 0 ; i < NP ; i++) dst[i] = IDIV4T(src[i]) ;
-  printf("IDIV4T ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", IDIV4T(src[i])) ; printf(" err = %d\n", err = compare(dst, xt4, NP)) ; if(err) e_exit(1) ;
+  printf("IDIV4T ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", IDIV4T(src[i])) ; printf(" err = %d\n", err = compare_int(dst, xt4, NP)) ; if(err) e_exit(1) ;
   for(i=0 ; i<NP ; i+=4) _mm_storeu_si128((__m128i *)(dst +  i), IDIV4T_128(_mm_loadu_si128((__m128i *)(src + i)))) ;
-  printf("128-4TV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xt4, NP)) ; if(err) e_exit(1) ;
+  printf("128-4TV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xt4, NP)) ; if(err) e_exit(1) ;
   for(i=0 ; i<NP ; i+=8) _mm256_storeu_si256((__m256i *)(dst + i), IDIV4T_256(_mm256_loadu_si256((__m256i *)(src + i)))) ;
-  printf("256-4TV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xt4, NP)) ; if(err) e_exit(1) ;
+  printf("256-4TV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xt4, NP)) ; if(err) e_exit(1) ;
 
   for(i = 0 ; i < NP ; i++) dst[i] = IDIV4R(src[i]) ;
-  printf("IDIV4R ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", IDIV4R(src[i])) ; printf(" err = %d\n", err = compare(dst, xr4, NP)) ; if(err) e_exit(1) ;
+  printf("IDIV4R ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", IDIV4R(src[i])) ; printf(" err = %d\n", err = compare_int(dst, xr4, NP)) ; if(err) e_exit(1) ;
   for(i=0 ; i<NP ; i+=4) _mm_storeu_si128((__m128i *)(dst +  i), IDIV4R_128(_mm_loadu_si128((__m128i *)(src + i)))) ;
-  printf("128-4RV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xr4, NP)) ; if(err) e_exit(1) ;
+  printf("128-4RV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xr4, NP)) ; if(err) e_exit(1) ;
   for(i=0 ; i<NP ; i+=8) _mm256_storeu_si256((__m256i *)(dst + i), _mm256_idiv4r_epi32(_mm256_loadu_si256((__m256i *)(src + i)))) ;
-  printf("256-4RV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xr4, NP)) ; if(err) e_exit(1) ;
+  printf("256-4RV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xr4, NP)) ; if(err) e_exit(1) ;
   printf("\n") ;
 
   for(i = 0 ; i < NP ; i++) dst[i] = IDIV8T(src[i]) ;
-  printf("IDIV8T ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xt8, NP)) ; if(err) e_exit(1) ;
+  printf("IDIV8T ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xt8, NP)) ; if(err) e_exit(1) ;
   for(i=0 ; i<NP ; i+=4) _mm_storeu_si128((__m128i *)(dst +  i), IDIV8T_128(_mm_loadu_si128((__m128i *)(src + i)))) ;
-  printf("128-8TV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xt8, NP)) ; if(err) e_exit(1) ;
+  printf("128-8TV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xt8, NP)) ; if(err) e_exit(1) ;
   for(i=0 ; i<NP ; i+=8) _mm256_storeu_si256((__m256i *)(dst + i), IDIV8T_256(_mm256_loadu_si256((__m256i *)(src + i)))) ;
-  printf("256-8TV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xt8, NP)) ; if(err) e_exit(1) ;
+  printf("256-8TV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xt8, NP)) ; if(err) e_exit(1) ;
 
   for(i = 0 ; i < NP ; i++) dst[i] = IDIV8R(src[i]) ;
-  printf("IDIV8R ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xr8, NP)) ; if(err) e_exit(1) ;
+  printf("IDIV8R ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xr8, NP)) ; if(err) e_exit(1) ;
   for(i=0 ; i<NP ; i+=4) _mm_storeu_si128((__m128i *)(dst +  i), IDIV8R_128(_mm_loadu_si128((__m128i *)(src + i)))) ;
-  printf("128-8RV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xr8, NP)) ; if(err) e_exit(1) ;
+  printf("128-8RV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xr8, NP)) ; if(err) e_exit(1) ;
   for(i=0 ; i<NP ; i+=8) _mm256_storeu_si256((__m256i *)(dst + i), IDIV8R_256(_mm256_loadu_si256((__m256i *)(src + i)))) ;
-  printf("256-8RV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xr8, NP)) ; if(err) e_exit(1) ;
+  printf("256-8RV") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xr8, NP)) ; if(err) e_exit(1) ;
   printf("\n") ;
 
 #else
   printf("/2     ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", src[i]/2) ; printf("\n") ;
   for(i = 0 ; i < NP ; i++) dst[i] = IDIV2T(src[i]) ;
-  printf("IDIV2T ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xt2, NP)) ; if(err) e_exit(1) ;
+  printf("IDIV2T ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xt2, NP)) ; if(err) e_exit(1) ;
   for(i = 0 ; i < NP ; i++) dst[i] = IDIV2R(src[i]) ;
-  printf("IDIV2R ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xr2, NP)) ; if(err) e_exit(1) ;
+  printf("IDIV2R ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xr2, NP)) ; if(err) e_exit(1) ;
   for(i = 0 ; i < NP ; i++) dst[i] = IDIV4T(src[i]) ;
-  printf("IDIV4T ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", IDIV4T(src[i])) ; printf(" err = %d\n", err = compare(dst, xt4, NP)) ; if(err) e_exit(1) ;
+  printf("IDIV4T ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", IDIV4T(src[i])) ; printf(" err = %d\n", err = compare_int(dst, xt4, NP)) ; if(err) e_exit(1) ;
   for(i = 0 ; i < NP ; i++) dst[i] = IDIV4R(src[i]) ;
-  printf("IDIV4R ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", IDIV4R(src[i])) ; printf(" err = %d\n", err = compare(dst, xr4, NP)) ; if(err) e_exit(1) ;
+  printf("IDIV4R ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", IDIV4R(src[i])) ; printf(" err = %d\n", err = compare_int(dst, xr4, NP)) ; if(err) e_exit(1) ;
   for(i = 0 ; i < NP ; i++) dst[i] = IDIV8T(src[i]) ;
-  printf("IDIV8T ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xt8, NP)) ; if(err) e_exit(1) ;
+  printf("IDIV8T ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xt8, NP)) ; if(err) e_exit(1) ;
   for(i = 0 ; i < NP ; i++) dst[i] = IDIV8R(src[i]) ;
-  printf("IDIV8R ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare(dst, xr8, NP)) ; if(err) e_exit(1) ;
+  printf("IDIV8R ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xr8, NP)) ; if(err) e_exit(1) ;
   printf("\n") ;
 #endif
 
