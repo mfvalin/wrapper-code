@@ -39,7 +39,9 @@ typedef struct{
            allm:1 ,  // 1 if all negative numbers
            zero:1 ,  // 1 if zero values detected
            mima:1 ,  // 1 if same exponent and no zero
-           resv:4 ,  // reserved for future use
+//            resv:4 ,  // reserved for future use
+           errf:1 ,  // error flag
+           xtra:3 ,  // reserved for future use
            npti:4 ,  // nuber of points in row (1-8)
            nptj:4 ;  // number of rows (1-8)
 } ieee_prop ;

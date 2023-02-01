@@ -95,8 +95,26 @@ int code_8x8_u32(void *iwhat, int ni){
   return nbmax * 64 ;
 }
 
+void get_block_8x8(float *from, float to[64] , int ni, int lni, int nj){
+  int i, j;
+  for(j=0 ; j<8 ; j++){
+    for(i=0 ; i<8 ; i++){
+      to[i] = from[i] ;
+    }
+    to += 8 ;
+    from += lni ;
+  }
+}
+
+static int mima = 0 ;
+static int allp = 0 ;
+static int allm = 0 ;
+static int nblocks = 0 ;
+static int plus = 0 ;
+static int moins = 0 ;
+
 int main(int argc, char **argv){
-  int i, j, ni, nj, nk, ndim, fd, nerrors, gi, gj, bki, bkj ;
+  int i, j, k, index, ni, nj, nk, ndim, fd, nerrors, gi, gj, bki, bkj ;
   float *data = NULL ;
   float *d = NULL ;
   int32_t *q = NULL ;
@@ -107,6 +125,8 @@ int main(int argc, char **argv){
   FloatPair tf ;
   char vname ;
   float totbits ;
+  float block8x8[64] ;
+  ieee_prop prop, prop0 ;
 
   if(argc < 2){
     fprintf(stderr,"USAGE: %s file_name\n", argv[0]) ;
@@ -122,10 +142,31 @@ int main(int argc, char **argv){
   }else{
     bki = ni/8 ;
     bkj = nj/8 ;
-    fprintf(stderr,"INFO: ndim = %d, ni = %d, nj = %d, nk = %d, , %x x %d blocks, data[0,last] = %11f %11f (%s)\n", 
+    fprintf(stderr,"INFO: ndim = %d, ni = %d, nj = %d, nk = %d, %d x %d blocks, data[0,last] = %11f %11f (%s)\n", 
             ndim, ni, nj, nk, bki, bkj, data[0], data[ni*nj*nk-1], argv[1]) ;
   }
 
+  for(i=0 ; i<ni*nj ; i++){
+    plus  += (data[i] >= 0.0f) ;
+    moins += (data[i] <  0.0f) ;
+  }
+  nblocks = 0 ;
+  for(j=0 ; j<nj-7 ; j+=8){
+    for(i=0 ; i<ni-7 ; i+=8){
+      nblocks++ ;
+      index = i + j * ni ;
+      prop = ieee_get_block(&data[index], block8x8, 8, ni, 8) ;
+      if(prop.npti != 8 || prop.nptj != 8) exit(1) ;
+//       get_block_8x8(&data[index], block8x8, 8, ni, 8) ;
+//       prop = ieee_properties_64(block8x8) ;
+      if(prop.errf != 0 || prop.npti != 8 || prop.nptj != 8) exit(1) ;
+      mima += prop.mima ;
+      allp += prop.allp ;
+      allm += prop.allm ;
+    }
+  }
+  printf("nblocks = %d, mima = %d, allp = %d, allm = %d, plus = %d, moins = %d\n", nblocks, mima, allp, allm, plus, moins) ;
+return 0 ;
   d  = malloc(ni*nj*nk*sizeof(float)) ;
   q  = malloc(ni*nj*nk*sizeof(int32_t)) ;
   ql = malloc(ni*nj*nk*sizeof(int32_t)) ;

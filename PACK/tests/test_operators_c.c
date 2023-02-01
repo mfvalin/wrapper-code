@@ -26,7 +26,7 @@ static void init_floats(){
   float start = 1.0f;
 
   for(i=0 ; i<NPF/2 ; i++){
-    f.i = (127 << 23) | (0x7FFFFF >> 3*i) ;
+    f.i = (127 << 23) | (0x7FFFFF >> 3*i) | 0x600000 ;
     xs1[i] = f.f ;
     xs1[NPF-1-i] = -f.f ;
     if(i == NPF/2 - 1){
@@ -80,7 +80,7 @@ int main(int argc, char **argv){
   printf("\n") ;
   prop = ieee_properties(xs1, NPF/2) ;
   for(i=0 ; i<NPF/2 ; i++) printf("%11.7f", xs1[i]) ; printf("\n") ;
-  printf("emax = %d, emin = %d, mima = %d %s%s%s, n = %d\n", 
+  printf("emax = %d, emin = %2.2x, mima = %d %s%s%s, n = %d\n", 
          prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", NPF/2 );
   prop = ieee_encode_block_16(xs1, NPF/2, 1, stream16) ;
   for(i=0 ; i<NPF/2 ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
@@ -88,12 +88,22 @@ int main(int argc, char **argv){
   for(i=0 ; i<NPF/2 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
   printf("=======================================================================================\n") ;
   prop = ieee_properties(xs1, 65) ;
-  printf("expected error : prop.resv = %x\n", prop.resv) ;
+  printf("expected error : prop.errf = %x\n", prop.errf) ;
+  printf("=======================================================================================\n") ;
+  fill_64(xs1, NPF/2, xf1) ;
+  prop = ieee_properties_64(xf1) ;
+  for(i=0 ; i<NPF/2 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
+  printf("emax = %d, emin = %2.2x, mima = %d %s%s%s, n = %d\n", 
+         prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", 64 );
+  prop = ieee_encode_block_16(xf1, 8, 8, stream16) ;
+  for(i=0 ; i<NPF/2 ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
+  prop = ieee_decode_block_16(xf1, 8, 8, stream16) ;
+  for(i=0 ; i<NPF/2 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
   printf("=======================================================================================\n") ;
 
   prop = ieee_properties(xs1, NPF/2+1) ;
   for(i=0 ; i<NPF/2+1 ; i++) printf("%11.7f", xs1[i]) ; printf("\n") ;
-  printf("emax = %d, emin = %d, mima = %d %s%s%s, n = %d\n", 
+  printf("emax = %d, emin = %2.2x, mima = %d %s%s%s, n = %d\n", 
          prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", NPF/2+1 );
   prop = ieee_encode_block_16(xs1, NPF/2+1, 1, stream16) ;
   for(i=0 ; i<NPF/2+1 ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
@@ -104,7 +114,7 @@ int main(int argc, char **argv){
   fill_64(xs1, NPF/2+1, xf1) ;
   prop = ieee_properties_64(xf1) ;
   for(i=0 ; i<NPF/2+1 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
-  printf("emax = %d, emin = %d, mima = %d %s%s%s, n = %d\n", 
+  printf("emax = %d, emin = %2.2x, mima = %d %s%s%s, n = %d\n", 
          prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", 64 );
   prop = ieee_encode_block_16(xf1, 8, 8, stream16) ;
   for(i=0 ; i<NPF/2+1 ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
@@ -114,7 +124,7 @@ int main(int argc, char **argv){
 
   prop = ieee_properties(xs1, NPF) ;
   for(i=0 ; i<NPF ; i++) printf("%11.7f", xs1[i]) ; printf("\n") ;
-  printf("emax = %d, emin = %d, mima = %d %s%s%s, n = %d\n", 
+  printf("emax = %d, emin = %2.2x, mima = %d %s%s%s, n = %d\n", 
          prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", NPF );
   prop = ieee_encode_block_16(xs1, NPFI, NPFJ, stream16) ;
   for(i=0 ; i<NPF ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
@@ -124,7 +134,7 @@ int main(int argc, char **argv){
 
   prop = ieee_properties(xs1+NPF/2+1, NPF/2) ;
   for(i=NPF/2+1 ; i<NPF ; i++) printf("%11.7f", xs1[i]) ; printf("\n") ;
-  printf("emax = %d, emin = %d, mima = %d %s%s%s, n = %d\n", 
+  printf("emax = %d, emin = %2.2x, mima = %d %s%s%s, n = %d\n", 
          prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", NPF/2  );
   prop = ieee_encode_block_16(xs1+NPF/2+1, NPF/2, 1, stream16) ;
   for(i=0 ; i<NPF/2 ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
@@ -135,7 +145,7 @@ int main(int argc, char **argv){
   fill_64(xs1+NPF/2+1, NPF/2, xf1) ;
   prop = ieee_properties_64(xf1) ;
   for(i=NPF/2+1 ; i<NPF ; i++) printf("%11.7f", xs1[i]) ; printf("\n") ;
-  printf("emax = %d, emin = %d, mima = %d %s%s%s, n = %d\n", 
+  printf("emax = %d, emin = %2.2x, mima = %d %s%s%s, n = %d\n", 
          prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", 64 );
   prop = ieee_encode_block_16(xf1, 8, 8, stream16) ;
   for(i=0 ; i<NPF/2 ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
@@ -143,10 +153,10 @@ int main(int argc, char **argv){
   for(i=0 ; i<NPF/2 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
   printf("=======================================================================================\n") ;
   prop = ieee_encode_block_16(xf1, 7, 9, stream16) ;
-  printf("expected error : prop.resv = %x\n", prop.resv) ;
+  printf("expected error : prop.errf = %x\n", prop.errf) ;
   printf("=======================================================================================\n") ;
   prop = ieee_decode_block_16(xf1, 16, 4, stream16) ;
-  printf("expected error : prop.resv = %x\n", prop.resv) ;
+  printf("expected error : prop.errf = %x\n", prop.errf) ;
   printf("=======================================================================================\n") ;
 return 0 ;
 // IEEE min and max exponent test

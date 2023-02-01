@@ -108,7 +108,7 @@ test_compress_c : test_compress_c.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true
 test_compress_c.$(MOD).exe : tests/test_compress_c.c ${LIBDIR}/libmisc.a
 	(module load $(MOD)$(EXT) >/dev/null ; \
-	$$CC -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} -lmisc -o $@ ; )
+	$$CC -I. -Iinclude_$(MOD) $(OPT) $(DEF) $< -L${LIBDIR} -lmisc -lm -o $@ ; )
 
 test_bits_needed : test_bits_needed.$(MOD).exe
 	[[ "${EXEC}" != "" ]] && (module load $(MOD)$(EXT) >/dev/null ; ./$< ) || true

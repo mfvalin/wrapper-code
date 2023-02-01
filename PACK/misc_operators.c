@@ -26,15 +26,25 @@
 
 // ieee_prop struct to block header
 extern inline uint16_t encode_ieee_header(ieee_prop prop){
-  uint16_t header ;   // MSB -> LSB emax:8, full:1, same_exp:1, npti:3, nptj:3          (short block)
-                      //            emax:8, full:1, same_exp:1, allp:1, allm:1, spare:4 (full 8x8 block)
+  uint16_t header ;   // MSB -> LSB emax:8, full:1, same_exp:1, npti:3, nptj:3          (short block)       (full = 0)
+                      //            emax:8, full:1, same_exp:1, allp:1, allm:1, spare:4 (full 8x8 block)    (same_exp = 0)
+                      //            emax:8, full:1, same_exp:1, sign:1, cbit:3, nbit:2                      (full = 1, same_exp = 1)
 
   header = prop.emax << 8 ;             // common part
   header |= (prop.mima << 6) ;
   if(prop.npti == 8 && prop.nptj == 8){ // full block (npti * nptj == 64)
     header |= (1 << 7) ;                // full block flag
-    header |= (prop.allp << 5) ;
-    header |= (prop.allm << 4) ;
+    if(prop.mima){
+      header |= (prop.allm << 5) ;      // sign is 1 if all negative
+      uint32_t ncbits = prop.emin >> 4 ;
+      uint32_t cbits  = prop.emin & 0x7 ;
+      header |= (cbits << 2) ;          // cbit field
+      header |= ncbits ;                // nbit field
+// printf("encode_ieee_header : ncbits = %d, cbits = %1x, header = %4.4x(%4.4x)\n", ncbits, cbits, header, header & 0x1F) ;
+    }else{
+      header |= (prop.allp << 5) ;      // not same exponent, keep allp and allm flags
+      header |= (prop.allm << 4) ;
+    }
   }else{                                // short block (npti * nptj < 64)
     header |= ((prop.npti - 1) << 3) ;
     header |= (prop.nptj - 1) ;
@@ -50,14 +60,24 @@ extern inline ieee_prop decode_ieee_header(uint16_t header){
   prop.emax = header >> 8 ;            // common part
   prop.emin = 0 ;                      // unknown
   prop.mima = (1 & (header >> 6)) ;
-  prop.resv = 0 ;
+  prop.errf = 0 ;
+  prop.xtra = 0 ;
   prop.zero = 0 ;                      // don't care
   full = (1 & (header >> 7)) ;
   if(full){                            // full block (npti * nptj == 64)
     prop.npti = 8 ;
     prop.nptj = 8 ;
-    prop.allp = (1 & (header >> 5)) ;
-    prop.allm = (1 & (header >> 4)) ;
+    if(prop.mima){
+      prop.allm = (1 & (header >> 5)) ;   // sign field
+      prop.allp = 1 - prop.allm ;         // opposite of allm
+      uint32_t ncbits =  header & 3 ;
+      uint32_t cbits  =  (header >> 2) & 7 ;
+      prop.emin = (ncbits << 4) | cbits ;
+// printf("decode_ieee_header : ncbits = %d, cbits = %1x, header = %4.4x(%4.4x)\n", ncbits, cbits, header, header & 0x1F) ;
+    }else{
+      prop.allp = (1 & (header >> 5)) ;
+      prop.allm = (1 & (header >> 4)) ;
+    }
   }else{                                // short block (npti * nptj < 64)
     prop.npti = ((header >> 3) & 7) + 1 ;
     prop.nptj = (header & 7) + 1 ;
@@ -68,9 +88,19 @@ extern inline ieee_prop decode_ieee_header(uint16_t header){
 }
 
 // encode properties into ieee_prop sruct
+// allp  : logical OR reduction of all floats    (sign bit 0 only if all numbers are non negative)
+// allm  : logical AND  reduction of all floats  (gign bit 1 only if all numbers are negative)
+// emin  : exponent of the smallest non zero absolute value
+// emax  : exponent of the largest absolute value
+// zero  : non zero if no zero value was present
 static inline ieee_prop make_ieee_prop(uint32_t allp, uint32_t allm, uint32_t emin, uint32_t emax, uint32_t zero){
   ieee_prop prop;
+  uint32_t cbits, ncbits ;
 
+  cbits = (allp ^ allm) << 9 ;                   // look for most significant common bits in mantissa
+  ncbits = lzcnt_32(cbits) ;                     // number of identical most significant  bits in mantissa
+  ncbits = (ncbits > 3) ? 3 : ncbits ;           // max allowed is 3
+  cbits = (emax << 8) >> (32 - ncbits) ;         // extract common bits at top of mantissa
   allp >>= 31 ;  allp = allp ? 0 : 1 ;           // 1 if all numbers are non negative
   allm >>= 31 ;                                  // 1 if all numbers are negative
   prop.emax = emax >> 24 ;                       // largest exponent WITH IEEE bias (127)
@@ -78,12 +108,16 @@ static inline ieee_prop make_ieee_prop(uint32_t allp, uint32_t allm, uint32_t em
   prop.allp = allp ;                             // 1 if all numbers are non negative
   prop.allm = allm ;                             // 1 if all numbers are negative
   prop.zero = zero ? 0 : 1 ;                     // 1 if zero value detected
-  prop.mima = (prop.emax == prop.emin) && (allp | allm) && (zero) ;    // same exponent and sign throughout
-  prop.resv = 0 ;                                // reserved for future use, MUST be zero for now
+  prop.mima = ((prop.emax == prop.emin) && (allp | allm) && (zero)) ? 1 : 0 ;    // same exponent and sign throughout
+  if(prop.mima == 0){ ncbits = 0 ; cbits = 0 ; } // common mantissa bits used only if same exponent throughout and full block (8x8)
+  else { prop.emin = (ncbits << 4) | cbits ;} ;  // store cbits and ncbits in emin field if same exponent throughout
+  prop.xtra = 0 ;                                // reserved for future use, MUST be zero for now
+  prop.errf = 0 ;                                // no error so far
   prop.npti = 0 ;                                // unknown at this point, will be inserted later
   prop.nptj = 0 ;                                // unknown at this point, will be inserted later
 // printf("make_ieee_prop : emax = %d, emin = %d, mima = %d, allp = %d, allm = %d, zero = %d\n", 
 //        prop.emax, prop.emin, prop.mima, prop.allp, prop.allm, prop.zero) ;
+// if(ncbits > 0) printf("ncbits = %d, (%4.4x)\n", ncbits, cbits) ;
   return prop ;
 }
 // get the IEEE exponent of the largest float (absolute value)
@@ -99,7 +133,7 @@ ieee_prop ieee_properties(float *f, int n){
 
   if(n > 64 || n < 0){
     printf("ieee_properties ERROR : invalid number of points : expected 1 -> 64, got %d\n", n) ;
-    prop.resv = 0xF ;
+    prop.errf = 1 ;
     return prop ;
   }
   for(i=0 ; i<n ; i++){
@@ -138,6 +172,7 @@ ieee_prop ieee_properties_64(float *f){  // special case (frequent occurrance) u
   }
   prop = make_ieee_prop(allp, allm, emin, emax, zero) ;
   prop.npti = prop.nptj = 8 ;         // full 8x8 block
+// printf("ieee_properties_64 mima = %d, allp = %d, allm = %d\n", prop.mima, prop.allp, prop.allm) ;
   return prop ;
 }
 
@@ -154,7 +189,7 @@ ieee_prop ieee_encode_block_16(float xf[64], int ni, int nj, uint16_t *restrict 
 
   if(ni < 1 || ni > 8 || nj < 1 || nj > 8){
     printf("ieee_encode_block_16 ERROR : invalid number of points : expected (1-8) x (1-8), got %d x %d\n", ni, nj) ;
-    prop.resv = 0xF ;
+    prop.errf = 1 ;
     return prop ;
   }
   prop = (ni == 8 && nj == 8) ? ieee_properties_64(xf) : ieee_properties(xf, ni*nj) ;
@@ -166,13 +201,14 @@ ieee_prop ieee_encode_block_16(float xf[64], int ni, int nj, uint16_t *restrict 
 
 //   allp and allm CANNOT be set if ni*nj != 64
   if(prop.mima) {                                                   // same max exponent, same sign, no zero
-// printf("encode : mima ") ;
+    uint32_t ncbits = (n == 64) ? (prop.emin >> 4) : 0 ;
+// printf("encode : mima, emin = %2.2x, ncbits = %d ", prop.emin, ncbits) ;
     for(i=0 ; i<n ; i++){
-      utmp = (xi[i] & 0x7FFFFF) + 0x40 ;                            // mantissa rounding
-      utmp >>= 7 ;                                                  // upper 16 bits of mantissa (rounded)
+      utmp = xi[i] << ncbits ;                                      // push common bits left
+      utmp = (utmp & 0x7FFFFF) + 0x40 ;                             // mantissa after rounding
+      utmp >>= 7 ;                                                  // keep upper 16 bits of mantissa (rounded)
       utmp = (utmp > 0xFFFF) ? 0xFFFF : utmp ;                      // clipped at 0xFFFF
       stream[i+1] = utmp ;
-//       stream[i+1] = (xi[i] >> 7) & 0xFFFFu ;                        // keep upper 16 bits of mantissa (truncated)
     }
   }else if(prop.allp){                                              // all numbers are non negative
     factor.i = (127 + 142 - prop.emax) << 23 ;                      // largest number will be 2**16 - 1
@@ -220,17 +256,20 @@ ieee_prop ieee_decode_block_16(float xf[64], int ni, int nj, uint16_t *restrict 
   if(prop.npti  != ni || prop.nptj != nj){
     for(i=0 ; i<n ; i++) xi[i] = 0xFF8 << 19 ;         // NaN
     printf("ieee_decode_block_16 : ERROR, inconsistent dimensions : expected %d x %d , got %d x %d\n", prop.npti, prop.nptj, ni, nj) ;
-    prop.resv = 0xF ;   // error flag
+    prop.errf = 1 ;   // error flag
     return prop ;
   }
 // printf("decode : ni = %d(%d), nj = %d(%d), allm = %d, allp = %d, mima = %d\n", 
 //        prop.npti, ni, prop.nptj, nj, prop.allm, prop.allp, prop0.mima) ;
   if(prop.mima) {                                                   // same max exponent, same sign
     if(prop.allm) sign = 1 << 31 ;
-//  printf("decode mima sign = %8.8d\n", sign) ;
+    uint32_t ncbits = (n == 64) ? (prop.emin >> 4) : 0 ;
+    uint32_t cbits  = (n == 64) ? (prop.emin &  7) : 0 ;
+// printf("decode mima sign = %8.8x, emin = %2.2x, ncbits = %d, cbits = %4.4x\n", sign, prop.emin, ncbits, cbits) ;
     for(i=0 ; i<n ; i++){
-      tmp = stream[i+1] ;
-      fi.i = (prop.emax << 23) | (tmp << 7) | sign ;                // restore upper 16 bits of mantissa
+      tmp = stream[i+1] | (cbits << 16) ;                           // insert common bits
+      tmp <<= (7 - ncbits) ;                                        // align mantissa to proper bit position
+      fi.i = (prop.emax << 23) | tmp | sign ;                       // restore upper 16 bits of mantissa
       xf[i] = fi.f ;
     }
   }else if(prop.allp){                                              // all numbers positive
@@ -256,6 +295,34 @@ ieee_prop ieee_decode_block_16(float xf[64], int ni, int nj, uint16_t *restrict 
   return prop ;
 }
 
+// copy a block of (1 <= ni <= 8) x (1 <= nj <=8) 32 bit words into array dst
+// src   : source array
+// ni    : row size
+// nj    : number of rows
+// lni   : storage length of rows
+// dst   : 32 bit words array to receive copied block
+// N.B. this code is not entirely safe as it may "overread" from array src by up to 3 locations
+void get_w32_block(void *restrict src, void *restrict dst, int ni, int lni, int nj){
+  uint32_t *restrict s = (uint32_t *) src ;
+  uint32_t *restrict d = (uint32_t *) dst ;
+  int i, j ;
+
+  if(ni > 4){            // posible "overread" by up to 3 elements
+    if(nj & 8) {
+      for(j=0 ; j<8 ; j++){ for(i=0 ; i<8; i++) d[i] = s[i] ; d += ni ; s += lni ; }
+      return ;
+    }
+    if(nj & 4) for(j=0 ; j<4 ; j++){ for(i=0 ; i<8; i++) d[i] = s[i] ; d += ni ; s += lni ; }
+    if(nj & 2) for(j=0 ; j<2 ; j++){ for(i=0 ; i<8; i++) d[i] = s[i] ; d += ni ; s += lni ; }
+    if(nj & 1) for(i=0 ; i<8; i++) d[i] = s[i] ;
+    return ;
+  }else{                 // posible "overread" by up to 3 elements
+    if(nj & 4) for(j=0 ; j<4 ; j++){ for(i=0 ; i<4; i++) d[i] = s[i] ; d += ni ; s += lni ; }
+    if(nj & 2) for(j=0 ; j<2 ; j++){ for(i=0 ; i<4; i++) d[i] = s[i] ; d += ni ; s += lni ; }
+    if(nj & 1)                       for(i=0 ; i<4; i++) d[i] = s[i] ;
+    return ;
+  }
+}
 // copy a block of (1 <= ni <= 8) x (1 <= nj <=8) floats into array dst
 // src   : float array
 // ni    : row size
@@ -271,29 +338,18 @@ ieee_prop ieee_get_block(float *restrict src, float dst[64], int ni, int lni, in
 
   if(ni * nj > 64 || ni * nj < 0){
     printf("ieee_get_block ERROR : invalid number of points : expected 1 -> 64, got %d\n", ni*nj) ;
-    prop.resv = 0xF ;
+    prop.errf = 1 ;
     return prop ;
   }
-  ni &= 15 ; nj &= 15 ;        // hint that ni and nj are small (<=8)
+  get_w32_block(src, dst, ni, lni, nj) ;
   if(ni == 8 && nj == 8){      // full 8x8 block
-    for(j=0 ; j<8 ; j++){
-      for(i=0 ; i<8; i++){     // fetch row
-        dst[i] = src[i] ;
-      }
-      dst += 8 ;               // next row
-      src += lni ;
-    }
-    prop = ieee_properties_64(dst) ;
+    prop = ieee_properties_64(dst0) ;
   }else{                       // short block
-    for(j=0 ; j<nj ; j++){
-      for(i=0 ; i<ni; i++){    // fetch row
-        dst[i] = src[i] ;
-      }
-      dst += 8 ;               // next row
-      src += lni ;
-    }
-    prop = ieee_properties(dst, ni*nj) ;
+    prop = ieee_properties(dst0, ni*nj) ;
   }
+  prop.npti = ni ;
+  prop.nptj = nj ;
+// printf("ieee_get_block mima = %d, allp = %d, allm = %d\n", prop.mima, prop.allp, prop.allm) ;
   return prop ;
 }
 
