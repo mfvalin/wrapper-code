@@ -15,12 +15,8 @@
  */
 #include <stdio.h>
 #include <stdint.h>
+
 #include <with_simd.h>
-
-#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-#include <immintrin.h>
-#endif
-
 #include <rmn/misc_types.h>
 #include <rmn/misc_operators.h>
 #include <rmn/misc_pack.h>

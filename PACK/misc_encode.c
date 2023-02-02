@@ -15,8 +15,8 @@
  */
 
 #include <stdint.h>
+#include <with_simd.h>
 #include <rmn/misc_encode.h>
-#include <immintrin.h>
 
 uint32_t stream_get_block_8x8(uint32_t * restrict src, int lni, uint32_t * restrict block, uint32_t * restrict pop, uint32_t * restrict gain ){
   int i, j, nbits, nbits0 ;

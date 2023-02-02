@@ -323,7 +323,7 @@ void put_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj
   uint32_t *restrict s = (uint32_t *) blk ;
   int i, j ;
 
-#if defined(__x86_64__) && defined(__AVX2__)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m256i vm = _mm256_memmask_si256(ni) ;  // mask for load and store operations
   if(nj == 8){
     if(ni == 8){
@@ -384,7 +384,7 @@ void get_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj
   uint32_t *restrict d = (uint32_t *) blk ;
   int i, j ;
 
-#if defined(__x86_64__) && defined(__AVX2__)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m256i vm = _mm256_memmask_si256(ni) ;  // mask for load and store operations
   if(nj == 8){
     if(ni == 8){

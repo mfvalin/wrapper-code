@@ -20,13 +20,11 @@ Library General Public License for more details.
 
 #include <stdint.h>
 
+#include <with_simd.h>
+
 #if ! defined(STATIC)
 #define STATIC static
 #define STATIC_DEFINED_HERE
-#endif
-
-#if defined(__x86_64__) && defined(__AVX2__)
-#include <immintrin.h>
 #endif
 
 #define MISC_OPERATORS
@@ -54,30 +52,37 @@ ieee_prop ieee_put_block(float *restrict f, float *restrict blk, int ni, int lni
 ieee_prop ieee_encode_block_16(float xf[64], int ni, int nj, uint16_t *restrict stream);
 ieee_prop ieee_decode_block_16(float xf[64], int ni, int nj, uint16_t *restrict stream);
 
+// some useful X86_64 SIMD macros
 #if defined(__x86_64__) && defined(__AVX2__)
+// get the lower 128 bits (least significant) from a 256 bit register
 static inline __m128i _mm_lower128(__m256i v256) { return _mm256_extracti128_si256(v256, 0) ; }
+// get the upper 128 bits (most significant) from a 256 bit register
 static inline __m128i _mm_upper128(__m256i v256) { return _mm256_extracti128_si256(v256, 1) ; }
+
+// build a 128 bit mask (4 x 32 bits) to keep n (0-8) elements
 static inline __m128i _mm_memmask_si128(int n){
   __m128i vm = _mm_xor_si128(vm, vm) ;
   vm = _mm_cmpeq_epi32(vm, vm) ;
-  if(n == 4) return vm ;
-  if(n == 0) return _mm_xor_si128(vm, vm) ;
-  n = 4 - (n & 3) ;
-  if(n & 2) vm = _mm_bsrli_si128(vm, 8) ;
-  if(n & 1) vm = _mm_bsrli_si128(vm, 4) ;
+  if(n == 4) return vm ;                   // full 4 element mask
+  if(n == 0) return _mm_xor_si128(vm, vm) ;  // mask is all zeros
+  n = 4 - (n & 3) ;                        // number of elements to suppress on the left (none if 4)
+  if(n & 2) vm = _mm_bsrli_si128(vm, 8) ;  // suppress 2 elements
+  if(n & 1) vm = _mm_bsrli_si128(vm, 4) ;  // suppress 1 element
   return vm ;
 }
+// build a 256 bit mask (8 x 32 bits) to keep n (0-8) elements
 static inline __m256i _mm256_memmask_si256(int n){
   __m128i vm = _mm_xor_si128(vm, vm) ;
   vm = _mm_cmpeq_epi32(vm, vm) ;
   __m256i v0 = _mm256_xor_si256(v0, v0) ;
   v0 = _mm256_cmpeq_epi32(v0, v0) ;
-  if(n == 8) return v0 ;
-  if(n == 0) return _mm256_xor_si256(v0, v0) ;
-  n = 8 - (n & 7) ;
-  if(n & 4) vm = _mm_bsrli_si128(vm, 8) ;  // build 16 bit mask (8 elements)
-  if(n & 2) vm = _mm_bsrli_si128(vm, 4) ;
-  if(n & 1) vm = _mm_bsrli_si128(vm, 2) ;
+  if(n == 8) return v0 ;                   // full 8 element mask
+  if(n == 0) return _mm256_xor_si256(v0, v0) ;  // mask is all zeros
+  n = 8 - (n & 7) ;                        // number of elements to suppress on the left (none if 8)
+  // build 16 bit mask (8 elements)
+  if(n & 4) vm = _mm_bsrli_si128(vm, 8) ;  // suppress 4 elements
+  if(n & 2) vm = _mm_bsrli_si128(vm, 4) ;  // suppress 2 elements
+  if(n & 1) vm = _mm_bsrli_si128(vm, 2) ;  // suppress 1 element
   return _mm256_cvtepi16_epi32(vm) ;       // convert t0 32 bit mask (8 elements)
 }
 #endif

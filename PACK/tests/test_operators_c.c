@@ -76,7 +76,7 @@ int main(int argc, char **argv){
   int32_t blk_new[NJ][NI] ;
   int32_t blk[64] ;
   uint64_t t1, t2 ;
-#if defined(__x86_64__) && defined(__AVX2__)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m128i v128 ;
   __m256i v256 ;
   __m128i v128lo, v128hi ;
@@ -84,7 +84,7 @@ int main(int argc, char **argv){
   ieee_prop prop ;
   uint16_t stream16[65] ;
 
-#if defined(__x86_64__) && defined(__AVX2__)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   printf("vector masks (128 and 256) : ") ;
   printf("\n") ;
   for(i=0 ; i<5 ; i++) {
