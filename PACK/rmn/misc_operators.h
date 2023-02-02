@@ -37,12 +37,13 @@ typedef struct{
            allm:1 ,  // 1 if all negative numbers
            zero:1 ,  // 1 if zero values detected
            mima:1 ,  // 1 if same exponent and no zero
-//            resv:4 ,  // reserved for future use
            errf:1 ,  // error flag
            xtra:3 ,  // reserved for future use
            npti:4 ,  // nuber of points in row (1-8)
            nptj:4 ;  // number of rows (1-8)
 } ieee_prop ;
+
+// interfaces to functions in misc_operators.c
 void get_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj);
 void put_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj);
 ieee_prop ieee_properties(float *f, int n);
@@ -52,14 +53,16 @@ ieee_prop ieee_put_block(float *restrict f, float *restrict blk, int ni, int lni
 ieee_prop ieee_encode_block_16(float xf[64], int ni, int nj, uint16_t *restrict stream);
 ieee_prop ieee_decode_block_16(float xf[64], int ni, int nj, uint16_t *restrict stream);
 
-// some useful X86_64 SIMD macros
-#if defined(__x86_64__) && defined(__AVX2__)
+// some useful X86_64 SIMD macros and inline functions
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+
 // get the lower 128 bits (least significant) from a 256 bit register
 static inline __m128i _mm_lower128(__m256i v256) { return _mm256_extracti128_si256(v256, 0) ; }
+
 // get the upper 128 bits (most significant) from a 256 bit register
 static inline __m128i _mm_upper128(__m256i v256) { return _mm256_extracti128_si256(v256, 1) ; }
 
-// build a 128 bit mask (4 x 32 bits) to keep n (0-8) elements
+// build a 128 bit mask (4 x 32 bits) to keep n (0-8) elements in masked operations
 static inline __m128i _mm_memmask_si128(int n){
   __m128i vm = _mm_xor_si128(vm, vm) ;
   vm = _mm_cmpeq_epi32(vm, vm) ;
@@ -70,7 +73,7 @@ static inline __m128i _mm_memmask_si128(int n){
   if(n & 1) vm = _mm_bsrli_si128(vm, 4) ;  // suppress 1 element
   return vm ;
 }
-// build a 256 bit mask (8 x 32 bits) to keep n (0-8) elements
+// build a 256 bit mask (8 x 32 bits) to keep n (0-8) elements in masked operations
 static inline __m256i _mm256_memmask_si256(int n){
   __m128i vm = _mm_xor_si128(vm, vm) ;
   vm = _mm_cmpeq_epi32(vm, vm) ;
@@ -87,18 +90,18 @@ static inline __m256i _mm256_memmask_si256(int n){
 }
 #endif
 
-// convert a float to a rounded integer
+// convert a float to a rounded integer (nearest integer)
 #define FLOAT_TO_INT(x) ( (x)<0 ? (int)((x)-0.5) : (int)((x)+0.5) )
 static inline int32_t float_to_int(float x) {
   return FLOAT_TO_INT(x) ;
 }
 
-// divide a signed integer by 2 with rounding toward +-infinity
+// divide a signed integer by 2 with rounding toward +-infinity (scalar and X86_64 SIMD versions)
 #define IDIV2R(x) (( (x) + 1 + ((x)>>31) ) >> 1 )
 #define IDIV2R_256(v) _mm256_srai_epi32(_mm256_add_epi32(_mm256_sub_epi32(v, _mm256_cmpeq_epi32(v, v)), _mm256_srai_epi32(v, 31)), 1)
 #define IDIV2R_128(v) _mm_srai_epi32(_mm_add_epi32(_mm_sub_epi32(v, _mm_cmpeq_epi32(v, v)), _mm_srai_epi32(v, 31)), 1)
 
-#if defined(__x86_64__) && defined(__AVX2__)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 static __m256i _mm256_idiv2r_epi32(__m256i v){
   return IDIV2R_256(v) ;
 }
@@ -107,12 +110,12 @@ static __m128i _mm_idiv2r_epi32(__m128i v){
 }
 #endif
 
-// divide a signed integer by 4 with rounding toward +-infinity
+// divide a signed integer by 4 with rounding toward +-infinity (scalar and X86_64 SIMD versions)
 #define IDIV4R(x) (( (x) + 2 + ((x)>>31) ) >> 2 )
 #define IDIV4R_256(v) _mm256_srai_epi32(_mm256_sub_epi32(_mm256_add_epi32(v, _mm256_srai_epi32(v, 31)), _mm256_slli_epi32(_mm256_cmpeq_epi32(v, v), 1)), 2)
 #define IDIV4R_128(v) _mm_srai_epi32(_mm_sub_epi32(_mm_add_epi32(v, _mm_srai_epi32(v, 31)), _mm_slli_epi32(_mm_cmpeq_epi32(v, v), 1)), 2)
 
-#if defined(__x86_64__) && defined(__AVX2__)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 static inline __m256i _mm256_idiv4r_epi32(__m256i v){
   return IDIV4R_256(v) ;
 }
@@ -121,12 +124,12 @@ static __m128i _mm_idiv4r_epi32(__m128i v){
 }
 #endif
 
-// divide a signed integer by 8 with rounding toward +-infinity
+// divide a signed integer by 8 with rounding toward +-infinity (scalar and X86_64 SIMD versions)
 #define IDIV8R(x) (( (x) + 4 + ((x)>>31) ) >> 3 )
 #define IDIV8R_256(v) _mm256_srai_epi32(_mm256_sub_epi32(_mm256_add_epi32(v, _mm256_srai_epi32(v, 31)), _mm256_slli_epi32(_mm256_cmpeq_epi32(v, v), 2)), 3)
 #define IDIV8R_128(v) _mm_srai_epi32(_mm_sub_epi32(_mm_add_epi32(v, _mm_srai_epi32(v, 31)), _mm_slli_epi32(_mm_cmpeq_epi32(v, v), 2)), 3)
 
-#if defined(__x86_64__) && defined(__AVX2__)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 static __m256i _mm256_idiv8r_epi32(__m256i v){
   return IDIV8R_256(v) ;
 }
@@ -135,12 +138,12 @@ static __m128i _mm_idiv8r_epi32(__m128i v){
 }
 #endif
 
-// divide a signed integer by 2 truncating toward zero
+// divide a signed integer by 2 truncating toward zero (scalar and X86_64 SIMD versions)
 #define IDIV2T(x) ((x) + (int32_t) ((uint32_t) (x) >> 31 ) ) >> 1
 #define IDIV2T_256(v) _mm256_srai_epi32(_mm256_add_epi32(v, _mm256_srli_epi32(v, 31)), 1)
 #define IDIV2T_128(v) _mm_srai_epi32(_mm_add_epi32(v, _mm_srli_epi32(v, 31)), 1)
 
-#if defined(__x86_64__) && defined(__AVX2__)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 static __m256i _mm256_idiv2t_epi32(__m256i v){
   return IDIV2T_256(v) ;
 }
@@ -149,12 +152,12 @@ static __m128i _mm_idiv2t_epi32(__m128i v){
 }
 #endif
 
-// divide a signed integer by 4 truncating toward zero
+// divide a signed integer by 4 truncating toward zero (scalar and X86_64 SIMD versions)
 #define IDIV4T(x) ((x) + (int32_t) ((uint32_t) ( (x) >> 1 ) >> 30 ) ) >> 2
 #define IDIV4T_256(v) _mm256_srai_epi32(_mm256_add_epi32(v, _mm256_srli_epi32(_mm256_srai_epi32(v, 1), 30)), 2)
 #define IDIV4T_128(v) _mm_srai_epi32(_mm_add_epi32(v, _mm_srli_epi32(_mm_srai_epi32(v, 1), 30)), 2)
 
-#if defined(__x86_64__) && defined(__AVX2__)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 static __m256i _mm256_idiv4t_epi32(__m256i v){
   return IDIV4T_256(v) ;
 }
@@ -163,12 +166,12 @@ static __m128i _mm_idiv4t_epi32(__m128i v){
 }
 #endif
 
-// divide a signed integer by 8 truncating toward zero
+// divide a signed integer by 8 truncating toward zero (scalar and X86_64 SIMD versions)
 #define IDIV8T(x) ((x) + (int32_t) ((uint32_t) ( (x) >> 1 ) >> 29 ) ) >> 3
 #define IDIV8T_256(v) _mm256_srai_epi32(_mm256_add_epi32(v, _mm256_srli_epi32(_mm256_srai_epi32(v, 1), 29)), 3)
 #define IDIV8T_128(v) _mm_srai_epi32(_mm_add_epi32(v, _mm_srli_epi32(_mm_srai_epi32(v, 1), 29)), 3)
 
-#if defined(__x86_64__) && defined(__AVX2__)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 static __m256i _mm256_idiv8t_epi32(__m256i v){
   return IDIV8T_256(v) ;
 }

@@ -306,7 +306,7 @@ return 0 ;
   printf("Success\n") ;
 
 // extract 128 bits from 256 bit register (X86_64)
-#if defined(__x86_64__) && defined(__AVX2__)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   printf("AVX2 SIMD extract upper/lower 128 bits : ");
   v256 = _mm256_loadu_si256((__m256i *) (xi + 1)) ;
   v128lo = _mm_lower128(v256) ;
@@ -328,7 +328,7 @@ return 0 ;
   // DIV2T/DIV4T/DIV8T divide by 2/4/8 and truncate (round toward 0)
   // DIV2R/DIV4R/DIV8R divide by 2/4/8 and round toward +infinity or -infinity as appropriate
   // scalar and X86 SIMD versions (128 and 256 bit, 4 and 8 elements)
-#if defined(__x86_64__) && defined(__AVX2__)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   for(i = 0 ; i < NP ; i++) dst[i] = IDIV2T(src[i]) ;
   printf("IDIV2T ") ; for(i = 0 ; i < NP ; i++) printf("%3d,", dst[i]) ; printf(" err = %d\n", err = compare_int(dst, xt2, NP)) ; if(err) e_exit(1) ;
   for(i=0 ; i<NP ; i+=4) _mm_storeu_si128((__m128i *)(dst +  i), IDIV2T_128(_mm_loadu_si128((__m128i *)(src + i)))) ;
