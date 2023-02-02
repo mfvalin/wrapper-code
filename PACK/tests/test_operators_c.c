@@ -3,6 +3,7 @@
 
 #include <rmn/misc_operators.h>
 #include <rmn/misc_types.h>
+#include <rmn/misc_timers.h>
 
 #define NI 167
 #define NJ 169
@@ -74,6 +75,7 @@ int main(int argc, char **argv){
   int32_t blk_test[NJ][NI] ;
   int32_t blk_new[NJ][NI] ;
   int32_t blk[64] ;
+  uint64_t t1, t2 ;
 #if defined(__x86_64__) && defined(__AVX2__)
   __m128i v128 ;
   __m256i v256 ;
@@ -84,8 +86,10 @@ int main(int argc, char **argv){
 
 #if defined(__x86_64__) && defined(__AVX2__)
   printf("vector masks (128 and 256) : ") ;
+  printf("\n") ;
   for(i=0 ; i<5 ; i++) {
-    _mm_storeu_si128((__m128i *)memmask, _mm_memmask_si128(i) ) ;
+    v128 = _mm_memmask_si128(i) ;
+    _mm_storeu_si128((__m128i *)memmask, v128 ) ;
 //     printf("mask128(%d) = ", i) ;
 //     for(j=0 ; j<4 ; j++) printf("%8.8x ", memmask[j]) ;  printf("\n") ;
     err = 0 ;
@@ -93,8 +97,10 @@ int main(int argc, char **argv){
     for(    ; j<4 ; j++) if(memmask[j] !=  0) err++ ;
     if(err > 0) e_exit(1) ;
   }
+  printf("Success (128)\n") ;
   for(i=0 ; i<9 ; i++) {
-    _mm256_storeu_si256((__m256i *)memmask, _mm256_memmask_si256(i) ) ;
+    v256 = _mm256_memmask_si256(i) ;
+    _mm256_storeu_si256((__m256i *)memmask, v256 ) ;
 //     printf("mask256(%d) = ", i) ;
 //     for(j=0 ; j<8 ; j++) printf("%8.8x ", memmask[j]) ;  printf("\n") ;
     for(j=0 ; j<i ; j++) if(memmask[j] != -1) err++ ;
@@ -102,7 +108,7 @@ int main(int argc, char **argv){
     if(err > 0) e_exit(1) ;
   }
   if(err > 0) e_exit(1) ;
-  printf("Success\n") ;
+  printf("Success (256)\n") ;
 
 #endif
   printf("extract blocks : ") ;
@@ -139,6 +145,33 @@ int main(int argc, char **argv){
     }
   }
   printf("Success\n") ;
+  t1 = elapsed_cycles() ;
+  for(j0=0 ; j0<NJ ; j0+=8){
+    lnj = (NJ-j0 < 8) ? NJ-j0 : 8 ;
+    for(i0=0 ; i0<NI ; i0+=8){
+      lni = (NI-i0 < 8) ? NI-i0 : 8 ;
+      indx = i0 + j0 * NI ;
+      get_w32_block((void *)(&blk_test[j0][i0]), blk, lni, NI, lnj) ;
+    }
+  }
+  t2 = elapsed_cycles() - t1 ;
+  double t = t2;
+  t /= (NI*NJ) ;
+  printf("extract %d words in %6.2f cycles/word\n", NI*NJ, t);
+  t1 = elapsed_cycles() ;
+  for(j0=0 ; j0<NJ ; j0+=8){
+    lnj = (NJ-j0 < 8) ? NJ-j0 : 8 ;
+    for(i0=0 ; i0<NI ; i0+=8){
+      lni = (NI-i0 < 8) ? NI-i0 : 8 ;
+      indx = i0 + j0 * NI ;
+      put_w32_block((void *)(&blk_new[j0][i0]), blk, lni, NI, lnj) ;
+    }
+  }
+  t2 = elapsed_cycles() - t1 ;
+  t = t2;
+  t /= (NI*NJ) ;
+  printf("insert %d words in %6.2f cycles/word\n", NI*NJ, t);
+
 return 0;
   init_floats() ;
   printf("\n") ;

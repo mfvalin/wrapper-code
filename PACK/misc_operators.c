@@ -325,9 +325,32 @@ void put_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj
 
 #if defined(__x86_64__) && defined(__AVX2__)
   __m256i vm = _mm256_memmask_si256(ni) ;  // mask for load and store operations
-  for(j=0 ; j<nj ; j++){
-    _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ;
-    d += lni ; s += ni ;
+  if(nj == 8){
+    if(ni == 8){
+      _mm256_storeu_si256((__m256i *)d, _mm256_loadu_si256((__m256i *)s)) ; d += lni ; s += ni ;
+      _mm256_storeu_si256((__m256i *)d, _mm256_loadu_si256((__m256i *)s)) ; d += lni ; s += ni ;
+      _mm256_storeu_si256((__m256i *)d, _mm256_loadu_si256((__m256i *)s)) ; d += lni ; s += ni ;
+      _mm256_storeu_si256((__m256i *)d, _mm256_loadu_si256((__m256i *)s)) ; d += lni ; s += ni ;
+      _mm256_storeu_si256((__m256i *)d, _mm256_loadu_si256((__m256i *)s)) ; d += lni ; s += ni ;
+      _mm256_storeu_si256((__m256i *)d, _mm256_loadu_si256((__m256i *)s)) ; d += lni ; s += ni ;
+      _mm256_storeu_si256((__m256i *)d, _mm256_loadu_si256((__m256i *)s)) ; d += lni ; s += ni ;
+      _mm256_storeu_si256((__m256i *)d, _mm256_loadu_si256((__m256i *)s)) ; d += lni ; s += ni ;
+    }else{                // ni < 8
+      _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ; d += lni ; s += ni ;
+      _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ; d += lni ; s += ni ;
+      _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ; d += lni ; s += ni ;
+      _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ; d += lni ; s += ni ;
+      _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ; d += lni ; s += ni ;
+      _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ; d += lni ; s += ni ;
+      _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ; d += lni ; s += ni ;
+      _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ; d += lni ; s += ni ;
+    }
+    return ;
+  }else{                   // nj < 8
+    for(j=0 ; j<nj ; j++){
+      _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ;
+      d += lni ; s += ni ;
+    }
   }
 #else
 
@@ -363,9 +386,31 @@ void get_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj
 
 #if defined(__x86_64__) && defined(__AVX2__)
   __m256i vm = _mm256_memmask_si256(ni) ;  // mask for load and store operations
-  for(j=0 ; j<nj ; j++){
+  if(nj == 8){
+    if(ni == 8){
+      _mm256_storeu_si256((__m256i *)d, _mm256_loadu_si256((__m256i *)s)) ; d += ni ; s += lni ;
+      _mm256_storeu_si256((__m256i *)d, _mm256_loadu_si256((__m256i *)s)) ; d += ni ; s += lni ;
+      _mm256_storeu_si256((__m256i *)d, _mm256_loadu_si256((__m256i *)s)) ; d += ni ; s += lni ;
+      _mm256_storeu_si256((__m256i *)d, _mm256_loadu_si256((__m256i *)s)) ; d += ni ; s += lni ;
+      _mm256_storeu_si256((__m256i *)d, _mm256_loadu_si256((__m256i *)s)) ; d += ni ; s += lni ;
+      _mm256_storeu_si256((__m256i *)d, _mm256_loadu_si256((__m256i *)s)) ; d += ni ; s += lni ;
+      _mm256_storeu_si256((__m256i *)d, _mm256_loadu_si256((__m256i *)s)) ; d += ni ; s += lni ;
+      _mm256_storeu_si256((__m256i *)d, _mm256_loadu_si256((__m256i *)s)) ; d += ni ; s += lni ;
+    }else{   // ni < 8, use a masked load and store
+    _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ; d += ni ; s += lni ;
+    _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ; d += ni ; s += lni ;
+    _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ; d += ni ; s += lni ;
+    _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ; d += ni ; s += lni ;
+    _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ; d += ni ; s += lni ;
+    _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ; d += ni ; s += lni ;
+    _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ; d += ni ; s += lni ;
     _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ;
-    d += ni ; s += lni ;
+    }
+  }else{    // nj < 8
+    for(j=0 ; j<nj ; j++){
+      _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ;
+      d += ni ; s += lni ;
+    }
   }
   return ;
 #else

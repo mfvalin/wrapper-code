@@ -58,7 +58,8 @@ ieee_prop ieee_decode_block_16(float xf[64], int ni, int nj, uint16_t *restrict 
 static inline __m128i _mm_lower128(__m256i v256) { return _mm256_extracti128_si256(v256, 0) ; }
 static inline __m128i _mm_upper128(__m256i v256) { return _mm256_extracti128_si256(v256, 1) ; }
 static inline __m128i _mm_memmask_si128(int n){
-  __m128i vm = _mm_cmpeq_epi32(vm, vm) ;
+  __m128i vm = _mm_xor_si128(vm, vm) ;
+  vm = _mm_cmpeq_epi32(vm, vm) ;
   if(n == 4) return vm ;
   if(n == 0) return _mm_xor_si128(vm, vm) ;
   n = 4 - (n & 3) ;
@@ -67,8 +68,10 @@ static inline __m128i _mm_memmask_si128(int n){
   return vm ;
 }
 static inline __m256i _mm256_memmask_si256(int n){
-  __m128i vm = _mm_cmpeq_epi32(vm, vm) ;
-  __m256i v0 = _mm256_cmpeq_epi32(v0, v0) ;
+  __m128i vm = _mm_xor_si128(vm, vm) ;
+  vm = _mm_cmpeq_epi32(vm, vm) ;
+  __m256i v0 = _mm256_xor_si256(v0, v0) ;
+  v0 = _mm256_cmpeq_epi32(v0, v0) ;
   if(n == 8) return v0 ;
   if(n == 0) return _mm256_xor_si256(v0, v0) ;
   n = 8 - (n & 7) ;
