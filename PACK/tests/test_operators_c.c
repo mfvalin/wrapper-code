@@ -4,6 +4,8 @@
 #include <rmn/misc_operators.h>
 #include <rmn/misc_types.h>
 
+#define NI 167
+#define NJ 169
 #define NP   33
 #define NPF  15
 #define NPFI 5
@@ -64,10 +66,14 @@ static void fill_64(float *src, int n, float f64[64]){
 
 int main(int argc, char **argv){
   int32_t src[NP], dst[NP+8] ;
-  int32_t i, j, x, err ;
+  int32_t i, j, i0, j0, lni, lnj, x, err, indx ;
   float f ;
   float xf[NP], xf1[NPF+64] ;
   FloatInt fi ;
+  int32_t memmask[8] ;
+  int32_t blk_test[NJ][NI] ;
+  int32_t blk_new[NJ][NI] ;
+  int32_t blk[64] ;
 #if defined(__x86_64__) && defined(__AVX2__)
   __m128i v128 ;
   __m256i v256 ;
@@ -76,6 +82,64 @@ int main(int argc, char **argv){
   ieee_prop prop ;
   uint16_t stream16[65] ;
 
+#if defined(__x86_64__) && defined(__AVX2__)
+  printf("vector masks (128 and 256) : ") ;
+  for(i=0 ; i<5 ; i++) {
+    _mm_storeu_si128((__m128i *)memmask, _mm_memmask_si128(i) ) ;
+//     printf("mask128(%d) = ", i) ;
+//     for(j=0 ; j<4 ; j++) printf("%8.8x ", memmask[j]) ;  printf("\n") ;
+    err = 0 ;
+    for(j=0 ; j<i ; j++) if(memmask[j] != -1) err++ ;
+    for(    ; j<4 ; j++) if(memmask[j] !=  0) err++ ;
+    if(err > 0) e_exit(1) ;
+  }
+  for(i=0 ; i<9 ; i++) {
+    _mm256_storeu_si256((__m256i *)memmask, _mm256_memmask_si256(i) ) ;
+//     printf("mask256(%d) = ", i) ;
+//     for(j=0 ; j<8 ; j++) printf("%8.8x ", memmask[j]) ;  printf("\n") ;
+    for(j=0 ; j<i ; j++) if(memmask[j] != -1) err++ ;
+    for(    ; j<8 ; j++) if(memmask[j] != 0) err++ ;
+    if(err > 0) e_exit(1) ;
+  }
+  if(err > 0) e_exit(1) ;
+  printf("Success\n") ;
+
+#endif
+  printf("extract blocks : ") ;
+  for(j=0 ; j<NJ ; j++){
+    for(i=0 ; i<NI ; i++){
+      blk_test[j][i] = (i << 8) + (j) ;
+    }
+  }
+  for(j0=0 ; j0<NJ ; j0+=8){
+    lnj = (NJ-j0 < 8) ? NJ-j0 : 8 ;
+    for(i0=0 ; i0<NI ; i0+=8){
+      lni = (NI-i0 < 8) ? NI-i0 : 8 ;
+      indx = i0 + j0 * NI ;
+      get_w32_block((void *)(&blk_test[j0][i0]), blk, lni, NI, lnj) ;
+      put_w32_block((void *)(&blk_new[j0][i0]) , blk, lni, NI, lnj) ;
+      err = 0 ;
+      for(j=lnj-1 ; j>=0 ; j--){
+        for(i=0 ; i<lni ; i++){
+          if(blk[j*lni+i] != blk_test[j0+j][i0+i]) err++ ;
+          if(blk_new[j0+j][i0+i] != blk_test[j0+j][i0+i]) err++ ;
+        }
+      }
+      if(err > 0) {
+        printf("\n") ;
+        printf("i0 = %d, j0 = %d, indx = %d, lni = %d, lnj = %d\n", i0, j0, indx, lni, lnj) ;
+        for(j=lnj-1 ; j>=0 ; j--){
+          for(i=0 ; i<lni ; i++){
+          printf("%8.8x|%8.8x ", blk_test[j0+j][i0+i], blk[j*lni+i] ) ;
+          }
+          printf("\n") ;
+        }
+        e_exit(1) ;
+      }
+    }
+  }
+  printf("Success\n") ;
+return 0;
   init_floats() ;
   printf("\n") ;
   prop = ieee_properties(xs1, NPF/2) ;

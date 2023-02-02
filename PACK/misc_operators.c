@@ -241,6 +241,23 @@ ieee_prop ieee_encode_block_16(float xf[64], int ni, int nj, uint16_t *restrict 
   return prop ;
 }
 
+// encode a float array
+void ieee_encode_array_16(float *restrict xf, int ni, int lni, int nj, uint16_t *restrict stream){
+  int i, j, indx, nil, njl ;
+  ieee_prop prop ;
+  float x64[64] ;
+  for(j=0 ; j<nj ; j+= 8){
+    njl = (nj-j < 8) ? (nj - j) : 8 ;
+    for(i=0 ; i<ni ; i+=8){
+      indx = i + j * lni ;                                  // index of lower left corner of block to encode
+      nil = (ni-i < 8) ? (ni - i) : 8 ;
+      prop = ieee_get_block(&xf[indx], x64, 8, nil, 8) ;    // get nil x njl block
+      prop = ieee_encode_block_16(x64, nil, njl, stream) ;  // encode block
+      stream += 1 + nil * njl ;                             // space taken by previous block
+    }
+  }
+}
+
 // decode IEEE float block as a sequence of 16 bit tokens
 // xf 
 ieee_prop ieee_decode_block_16(float xf[64], int ni, int nj, uint16_t *restrict stream){
@@ -295,19 +312,65 @@ ieee_prop ieee_decode_block_16(float xf[64], int ni, int nj, uint16_t *restrict 
   return prop ;
 }
 
-// copy a block of (1 <= ni <= 8) x (1 <= nj <=8) 32 bit words into array dst
-// src   : source array
+// copy a block of (1 <= ni <= 8) x (1 <= nj <=8) 32 bit words from array blk back into f
+// f     : destination array
 // ni    : row size
 // nj    : number of rows
 // lni   : storage length of rows
-// dst   : 32 bit words array to receive copied block
-// N.B. this code is not entirely safe as it may "overread" from array src by up to 3 locations
-void get_w32_block(void *restrict src, void *restrict dst, int ni, int lni, int nj){
-  uint32_t *restrict s = (uint32_t *) src ;
-  uint32_t *restrict d = (uint32_t *) dst ;
+// blk   : 32 bit words array to provide copied block
+void put_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj){
+  uint32_t *restrict d = (uint32_t *) f ;
+  uint32_t *restrict s = (uint32_t *) blk ;
   int i, j ;
 
-  if(ni > 4){            // posible "overread" by up to 3 elements
+#if defined(__x86_64__) && defined(__AVX2__)
+  __m256i vm = _mm256_memmask_si256(ni) ;  // mask for load and store operations
+  for(j=0 ; j<nj ; j++){
+    _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ;
+    d += lni ; s += ni ;
+  }
+#else
+
+  if(nj == 8){
+    if(ni == 8){
+      for(j=0 ; j<8  ; j++){ for(i=0 ; i<8 ; i++) d[i] = s[i] ; d += lni ; s += 8 ; }
+    }else{
+      ni &= 7 ;
+      for(j=0 ; j<8  ; j++){ for(i=0 ; i<ni; i++) d[i] = s[i] ; d += lni ; s += ni ; }
+    }
+  }else{
+    if(ni == 8){
+      for(j=0 ; j<nj ; j++){ for(i=0 ; i<8 ; i++) d[i] = s[i] ; d += lni ; s += 8 ; }
+    }else{
+      ni &= 7 ;
+      for(j=0 ; j<nj ; j++){ for(i=0 ; i<ni; i++) d[i] = s[i] ; d += lni ; s += ni ; }
+    }
+  }
+#endif
+}
+
+// copy a block of (1 <= ni <= 8) x (1 <= nj <=8) 32 bit words into array blk
+// f     : source array
+// ni    : row size
+// nj    : number of rows
+// lni   : storage length of rows
+// blk   : 32 bit words array to receive copied block
+// N.B. this code is not entirely safe as it may "overread" from array f by up to 3 locations
+void get_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj){
+  uint32_t *restrict s = (uint32_t *) f ;
+  uint32_t *restrict d = (uint32_t *) blk ;
+  int i, j ;
+
+#if defined(__x86_64__) && defined(__AVX2__)
+  __m256i vm = _mm256_memmask_si256(ni) ;  // mask for load and store operations
+  for(j=0 ; j<nj ; j++){
+    _mm256_maskstore_epi32 ((int *)d, vm, _mm256_maskload_epi32 ((int const *) s, vm) ) ;
+    d += ni ; s += lni ;
+  }
+  return ;
+#else
+
+  if(ni > 4){            // possible "overread" by up to 3 elements
     if(nj & 8) {
       for(j=0 ; j<8 ; j++){ for(i=0 ; i<8; i++) d[i] = s[i] ; d += ni ; s += lni ; }
       return ;
@@ -316,36 +379,38 @@ void get_w32_block(void *restrict src, void *restrict dst, int ni, int lni, int 
     if(nj & 2) for(j=0 ; j<2 ; j++){ for(i=0 ; i<8; i++) d[i] = s[i] ; d += ni ; s += lni ; }
     if(nj & 1) for(i=0 ; i<8; i++) d[i] = s[i] ;
     return ;
-  }else{                 // posible "overread" by up to 3 elements
+  }else{                 // possible "overread" by up to 3 elements
+    if(nj & 8) for(j=0 ; j<8 ; j++){ for(i=0 ; i<4; i++) d[i] = s[i] ; d += ni ; s += lni ; }
     if(nj & 4) for(j=0 ; j<4 ; j++){ for(i=0 ; i<4; i++) d[i] = s[i] ; d += ni ; s += lni ; }
     if(nj & 2) for(j=0 ; j<2 ; j++){ for(i=0 ; i<4; i++) d[i] = s[i] ; d += ni ; s += lni ; }
     if(nj & 1)                       for(i=0 ; i<4; i++) d[i] = s[i] ;
     return ;
   }
+#endif
 }
-// copy a block of (1 <= ni <= 8) x (1 <= nj <=8) floats into array dst
-// src   : float array
+// copy a block of (1 <= ni <= 8) x (1 <= nj <=8) floats into array blk
+// f     : float array
 // ni    : row size
 // nj    : number of rows
 // lni   : storage length of rows
-// dst   : float array to receive copied block
+// blk   : float array to receive copied block
 // return ieee properties for block 
 // N.B.  : Fortran storage order is assumed
-ieee_prop ieee_get_block(float *restrict src, float dst[64], int ni, int lni, int nj){
+ieee_prop ieee_get_block(float *restrict f, float blk[64], int ni, int lni, int nj){
   int i, j ;
-  float *dst0 = dst ;
+  float *blk0 = blk ;
   ieee_prop prop ;
 
-  if(ni * nj > 64 || ni * nj < 0){
+  if(ni < 1 || nj < 1 || ni > 8 || nj > 8){
     printf("ieee_get_block ERROR : invalid number of points : expected 1 -> 64, got %d\n", ni*nj) ;
     prop.errf = 1 ;
     return prop ;
   }
-  get_w32_block(src, dst, ni, lni, nj) ;
+  get_w32_block(f, blk, ni, lni, nj) ;
   if(ni == 8 && nj == 8){      // full 8x8 block
-    prop = ieee_properties_64(dst0) ;
+    prop = ieee_properties_64(blk0) ;
   }else{                       // short block
-    prop = ieee_properties(dst0, ni*nj) ;
+    prop = ieee_properties(blk0, ni*nj) ;
   }
   prop.npti = ni ;
   prop.nptj = nj ;
