@@ -172,7 +172,6 @@ int main(int argc, char **argv){
   t /= (NI*NJ) ;
   printf("insert %d words in %6.2f cycles/word\n", NI*NJ, t);
 
-return 0;
   init_floats() ;
   printf("\n") ;
   prop = ieee_properties(xs1, NPF/2) ;
@@ -255,7 +254,7 @@ return 0;
   prop = ieee_decode_block_16(xf1, 16, 4, stream16) ;
   printf("expected error : prop.errf = %x\n", prop.errf) ;
   printf("=======================================================================================\n") ;
-return 0 ;
+
 // IEEE min and max exponent test
   printf("IEEE properties : ") ;
   for(i=0 ; i<NP ; i++) xf[i] = (i - NP/2) * 1.01f ;
@@ -276,15 +275,32 @@ return 0 ;
     e_exit(1) ;
   }
   printf("Success\n") ;
-  prop = ieee_properties(xf, NP/2);           // test bottom of array (all negative)
-  printf("properties bottom half (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(prop), prop.emin, prop.emax, prop.allp, prop.allm) ;
+
+  prop = ieee_properties(xf, NP/2);           // allp/allm always 0 if length is not 64
+  printf("properties bottom half (<64) (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(prop), prop.emin, prop.emax, prop.allp, prop.allm) ;
+  if(prop.emin != 127 || prop.emax != 131 || prop.allp != 0 || prop.allm != 0) {
+    printf("\nexpected(got) emin = 127(%d), emax = 131(%d), allp = 0(%d), allm = 0(%d) : ", prop.emin, prop.emax, prop.allp, prop.allm) ;
+    e_exit(1) ;
+  }
+  printf("Success\n") ;
+  fill_64(xf, NP/2, xf1) ;  // fill 64 element array with bottom of array (all negative)
+  prop = ieee_properties(xf1, 64);           // test bottom of array (all negative)
+  printf("properties bottom half ( 64) (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(prop), prop.emin, prop.emax, prop.allp, prop.allm) ;
   if(prop.emin != 127 || prop.emax != 131 || prop.allp != 0 || prop.allm != 1) {
     printf("\nexpected(got) emin = 127(%d), emax = 131(%d), allp = 1(%d), allm = 0(%d) : ", prop.emin, prop.emax, prop.allp, prop.allm) ;
     e_exit(1) ;
   }
   printf("Success\n") ;
-  prop = ieee_properties(xf+NP/2, NP/2+1);    // test top of array (all non negative)
-  printf("properties top half    (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(prop), prop.emin, prop.emax, prop.allp, prop.allm) ;
+  prop = ieee_properties(xf+NP/2, NP/2+1);    // allp/allm always 0 if length is not 64
+  printf("properties top half    (<64) (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(prop), prop.emin, prop.emax, prop.allp, prop.allm) ;
+  if(prop.emin != 127 || prop.emax != 131 || prop.allp != 0 || prop.allm != 0) {
+    printf("\nexpected(got) emin = 127(%d), emax = 131(%d), allp = 0(%d), allm = 0(%d) : ", prop.emin, prop.emax, prop.allp, prop.allm) ;
+    e_exit(1) ;
+  }
+  printf("Success\n") ;
+  fill_64(xf+NP/2, NP/2+1, xf1) ;  // fill 64 element array with top of array (all non negative)
+  prop = ieee_properties(xf1, 64);    // test top of array (all non negative)
+  printf("properties top half    ( 64) (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(prop), prop.emin, prop.emax, prop.allp, prop.allm) ;
   if(prop.emin != 127 || prop.emax != 131 || prop.allp != 1 || prop.allm != 0) {
     printf("\nexpected(got) emin = 127(%d), emax = 131(%d), allp = 1(%d), allm = 0(%d) : ", prop.emin, prop.emax, prop.allp, prop.allm) ;
     e_exit(1) ;
