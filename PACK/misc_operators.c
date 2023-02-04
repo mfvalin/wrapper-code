@@ -373,6 +373,51 @@ void put_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj
 }
 
 // copy a block of (1 <= ni <= 8) x (1 <= nj <=8) 32 bit words into array blk
+// return ieee properties (analysis on the fly)
+ieee_prop get_ieee32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj){
+  uint32_t *restrict s = (uint32_t *) f ;
+  uint32_t *restrict d = (uint32_t *) blk ;
+  int i, j ;
+  uint32_t emax, emin, allm, allp ;
+  ieee_prop prop ;
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+  __m256i vo0, vma, vmi, va0, vor, vand ;
+  __m128i t ;
+  vo0  = _mm256_loadu_si256((__m256i *)s) ; s += lni ;     // get row
+  _mm256_storeu_si256((__m256i *)d, vo0) ; d += 8 ;        // store row
+  vor  = vo0 ;                                             // wired OR accumulator, MSB 0 only if all numbers non negative
+  vand = vo0 ;                                             // wired AND accumulator, MSB 1 only if all numbers negative
+  va0  = _mm256_slli_si256(vo0, 1) ;                       // get rid of sign, exponent in upper 8 bits
+  vma  = va0 ;                                             // largest exponent
+  vmi  = va0 ;                                             // smallest exponent
+  for(j=1 ; j<8 ; j++){
+    vo0  = _mm256_loadu_si256((__m256i *)s) ; s += lni ;
+    vand = _mm256_and_si256(vand, vo0) ;                   // wired AND, MSB 1 if all numbers negative
+    vor  = _mm256_or_si256(vor, vo0) ;                     // wired OR, MSB 0 if all numbers non negative
+    va0  = _mm256_slli_si256(vo0, 1) ;                     // get rid of sign, exponent in upper 8 bits
+    vma  = _mm256_max_epu32(vma, va0) ;                    // largest exponent
+    vmi  = _mm256_min_epu32(vmi, va0) ;                    // smallest exponent
+    _mm256_storeu_si256((__m256i *)d, vo0) ; d += 8 ;
+  }
+  t = _mm_max_epu32(_mm_lower128(vma) , _mm_upper128(vma) ) ;  // 8 -> 4 max( 0,4 1,5 2,6 3,7 )
+  t = _mm_max_epu32(t, _mm_shuffle_epi32(t, 0b11101110) ) ;    // 4 -> 2 max( 0,4,2,6 1,5,3,7 xxxxx xxxxx)
+  t = _mm_max_epu32(t, _mm_shuffle_epi32(t, 0b01010101) ) ;    // 2 -> 1 max( 0,4,2,6,1,5,3,7 xxxxx xxxxx xxxxx)
+  _mm_storeu_si32(&emax, t) ;                                  // store reduced value
+  t = _mm_min_epu32(_mm_lower128(vmi) , _mm_upper128(vmi) ) ;
+  t = _mm_min_epu32(t, _mm_shuffle_epi32(t, 0b10111011) ) ;
+  t = _mm_min_epu32(t, _mm_shuffle_epi32(t, 0b01010101) ) ;
+  _mm_storeu_si32(&emin, t) ;                                  // store reduced value
+  prop.allp = ( _mm256_movemask_ps((__m256) vor) == 0 ) ;      // all upper bits MUST be 0
+  prop.allm = ( _mm256_movemask_ps((__m256) vand) == 0xFF ) ;  // all upper bits MUST be 1
+#else
+#endif
+  prop.emin = emin ;
+  prop.mima = (emax == emin) ;
+  prop.emax = emax ;
+  return prop ;
+}
+
+// copy a block of (1 <= ni <= 8) x (1 <= nj <=8) 32 bit words into array blk
 // f     : source array
 // ni    : row size
 // nj    : number of rows

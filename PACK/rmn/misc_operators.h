@@ -48,6 +48,7 @@ void get_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj
 void put_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj);
 ieee_prop ieee_properties(float *f, int n);
 ieee_prop ieee_properties_64(float *f);
+ieee_prop get_ieee32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj);
 ieee_prop ieee_get_block(float *restrict f, float *restrict blk, int ni, int lni, int nj);
 ieee_prop ieee_put_block(float *restrict f, float *restrict blk, int ni, int lni, int nj);
 ieee_prop ieee_encode_block_16(float xf[64], int ni, int nj, uint16_t *restrict stream);

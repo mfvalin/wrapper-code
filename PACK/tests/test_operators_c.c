@@ -145,6 +145,7 @@ int main(int argc, char **argv){
     }
   }
   printf("Success\n") ;
+
   t1 = elapsed_cycles() ;
   for(j0=0 ; j0<NJ ; j0+=8){
     lnj = (NJ-j0 < 8) ? NJ-j0 : 8 ;
@@ -158,6 +159,21 @@ int main(int argc, char **argv){
   double t = t2;
   t /= (NI*NJ) ;
   printf("extract %d words in %6.2f cycles/word\n", NI*NJ, t);
+
+  t1 = elapsed_cycles() ;
+  for(j0=0 ; j0<NJ ; j0+=8){
+    lnj = (NJ-j0 < 8) ? NJ-j0 : 8 ;
+    for(i0=0 ; i0<NI-7 ; i0+=8){
+      lni = (NI-i0 < 8) ? NI-i0 : 8 ;
+      indx = i0 + j0 * NI ;
+      prop = get_ieee32_block((void *)(&blk_test[j0][i0]), blk, lni, NI, lnj) ;
+    }
+  }
+  t2 = elapsed_cycles() - t1 ;
+  t = t2;
+  t /= (NI*NJ) ;
+  printf("extract_prop %d words in %6.2f cycles/word\n", NI*NJ, t);
+
   t1 = elapsed_cycles() ;
   for(j0=0 ; j0<NJ ; j0+=8){
     lnj = (NJ-j0 < 8) ? NJ-j0 : 8 ;
@@ -171,7 +187,7 @@ int main(int argc, char **argv){
   t = t2;
   t /= (NI*NJ) ;
   printf("insert %d words in %6.2f cycles/word\n", NI*NJ, t);
-
+return 0 ;
   init_floats() ;
   printf("\n") ;
   prop = ieee_properties(xs1, NPF/2) ;
