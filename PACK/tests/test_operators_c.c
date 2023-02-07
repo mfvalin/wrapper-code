@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdio.h>
 
 #include <rmn/misc_operators.h>
@@ -122,7 +123,8 @@ int main(int argc, char **argv){
     for(i0=0 ; i0<NI ; i0+=8){
       lni = (NI-i0 < 8) ? NI-i0 : 8 ;
       indx = i0 + j0 * NI ;
-      get_w32_block((void *)(&blk_test[j0][i0]), blk, lni, NI, lnj) ;
+//       get_w32_block((void *)(&blk_test[j0][i0]), blk, lni, NI, lnj) ;
+      get_ieee32_block((void *)(&blk_test[j0][i0]), blk, lni, NI, lnj) ;
       put_w32_block((void *)(&blk_new[j0][i0]) , blk, lni, NI, lnj) ;
       err = 0 ;
       for(j=lnj-1 ; j>=0 ; j--){
@@ -203,7 +205,7 @@ return 0 ;
   printf("expected error : prop.errf = %x\n", prop.errf) ;
   printf("=======================================================================================\n") ;
   fill_64(xs1, NPF/2, xf1) ;
-  prop = ieee_properties_64(xf1) ;
+  prop = ieee_properties(xf1, 64) ;
   for(i=0 ; i<NPF/2 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
   printf("emax = %d, emin = %2.2x, mima = %d %s%s%s, n = %d\n", 
          prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", 64 );
@@ -224,7 +226,7 @@ return 0 ;
   printf("=======================================================================================\n") ;
 
   fill_64(xs1, NPF/2+1, xf1) ;
-  prop = ieee_properties_64(xf1) ;
+  prop = ieee_properties(xf1, 64) ;
   for(i=0 ; i<NPF/2+1 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
   printf("emax = %d, emin = %2.2x, mima = %d %s%s%s, n = %d\n", 
          prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", 64 );
@@ -255,7 +257,7 @@ return 0 ;
   printf("=======================================================================================\n") ;
 
   fill_64(xs1+NPF/2+1, NPF/2, xf1) ;
-  prop = ieee_properties_64(xf1) ;
+  prop = ieee_properties(xf1, 64) ;
   for(i=NPF/2+1 ; i<NPF ; i++) printf("%11.7f", xs1[i]) ; printf("\n") ;
   printf("emax = %d, emin = %2.2x, mima = %d %s%s%s, n = %d\n", 
          prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", 64 );

@@ -38,7 +38,8 @@ typedef struct{
            zero:1 ,  // 1 if zero values detected
            mima:1 ,  // 1 if same exponent and no zero
            errf:1 ,  // error flag
-           xtra:3 ,  // reserved for future use
+           n8x8:1 ,  // full 8x8 block
+           xtra:2 ,  // reserved for future use
            npti:4 ,  // nuber of points in row (1-8)
            nptj:4 ;  // number of rows (1-8)
 } ieee_prop ;
@@ -47,7 +48,7 @@ typedef struct{
 void get_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj);
 void put_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj);
 ieee_prop ieee_properties(float *f, int n);
-ieee_prop ieee_properties_64(float *f);
+// ieee_prop ieee_properties_64(float *f);
 ieee_prop get_ieee32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj);
 ieee_prop ieee_get_block(float *restrict f, float *restrict blk, int ni, int lni, int nj);
 ieee_prop ieee_put_block(float *restrict f, float *restrict blk, int ni, int lni, int nj);
