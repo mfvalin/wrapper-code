@@ -52,7 +52,7 @@ ieee_prop ieee_properties(float *f, int n);
 ieee_prop get_ieee32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj);
 ieee_prop ieee_get_block(float *restrict f, float *restrict blk, int ni, int lni, int nj);
 ieee_prop ieee_put_block(float *restrict f, float *restrict blk, int ni, int lni, int nj);
-ieee_prop ieee_encode_block_16(float xf[64], int ni, int nj, uint16_t *restrict stream);
+ieee_prop ieee_encode_block_16(float xf[64], int ni, int nj, uint16_t *restrict stream, ieee_prop prop);
 ieee_prop ieee_decode_block_16(float xf[64], int ni, int nj, uint16_t *restrict stream);
 
 // some useful X86_64 SIMD macros and inline functions
@@ -91,6 +91,19 @@ static inline __m256i _mm256_memmask_si256(int n){
   return _mm256_cvtepi16_epi32(vm) ;       // convert t0 32 bit mask (8 elements)
 }
 #endif
+
+// copy n 32 bit words from array s0 to array d0 with strong SIMD hint
+// s0 and d0 MUST NOT OVERLAP
+// should be faster than memcpy for small to medium lengths
+// can also be used to copy 64 bit items, n just has to be doubled
+STATIC inline void mem_cpy_w32(void * restrict d0, void * restrict s0, int n){
+  int32_t * restrict s = (int32_t *)s0, * restrict d = (int32_t *)d0 ;
+  int i, ni7, i0 ;
+  ni7 = (n & 7) ;
+  for(i0=0 ; i0<n ; i0+=ni7 , ni7 = 8){
+    for(i=0 ; i<8 ; i++) d[i0+i] = s[i0+i] ;  // 8 element SIMD hint
+  }
+}
 
 // convert a float to a rounded integer (nearest integer)
 #define FLOAT_TO_INT(x) ( (x)<0 ? (int)((x)-0.5) : (int)((x)+0.5) )
