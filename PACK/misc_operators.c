@@ -199,7 +199,8 @@ ieee_prop ieee_properties(float *f, int n){
 // }
 
 // encode IEEE float block as a sequence of 16 bit tokens
-ieee_prop ieee_encode_block_16(float xf[64], int ni, int nj, uint16_t *restrict stream){
+// if prop is filled, use it instead of calling ieee_properties
+ieee_prop ieee_encode_block_16(float xf[64], int ni, int nj, uint16_t *restrict stream, ieee_prop prop){
   int i, n = ni*nj ;
   uint32_t *xi = (uint32_t *) xf ;
   uint16_t header  ;
@@ -207,17 +208,27 @@ ieee_prop ieee_encode_block_16(float xf[64], int ni, int nj, uint16_t *restrict 
   int16_t *t = (int16_t *) stream ;
   int32_t tmp ;
   uint32_t utmp ;
-  ieee_prop prop ;
+//   ieee_prop prop ;
+
+  if(ni == 0) ni = prop.npti ;
+  if(nj == 0) nj = prop.nptj ;
 
   if(ni < 1 || ni > 8 || nj < 1 || nj > 8){
     printf("ieee_encode_block_16 ERROR : invalid number of points : expected (1-8) x (1-8), got %d x %d\n", ni, nj) ;
     prop.errf = 1 ;
     return prop ;
   }
-//   prop = (ni == 8 && nj == 8) ? ieee_properties_64(xf) : ieee_properties(xf, ni*nj) ;
-  prop = ieee_properties(xf, ni*nj) ;
-  prop.npti = ni ;   // add block dimensions
-  prop.nptj = nj ;
+  if(prop.npti == 0 && prop.nptj == 0) {   // null prop info
+    prop = ieee_properties(xf, ni*nj) ;
+    prop.npti = ni ;   // add block dimensions
+    prop.nptj = nj ;
+  }
+  if(prop.npti != ni || prop.nptj != nj){
+    printf("ieee_encode_block_16 ERROR : inconsistent number of points : ni = %d vs %d, nj = %d vs %d\n", prop.npti, ni, prop.nptj, nj) ;
+    prop.errf = 1 ;
+    return prop ;
+  }
+
   stream[0] = encode_ieee_header(prop) ;
 // printf("ieee_encode_block_16 : emax = %d, emin = %d, mima = %d, allp = %d, allm = %d, zero = %d\n", 
 //        prop.emax, prop.emin, prop.mima, prop.allp, prop.allm, prop.zero) ;
@@ -257,18 +268,20 @@ ieee_prop ieee_encode_block_16(float xf[64], int ni, int nj, uint16_t *restrict 
 }
 
 // encode a float array
+// ieee_prop ieee_get_block(float *restrict f, float *restrict blk, int ni, int lni, int nj);
+// ieee_prop get_ieee32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj);
 void ieee_encode_array_16(float *restrict xf, int ni, int lni, int nj, uint16_t *restrict stream){
   int i, j, indx, nil, njl ;
-  ieee_prop prop ;
+  ieee_prop prop0, prop1 ;
   float x64[64] ;
   for(j=0 ; j<nj ; j+= 8){
     njl = (nj-j < 8) ? (nj - j) : 8 ;
     for(i=0 ; i<ni ; i+=8){
       indx = i + j * lni ;                                  // index of lower left corner of block to encode
       nil = (ni-i < 8) ? (ni - i) : 8 ;
-      prop = ieee_get_block(&xf[indx], x64, 8, nil, 8) ;    // get nil x njl block
-      prop = ieee_encode_block_16(x64, nil, njl, stream) ;  // encode block
-      stream += 1 + nil * njl ;                             // space taken by previous block
+      prop0 = get_ieee32_block(&xf[indx], x64, nil, lni, njl) ;  // get nil x njl block and properties
+      prop1 = ieee_encode_block_16(x64, nil, njl, stream, prop0) ;      // encode block
+      stream += 1 + nil * njl ;                                  // bump stream pointer
     }
   }
 }
@@ -386,6 +399,7 @@ void put_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj
 
 // copy a block of (1 <= ni <= 8) x (1 <= nj <=8) 32 bit words into array blk
 // return ieee properties (analysis on the fly)
+// the X86_64 SIMD (AVX2) version semms ~ 15%-25%  faster
 ieee_prop get_ieee32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj){
   uint32_t *restrict s = (uint32_t *) f ;
   uint32_t *restrict d = (uint32_t *) blk ;
@@ -399,6 +413,7 @@ ieee_prop get_ieee32_block(void *restrict f, void *restrict blk, int ni, int lni
   if(ni == 8){     // full register length ni = 8
     vo0  = _mm256_loadu_si256((__m256i *)s) ; s += lni ;   // get row, bump pointer
   }else{           //  ni < 8
+    ni &= 7 ;      // make sure this is true
     vm   = _mm256_memmask_si256(ni) ;          // mask for load and store operations
     v000 = _mm256_xor_si256(v000, v000) ;      // all 0s
     v111 = _mm256_cmpeq_epi32(v000, v000) ;    // all 1s
@@ -455,13 +470,10 @@ ieee_prop get_ieee32_block(void *restrict f, void *restrict blk, int ni, int lni
   uint32_t t ;
   emax = emin = (s[0] << 1) ;
   allm = allp = s[0] ;
-  if(ni == 8 && nj == 8){
+  if(ni == 8 && nj == 8){      // explicit code 8 x 8 block
     for(j=0 ; j<8 ; j++){
-      for(i=0 ; i<8 ; i++){
-        d[i] = s[i] ;
-      }
-      s += lni ;
-      d += 8 ;
+      for(i=0 ; i<8 ; i++){ d[i] = s[i] ; }
+      s += lni ; d += 8 ;
     }
     d = (uint32_t *) blk ;
     for(i=0 ; i<64 ; i++){
@@ -471,19 +483,14 @@ ieee_prop get_ieee32_block(void *restrict f, void *restrict blk, int ni, int lni
         allm &= d[i] ;
         allp |= d[i] ;
     }
-  }else{
+  }else{                       // short block
     for(j=0 ; j<nj ; j++){
       if(ni == 8){
-        for(i=0 ; i<8 ; i++){
-          d[i] = s[i] ;
-        }
+        for(i=0 ; i<8  ; i++){ d[i] = s[i] ; }
       }else{
-        for(i=0 ; i<ni ; i++){
-          d[i] = s[i] ;
-        }
+        for(i=0 ; i<ni ; i++){ d[i] = s[i] ; }
       }
-      s += lni ;
-      d += ni ;
+      s += lni ; d += ni ;
     }
     d = (uint32_t *) blk ;
     for(i=0 ; i<ni*nj ; i++){
@@ -497,6 +504,8 @@ ieee_prop get_ieee32_block(void *restrict f, void *restrict blk, int ni, int lni
 #endif
   // emin will be zero if 0s are present in float array f
   prop = make_ieee_prop(allp, allm, emin, emax, emin, ni*nj) ;
+  prop.npti = ni ;
+  prop.nptj = nj ;
 //   if(ni == 8 && nj == 8) {                           // short block, only flag kept is mima (same exponent)
 //     prop.npti = prop.nptj = 8 ;          // full 8x8 block
 //   }else{
@@ -520,8 +529,8 @@ ieee_prop get_ieee32_block(void *restrict f, void *restrict blk, int ni, int lni
 
 // copy a block of (1 <= ni <= 8) x (1 <= nj <=8) 32 bit words into array blk
 // f     : source array
-// ni    : row size
-// nj    : number of rows
+// ni    : row size  (0 < size <= 8)
+// nj    : number of rows  (0 < number <= 8)
 // lni   : storage length of rows
 // blk   : 32 bit words array to receive copied block
 // N.B. this code is not entirely safe as it may "overread" from array f by up to 3 locations
