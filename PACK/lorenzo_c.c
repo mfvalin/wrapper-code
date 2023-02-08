@@ -22,6 +22,18 @@
 #define STATIC static
 #endif
 
+// copy n 32 bit words from array s0 to array d0 with strong SIMD hint
+// s0 and d0 MUST NOT OVERLAP
+// should be faster than memcpy for small to medium lengths
+static inline void mem_cpy_w32(void * restrict d0, void * restrict s0, int n){
+  int32_t * restrict s = (int32_t *)s0, * restrict d = (int32_t *)d0 ;
+  int i, ni7, i0 ;
+  ni7 = (n & 7) ;
+  for(i0=0 ; i0<n ; i0+=ni7 , ni7 = 8){
+    for(i=0 ; i<8 ; i++) d[i0+i] = s[i0+i] ;  // 8 element SIMD hint
+  }
+}
+
 #include <rmn/lorenzo.h>
 
 // plain C version for cases where ni < 9
@@ -119,11 +131,13 @@ void LorenzoPredictInplace_c(int32_t * restrict orig, int ni, int lnio, int nj){
   orig += (lnio * (nj - 1)) ;
   while(--nj > 0){                                    // all rows other than bottom row
     LorenzoPredictRowJ(orig, orig-lnio, diff, ni) ;   // predict upper row in row pair -> diff
-    memcpy(orig, diff, sizeof(diff)) ;                // copy predicted row back into orig
+//     memcpy(orig, diff, sizeof(diff)) ;                // copy predicted row back into orig
+    mem_cpy_w32(orig, diff, ni) ;
     orig -= lnio ;                                    // next row
   }
   LorenzoPredictRow0(orig, diff, ni) ;                // bottom row
-  memcpy(orig, diff, sizeof(diff)) ;
+//   memcpy(orig, diff, sizeof(diff)) ;
+  mem_cpy_w32(orig, diff, ni) ;
 }
 
 // restore ogiginal from 2D lorenzo prediction (32 bit signed integers)

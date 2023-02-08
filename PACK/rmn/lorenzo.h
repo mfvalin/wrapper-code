@@ -35,14 +35,14 @@ interface
     integer(C_INT32_T), intent(IN), value :: ni, lnio, nj
     integer(C_INT32_T), dimension(lnio,nj), intent(IN)  :: orig
   end subroutine lorenzopredictinplace
-  subroutine lorenzounpredict(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoUnpredict_f')
+  subroutine lorenzounpredict(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoUnpredict_c')
     import :: C_INT32_T
     implicit none
     integer(C_INT32_T), intent(IN), value :: ni, lnio, lnid, nj
     integer(C_INT32_T), dimension(lnio,nj), intent(IN)  :: orig
     integer(C_INT32_T), dimension(lnid,nj), intent(OUT) :: diff
   end subroutine lorenzounpredict
-  subroutine lorenzounpredictinplace(orig, ni, lnio, nj) bind(C,name='LorenzoUnpredictInplace_f')
+  subroutine lorenzounpredictinplace(orig, ni, lnio, nj) bind(C,name='LorenzoUnpredictInplace_c')
     import :: C_INT32_T
     implicit none
     integer(C_INT32_T), intent(IN), value :: ni, lnio, nj
