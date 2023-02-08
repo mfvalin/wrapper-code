@@ -49,13 +49,14 @@ static inline __m128i _mm_lower128(__m256i v256) { return _mm256_extracti128_si2
 // get the upper 128 bits (most significant) from a 256 bit register
 static inline __m128i _mm_upper128(__m256i v256) { return _mm256_extracti128_si256(v256, 1) ; }
 
-// build a 128 bit mask (4 x 32 bits) to keep n (0-8) elements in masked operations
+// build a 128 bit mask (4 x 32 bits) to keep n (0-4) elements in masked operations
+// mask is built as a 32 bit mask (4x8bit), then expanded to 128 bits (4x32bit)
 static inline __m128i _mm_memmask_si128(int n){
   __m128i vm ;
-  uint32_t i32 = ~0u ;
-  i32 = n ? i32 >> ( 8 * (4 - (n&3)) ) : 0 ;
-   vm = _mm_set1_epi32(i32) ;
-  return _mm_cvtepi8_epi32(vm) ;       // convert from 16 bit t0 32 bit mask (8 elements)
+  uint32_t i32 = ~0u ;                           // all 1s
+  i32 = n ? i32 >> ( 8 * (4 - (n&3)) ) : 0 ;     // shift right to eliminate unneeded elements
+  vm = _mm_set1_epi32(i32) ;                     // load into 128 bit register
+  return _mm_cvtepi8_epi32(vm) ;                 // convert from 8 bit t0 32 bit mask (4 elements)
 //   __m128i vm = _mm_xor_si128(vm, vm) ;
 //   vm = _mm_cmpeq_epi32(vm, vm) ;
 //   if(n == 4) return vm ;                   // full 4 element mask
@@ -69,10 +70,10 @@ static inline __m128i _mm_memmask_si128(int n){
 // mask is built as a 64 bit mask (8x8bit), then expanded to 256 bits (8x32bit)
 static inline __m256i _mm256_memmask_si256(int n){
   __m128i vm ;
-  uint64_t i64 = ~0lu ;
-  i64 = n ? i64 >> ( 8 * (8 - (n&7)) ) : 0 ;
-   vm = _mm_set1_epi64x(i64) ;
-  return _mm256_cvtepi8_epi32(vm) ;       // convert from 8 bit t0 32 bit mask (8 elements)
+  uint64_t i64 = ~0lu ;                           // all 1s
+  i64 = n ? i64 >> ( 8 * (8 - (n&7)) ) : 0 ;      // shift right to eliminate unneeded elements
+  vm = _mm_set1_epi64x(i64) ;                     // load into 128 bit register
+  return _mm256_cvtepi8_epi32(vm) ;               // convert from 8 bit t0 32 bit mask (8 elements)
 //   __m128i vm = _mm_xor_si128(vm, vm) ;
 //   vm = _mm_cmpeq_epi32(vm, vm) ;
 //   __m256i v0 = _mm256_xor_si256(v0, v0) ;
