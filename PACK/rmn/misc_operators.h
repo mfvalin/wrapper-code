@@ -21,6 +21,7 @@ Library General Public License for more details.
 #include <stdint.h>
 
 #include <with_simd.h>
+#include <rmn/misc_types.h>
 
 #if ! defined(STATIC)
 #define STATIC static
@@ -29,26 +30,10 @@ Library General Public License for more details.
 
 #define MISC_OPERATORS
 
-// properties of float array, 32 bits total
-typedef struct{
-  uint32_t emax:8 ,  // largest float (absolute value) exponent
-           emin:8 ,  // smallest non zero float (absolute value) exponent
-           allp:1 ,  // 1 if all non negative numbers
-           allm:1 ,  // 1 if all negative numbers
-           zero:1 ,  // 1 if zero values detected
-           mima:1 ,  // 1 if same exponent and no zero
-           errf:1 ,  // error flag
-           n8x8:1 ,  // full 8x8 block
-           xtra:2 ,  // reserved for future use
-           npti:4 ,  // nuber of points in row (1-8)
-           nptj:4 ;  // number of rows (1-8)
-} ieee_prop ;
-
 // interfaces to functions in misc_operators.c
 void get_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj);
 void put_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj);
 ieee_prop ieee_properties(float *f, int n);
-// ieee_prop ieee_properties_64(float *f);
 ieee_prop get_ieee32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj);
 ieee_prop ieee_get_block(float *restrict f, float *restrict blk, int ni, int lni, int nj);
 ieee_prop ieee_put_block(float *restrict f, float *restrict blk, int ni, int lni, int nj);
@@ -66,29 +51,40 @@ static inline __m128i _mm_upper128(__m256i v256) { return _mm256_extracti128_si2
 
 // build a 128 bit mask (4 x 32 bits) to keep n (0-8) elements in masked operations
 static inline __m128i _mm_memmask_si128(int n){
-  __m128i vm = _mm_xor_si128(vm, vm) ;
-  vm = _mm_cmpeq_epi32(vm, vm) ;
-  if(n == 4) return vm ;                   // full 4 element mask
-  if(n == 0) return _mm_xor_si128(vm, vm) ;  // mask is all zeros
-  n = 4 - (n & 3) ;                        // number of elements to suppress on the left (none if 4)
-  if(n & 2) vm = _mm_bsrli_si128(vm, 8) ;  // suppress 2 elements
-  if(n & 1) vm = _mm_bsrli_si128(vm, 4) ;  // suppress 1 element
-  return vm ;
+  __m128i vm ;
+  uint32_t i32 = ~0u ;
+  i32 = n ? i32 >> ( 8 * (4 - (n&3)) ) : 0 ;
+   vm = _mm_set1_epi32(i32) ;
+  return _mm_cvtepi8_epi32(vm) ;       // convert from 16 bit t0 32 bit mask (8 elements)
+//   __m128i vm = _mm_xor_si128(vm, vm) ;
+//   vm = _mm_cmpeq_epi32(vm, vm) ;
+//   if(n == 4) return vm ;                   // full 4 element mask
+//   if(n == 0) return _mm_xor_si128(vm, vm) ;  // mask is all zeros
+//   n = 4 - (n & 3) ;                        // number of elements to suppress on the left (none if 4)
+//   if(n & 2) vm = _mm_bsrli_si128(vm, 8) ;  // suppress 2 elements
+//   if(n & 1) vm = _mm_bsrli_si128(vm, 4) ;  // suppress 1 element
+//   return vm ;
 }
 // build a 256 bit mask (8 x 32 bits) to keep n (0-8) elements in masked operations
+// mask is built as a 64 bit mask (8x8bit), then expanded to 256 bits (8x32bit)
 static inline __m256i _mm256_memmask_si256(int n){
-  __m128i vm = _mm_xor_si128(vm, vm) ;
-  vm = _mm_cmpeq_epi32(vm, vm) ;
-  __m256i v0 = _mm256_xor_si256(v0, v0) ;
-  v0 = _mm256_cmpeq_epi32(v0, v0) ;
-  if(n == 8) return v0 ;                   // full 8 element mask
-  if(n == 0) return _mm256_xor_si256(v0, v0) ;  // mask is all zeros
-  n = 8 - (n & 7) ;                        // number of elements to suppress on the left (none if 8)
-  // build 16 bit mask (8 elements)
-  if(n & 4) vm = _mm_bsrli_si128(vm, 8) ;  // suppress 4 elements
-  if(n & 2) vm = _mm_bsrli_si128(vm, 4) ;  // suppress 2 elements
-  if(n & 1) vm = _mm_bsrli_si128(vm, 2) ;  // suppress 1 element
-  return _mm256_cvtepi16_epi32(vm) ;       // convert t0 32 bit mask (8 elements)
+  __m128i vm ;
+  uint64_t i64 = ~0lu ;
+  i64 = n ? i64 >> ( 8 * (8 - (n&7)) ) : 0 ;
+   vm = _mm_set1_epi64x(i64) ;
+  return _mm256_cvtepi8_epi32(vm) ;       // convert from 8 bit t0 32 bit mask (8 elements)
+//   __m128i vm = _mm_xor_si128(vm, vm) ;
+//   vm = _mm_cmpeq_epi32(vm, vm) ;
+//   __m256i v0 = _mm256_xor_si256(v0, v0) ;
+//   v0 = _mm256_cmpeq_epi32(v0, v0) ;
+//   if(n == 8) return v0 ;                   // full 8 element mask
+//   if(n == 0) return _mm256_xor_si256(v0, v0) ;  // mask is all zeros
+//   n = 8 - (n & 7) ;                        // number of elements to suppress on the left (none if 8)
+//   // build 16 bit mask (8 elements)
+//   if(n & 4) vm = _mm_bsrli_si128(vm, 8) ;  // suppress 4 elements
+//   if(n & 2) vm = _mm_bsrli_si128(vm, 4) ;  // suppress 2 elements
+//   if(n & 1) vm = _mm_bsrli_si128(vm, 2) ;  // suppress 1 element
+//   return _mm256_cvtepi16_epi32(vm) ;       // convert from 16 bit t0 32 bit mask (8 elements)
 }
 #endif
 
@@ -99,9 +95,13 @@ static inline __m256i _mm256_memmask_si256(int n){
 STATIC inline void mem_cpy_w32(void * restrict d0, void * restrict s0, int n){
   int32_t * restrict s = (int32_t *)s0, * restrict d = (int32_t *)d0 ;
   int i, ni7, i0 ;
-  ni7 = (n & 7) ;
-  for(i0=0 ; i0<n ; i0+=ni7 , ni7 = 8){
-    for(i=0 ; i<8 ; i++) d[i0+i] = s[i0+i] ;  // 8 element SIMD hint
+  if(n < 8) {   // less thatn SIMD vector length
+    for(i = 0 ; i < (n & 7) ; i++) d[i] = s[i] ;
+  }else{
+    ni7 = (n & 7) ? (n & 7) : 8 ;
+    for(i0=0 ; i0<n ; i0+=ni7 , ni7 = 8){
+      for(i=0 ; i<8 ; i++) d[i0+i] = s[i0+i] ;  // 8 element SIMD hint
+    }
   }
 }
 
