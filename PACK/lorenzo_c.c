@@ -25,12 +25,17 @@
 // copy n 32 bit words from array s0 to array d0 with strong SIMD hint
 // s0 and d0 MUST NOT OVERLAP
 // should be faster than memcpy for small to medium lengths
+// n MUST BE >= 8
 static inline void mem_cpy_w32(void * restrict d0, void * restrict s0, int n){
   int32_t * restrict s = (int32_t *)s0, * restrict d = (int32_t *)d0 ;
   int i, ni7, i0 ;
-  ni7 = (n & 7) ;
-  for(i0=0 ; i0<n ; i0+=ni7 , ni7 = 8){
-    for(i=0 ; i<8 ; i++) d[i0+i] = s[i0+i] ;  // 8 element SIMD hint
+  if(n < 8) {   // less thatn SIMD vector length
+    for(i = 0 ; i < (n & 7) ; i++) d[i] = s[i] ;
+  }else{
+    ni7 = (n & 7) ? (n & 7) : 8 ;
+    for(i0=0 ; i0<n ; i0+=ni7 , ni7 = 8){
+      for(i=0 ; i<8 ; i++) d[i0+i] = s[i0+i] ;  // 8 element SIMD hint
+    }
   }
 }
 
@@ -62,6 +67,10 @@ STATIC inline void LorenzoPredictRow0(int32_t * restrict row, int32_t * restrict
   int i ;
   diff[0] = row[0] ;
 #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
+  if(n < 9){   // the SIMD version will not work for n < 9
+    for(i=1 ; i<n ; i++) diff[i] = diff[i] = row[i] - row[i-1] ;
+    return ;
+  }
   for(ii0 = 1 ; ii0 < n ; ii0 += 8) {
     i0 = (ii0 > n-8) ? (n-8) : ii0 ;
     vi   = _mm256_loadu_si256((__m256i *) (row+i0)  ) ;
@@ -87,6 +96,10 @@ STATIC inline void LorenzoPredictRowJ(int32_t * restrict top, int32_t * restrict
   int i ;
   diff[0] = top[0] - bot[0] ;         // first point in row, 1D prediction using row below
 #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
+  if(n < 9){   // the SIMD version will not work for n < 9
+    for(i=1 ; i<n ; i++) diff[i] = top[i] - ( top[i-1] + bot[i] - bot[i-1] ) ;
+    return ;
+  }
   for(ii0 = 1 ; ii0 < n ; ii0 += 8) {
     i0 = (ii0 > n-8) ? (n-8) : ii0 ;
     vi   = _mm256_loadu_si256((__m256i *) (top+i0)  ) ;   // top[i]
