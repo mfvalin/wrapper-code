@@ -82,7 +82,7 @@ int main(int argc, char **argv){
   __m256i v256 ;
   __m128i v128lo, v128hi ;
 #endif
-  ieee_prop prop ;
+  ieee_prop pr ;
   uint16_t stream16[65] ;
 
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
@@ -168,7 +168,7 @@ int main(int argc, char **argv){
     for(i0=0 ; i0<NI-7 ; i0+=8){
       lni = (NI-i0 < 8) ? NI-i0 : 8 ;
       indx = i0 + j0 * NI ;
-      prop = get_ieee32_block((void *)(&blk_test[j0][i0]), blk, lni, NI, lnj) ;
+      pr = get_ieee32_block((void *)(&blk_test[j0][i0]), blk, lni, NI, lnj) ;
     }
   }
   t2 = elapsed_cycles() - t1 ;
@@ -193,90 +193,90 @@ int main(int argc, char **argv){
   ieee_prop prop0 = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } ;
   init_floats() ;
   printf("\n") ;
-  prop = ieee_properties(xs1, NPF/2) ; prop.npti = NPF/2 ; prop.nptj=1 ;
+  pr = ieee_properties(xs1, NPF/2) ; pr.p.npti = NPF/2 ; pr.p.nptj=1 ;
   for(i=0 ; i<NPF/2 ; i++) printf("%11.7f", xs1[i]) ; printf("\n") ;
   printf("emax = %d, emin = %2.2x, mima = %d %s%s%s, n = %d\n", 
-         prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", NPF/2 );
-//   prop = ieee_encode_block_16(xs1, NPF/2, 1, stream16, prop) ;
-  prop = ieee_encode_block_16(xs1, 0, 0, stream16, prop) ;
+         pr.p.emax, pr.p.emin, pr.p.mima, pr.p.allp ? ", all >= 0" : "",  pr.p.allm ? ", all < 0" : "", pr.p.zero ? ", zero" : "", NPF/2 );
+//   pr = ieee_encode_block_16(xs1, NPF/2, 1, stream16, pr) ;
+  pr = ieee_encode_block_16(xs1, 0, 0, stream16, pr) ;
   for(i=0 ; i<NPF/2 ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
-  prop = ieee_decode_block_16(xf1, NPF/2, 1, stream16) ;
+  pr = ieee_decode_block_16(xf1, NPF/2, 1, stream16) ;
   for(i=0 ; i<NPF/2 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
   printf("=======================================================================================\n") ;
-  prop = ieee_properties(xs1, 65) ;
-  printf("expected error : prop.errf = %x\n", prop.errf) ;
+  pr = ieee_properties(xs1, 65) ;
+  printf("expected error : pr.p.errf = %x\n", pr.p.errf) ;
   printf("=======================================================================================\n") ;
   fill_64(xs1, NPF/2, xf1) ;
-  prop = ieee_properties(xf1, 64) ;
+  pr = ieee_properties(xf1, 64) ;
   for(i=0 ; i<NPF/2 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
   printf("emax = %d, emin = %2.2x, mima = %d %s%s%s, n = %d\n", 
-         prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", 64 );
-//   prop = ieee_encode_block_16(xf1, 8, 8, stream16, prop) ;
-  prop = ieee_encode_block_16(xf1, 0, 0, stream16, prop) ;
+         pr.p.emax, pr.p.emin, pr.p.mima, pr.p.allp ? ", all >= 0" : "",  pr.p.allm ? ", all < 0" : "", pr.p.zero ? ", zero" : "", 64 );
+//   pr = ieee_encode_block_16(xf1, 8, 8, stream16, pr) ;
+  pr = ieee_encode_block_16(xf1, 0, 0, stream16, pr) ;
   for(i=0 ; i<NPF/2 ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
-  prop = ieee_decode_block_16(xf1, 8, 8, stream16) ;
+  pr = ieee_decode_block_16(xf1, 8, 8, stream16) ;
   for(i=0 ; i<NPF/2 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
   printf("=======================================================================================\n") ;
 
-  prop = ieee_properties(xs1, NPF/2+1) ; prop.npti = NPF/2+1 ; prop.nptj = 1 ;
+  pr = ieee_properties(xs1, NPF/2+1) ; pr.p.npti = NPF/2+1 ; pr.p.nptj = 1 ;
   for(i=0 ; i<NPF/2+1 ; i++) printf("%11.7f", xs1[i]) ; printf("\n") ;
   printf("emax = %d, emin = %2.2x, mima = %d %s%s%s, n = %d\n", 
-         prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", NPF/2+1 );
-  prop = ieee_encode_block_16(xs1, NPF/2+1, 1, stream16, prop) ;
+         pr.p.emax, pr.p.emin, pr.p.mima, pr.p.allp ? ", all >= 0" : "",  pr.p.allm ? ", all < 0" : "", pr.p.zero ? ", zero" : "", NPF/2+1 );
+  pr = ieee_encode_block_16(xs1, NPF/2+1, 1, stream16, pr) ;
   for(i=0 ; i<NPF/2+1 ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
-  prop = ieee_decode_block_16(xf1, NPF/2+1, 1, stream16) ;
+  pr = ieee_decode_block_16(xf1, NPF/2+1, 1, stream16) ;
   for(i=0 ; i<NPF/2+1 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
   printf("=======================================================================================\n") ;
 
   fill_64(xs1, NPF/2+1, xf1) ;
-  prop = ieee_properties(xf1, 64) ;
+  pr = ieee_properties(xf1, 64) ;
   for(i=0 ; i<NPF/2+1 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
   printf("emax = %d, emin = %2.2x, mima = %d %s%s%s, n = %d\n", 
-         prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", 64 );
-  prop = ieee_encode_block_16(xf1, 8, 8, stream16, prop) ;
+         pr.p.emax, pr.p.emin, pr.p.mima, pr.p.allp ? ", all >= 0" : "",  pr.p.allm ? ", all < 0" : "", pr.p.zero ? ", zero" : "", 64 );
+  pr = ieee_encode_block_16(xf1, 8, 8, stream16, pr) ;
   for(i=0 ; i<NPF/2+1 ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
-  prop = ieee_decode_block_16(xf1, 8, 8, stream16) ;
+  pr = ieee_decode_block_16(xf1, 8, 8, stream16) ;
   for(i=0 ; i<NPF/2+1 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
   printf("=======================================================================================\n") ;
 
-  prop = ieee_properties(xs1, NPF) ; prop.npti = NPFI ; prop.nptj = NPFJ ;
+  pr = ieee_properties(xs1, NPF) ; pr.p.npti = NPFI ; pr.p.nptj = NPFJ ;
   for(i=0 ; i<NPF ; i++) printf("%11.7f", xs1[i]) ; printf("\n") ;
   printf("emax = %d, emin = %2.2x, mima = %d %s%s%s, n = %d\n", 
-         prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", NPF );
-  prop = ieee_encode_block_16(xs1, NPFI, NPFJ, stream16, prop) ;
+         pr.p.emax, pr.p.emin, pr.p.mima, pr.p.allp ? ", all >= 0" : "",  pr.p.allm ? ", all < 0" : "", pr.p.zero ? ", zero" : "", NPF );
+  pr = ieee_encode_block_16(xs1, NPFI, NPFJ, stream16, pr) ;
   for(i=0 ; i<NPF ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
-  prop = ieee_decode_block_16(xf1, NPFI, NPFJ, stream16) ;
+  pr = ieee_decode_block_16(xf1, NPFI, NPFJ, stream16) ;
   for(i=0 ; i<NPF ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
   printf("=======================================================================================\n") ;
 
-  prop = ieee_properties(xs1+NPF/2+1, NPF/2) ; prop.npti = NPF/2 ; prop.nptj = 1 ;
+  pr = ieee_properties(xs1+NPF/2+1, NPF/2) ; pr.p.npti = NPF/2 ; pr.p.nptj = 1 ;
   for(i=NPF/2+1 ; i<NPF ; i++) printf("%11.7f", xs1[i]) ; printf("\n") ;
   printf("emax = %d, emin = %2.2x, mima = %d %s%s%s, n = %d\n", 
-         prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", NPF/2  );
-  prop = ieee_encode_block_16(xs1+NPF/2+1, NPF/2, 1, stream16, prop) ;
+         pr.p.emax, pr.p.emin, pr.p.mima, pr.p.allp ? ", all >= 0" : "",  pr.p.allm ? ", all < 0" : "", pr.p.zero ? ", zero" : "", NPF/2  );
+  pr = ieee_encode_block_16(xs1+NPF/2+1, NPF/2, 1, stream16, pr) ;
   for(i=0 ; i<NPF/2 ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
-  prop = ieee_decode_block_16(xf1, NPF/2, 1, stream16) ;
+  pr = ieee_decode_block_16(xf1, NPF/2, 1, stream16) ;
   for(i=0 ; i<NPF/2 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
   printf("=======================================================================================\n") ;
 
   fill_64(xs1+NPF/2+1, NPF/2, xf1) ;
-  prop = ieee_properties(xf1, 64) ;
+  pr = ieee_properties(xf1, 64) ;
   for(i=NPF/2+1 ; i<NPF ; i++) printf("%11.7f", xs1[i]) ; printf("\n") ;
   printf("emax = %d, emin = %2.2x, mima = %d %s%s%s, n = %d\n", 
-         prop.emax, prop.emin, prop.mima, prop.allp ? ", all >= 0" : "",  prop.allm ? ", all < 0" : "", prop.zero ? ", zero" : "", 64 );
-  prop = ieee_encode_block_16(xf1, 8, 8, stream16, prop) ;
+         pr.p.emax, pr.p.emin, pr.p.mima, pr.p.allp ? ", all >= 0" : "",  pr.p.allm ? ", all < 0" : "", pr.p.zero ? ", zero" : "", 64 );
+  pr = ieee_encode_block_16(xf1, 8, 8, stream16, pr) ;
   for(i=0 ; i<NPF/2 ; i++) printf("%11.4x", stream16[i+1]) ; printf("\n") ;
-  prop = ieee_decode_block_16(xf1, 8, 8, stream16) ;
+  pr = ieee_decode_block_16(xf1, 8, 8, stream16) ;
   for(i=0 ; i<NPF/2 ; i++) printf("%11.7f", xf1[i]) ; printf("\n") ;
   printf("=======================================================================================\n") ;
-  prop0.npti = 9 ; prop0.nptj = 7 ;
-  prop = ieee_encode_block_16(xf1, 7, 9, stream16, prop0) ;
-  prop = ieee_encode_block_16(xf1, 0, 0, stream16, prop0) ;
-  prop = ieee_encode_block_16(xf1, 6, 6, stream16, prop0) ;
-  printf("expected errors : prop.errf = %x\n", prop.errf) ;
+  prop0.p.npti = 9 ; prop0.p.nptj = 7 ;
+  pr = ieee_encode_block_16(xf1, 7, 9, stream16, prop0) ;
+  pr = ieee_encode_block_16(xf1, 0, 0, stream16, prop0) ;
+  pr = ieee_encode_block_16(xf1, 6, 6, stream16, prop0) ;
+  printf("expected errors : pr.p.errf = %x\n", pr.p.errf) ;
   printf("=======================================================================================\n") ;
-  prop = ieee_decode_block_16(xf1, 16, 4, stream16) ;
-  printf("expected error : prop.errf = %x\n", prop.errf) ;
+  pr = ieee_decode_block_16(xf1, 16, 4, stream16) ;
+  printf("expected error : pr.p.errf = %x\n", pr.p.errf) ;
   printf("=======================================================================================\n") ;
 
 // IEEE min and max exponent test
@@ -291,42 +291,42 @@ int main(int argc, char **argv){
            emax, emin) ;
     e_exit(1) ;
   }
-  prop = ieee_properties(xf, NP);   // test full array
+  pr = ieee_properties(xf, NP);   // test full array
   printf("Success\n") ;
-  printf("properties full array  (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(prop), prop.emin, prop.emax, prop.allp, prop.allm) ;
-  if(prop.emin != 127 || prop.emax != 131 || prop.allp != 0 || prop.allm != 0) {
-    printf("\nexpected(got) emin = 127(%d), emax = 131(%d), allp = 1(%d), allm = 0(%d) : ", prop.emin, prop.emax, prop.allp, prop.allm) ;
+  printf("properties full array  (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(pr), pr.p.emin, pr.p.emax, pr.p.allp, pr.p.allm) ;
+  if(pr.p.emin != 127 || pr.p.emax != 131 || pr.p.allp != 0 || pr.p.allm != 0) {
+    printf("\nexpected(got) emin = 127(%d), emax = 131(%d), allp = 1(%d), allm = 0(%d) : ", pr.p.emin, pr.p.emax, pr.p.allp, pr.p.allm) ;
     e_exit(1) ;
   }
   printf("Success\n") ;
 
-  prop = ieee_properties(xf, NP/2);           // allp/allm always 0 if length is not 64
-  printf("properties bottom half (<64) (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(prop), prop.emin, prop.emax, prop.allp, prop.allm) ;
-  if(prop.emin != 127 || prop.emax != 131 || prop.allp != 0 || prop.allm != 0) {
-    printf("\nexpected(got) emin = 127(%d), emax = 131(%d), allp = 0(%d), allm = 0(%d) : ", prop.emin, prop.emax, prop.allp, prop.allm) ;
+  pr = ieee_properties(xf, NP/2);           // allp/allm always 0 if length is not 64
+  printf("properties bottom half (<64) (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(pr), pr.p.emin, pr.p.emax, pr.p.allp, pr.p.allm) ;
+  if(pr.p.emin != 127 || pr.p.emax != 131 || pr.p.allp != 0 || pr.p.allm != 0) {
+    printf("\nexpected(got) emin = 127(%d), emax = 131(%d), allp = 0(%d), allm = 0(%d) : ", pr.p.emin, pr.p.emax, pr.p.allp, pr.p.allm) ;
     e_exit(1) ;
   }
   printf("Success\n") ;
   fill_64(xf, NP/2, xf1) ;  // fill 64 element array with bottom of array (all negative)
-  prop = ieee_properties(xf1, 64);           // test bottom of array (all negative)
-  printf("properties bottom half ( 64) (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(prop), prop.emin, prop.emax, prop.allp, prop.allm) ;
-  if(prop.emin != 127 || prop.emax != 131 || prop.allp != 0 || prop.allm != 1) {
-    printf("\nexpected(got) emin = 127(%d), emax = 131(%d), allp = 1(%d), allm = 0(%d) : ", prop.emin, prop.emax, prop.allp, prop.allm) ;
+  pr = ieee_properties(xf1, 64);           // test bottom of array (all negative)
+  printf("properties bottom half ( 64) (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(pr), pr.p.emin, pr.p.emax, pr.p.allp, pr.p.allm) ;
+  if(pr.p.emin != 127 || pr.p.emax != 131 || pr.p.allp != 0 || pr.p.allm != 1) {
+    printf("\nexpected(got) emin = 127(%d), emax = 131(%d), allp = 1(%d), allm = 0(%d) : ", pr.p.emin, pr.p.emax, pr.p.allp, pr.p.allm) ;
     e_exit(1) ;
   }
   printf("Success\n") ;
-  prop = ieee_properties(xf+NP/2, NP/2+1);    // allp/allm always 0 if length is not 64
-  printf("properties top half    (<64) (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(prop), prop.emin, prop.emax, prop.allp, prop.allm) ;
-  if(prop.emin != 127 || prop.emax != 131 || prop.allp != 0 || prop.allm != 0) {
-    printf("\nexpected(got) emin = 127(%d), emax = 131(%d), allp = 0(%d), allm = 0(%d) : ", prop.emin, prop.emax, prop.allp, prop.allm) ;
+  pr = ieee_properties(xf+NP/2, NP/2+1);    // allp/allm always 0 if length is not 64
+  printf("properties top half    (<64) (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(pr), pr.p.emin, pr.p.emax, pr.p.allp, pr.p.allm) ;
+  if(pr.p.emin != 127 || pr.p.emax != 131 || pr.p.allp != 0 || pr.p.allm != 0) {
+    printf("\nexpected(got) emin = 127(%d), emax = 131(%d), allp = 0(%d), allm = 0(%d) : ", pr.p.emin, pr.p.emax, pr.p.allp, pr.p.allm) ;
     e_exit(1) ;
   }
   printf("Success\n") ;
   fill_64(xf+NP/2, NP/2+1, xf1) ;  // fill 64 element array with top of array (all non negative)
-  prop = ieee_properties(xf1, 64);    // test top of array (all non negative)
-  printf("properties top half    ( 64) (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(prop), prop.emin, prop.emax, prop.allp, prop.allm) ;
-  if(prop.emin != 127 || prop.emax != 131 || prop.allp != 1 || prop.allm != 0) {
-    printf("\nexpected(got) emin = 127(%d), emax = 131(%d), allp = 1(%d), allm = 0(%d) : ", prop.emin, prop.emax, prop.allp, prop.allm) ;
+  pr = ieee_properties(xf1, 64);    // test top of array (all non negative)
+  printf("properties top half    ( 64) (size = %ld bits), emin = %d, emax = %d, allp = %d, allm = %d : ", 8*sizeof(pr), pr.p.emin, pr.p.emax, pr.p.allp, pr.p.allm) ;
+  if(pr.p.emin != 127 || pr.p.emax != 131 || pr.p.allp != 1 || pr.p.allm != 0) {
+    printf("\nexpected(got) emin = 127(%d), emax = 131(%d), allp = 1(%d), allm = 0(%d) : ", pr.p.emin, pr.p.emax, pr.p.allp, pr.p.allm) ;
     e_exit(1) ;
   }
   printf("Success\n") ;

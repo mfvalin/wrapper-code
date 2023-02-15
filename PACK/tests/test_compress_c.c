@@ -126,7 +126,7 @@ int main(int argc, char **argv){
   char vname ;
   float totbits ;
   float block8x8[64] ;
-  ieee_prop prop, prop0 ;
+  ieee_prop prop ;
 
   if(argc < 2){
     fprintf(stderr,"USAGE: %s file_name\n", argv[0]) ;
@@ -156,13 +156,13 @@ int main(int argc, char **argv){
       nblocks++ ;
       index = i + j * ni ;
       prop = ieee_get_block(&data[index], block8x8, 8, ni, 8) ;
-      if(prop.npti != 8 || prop.nptj != 8) exit(1) ;
+      if(prop.p.npti != 8 || prop.p.nptj != 8) exit(1) ;
 //       get_block_8x8(&data[index], block8x8, 8, ni, 8) ;
 //       prop = ieee_properties_64(block8x8) ;
-      if(prop.errf != 0 || prop.npti != 8 || prop.nptj != 8) exit(1) ;
-      mima += prop.mima ;
-      allp += prop.allp ;
-      allm += prop.allm ;
+      if(prop.p.errf != 0 || prop.p.npti != 8 || prop.p.nptj != 8) exit(1) ;
+      mima += prop.p.mima ;
+      allp += prop.p.allp ;
+      allm += prop.p.allm ;
     }
   }
   printf("nblocks = %d, mima = %d, allp = %d, allm = %d, plus = %d, moins = %d\n", nblocks, mima, allp, allm, plus, moins) ;

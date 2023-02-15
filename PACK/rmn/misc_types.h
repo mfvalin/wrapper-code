@@ -50,6 +50,38 @@ typedef struct{
            xtra:2 ,  // reserved for future use
            npti:4 ,  // nuber of points in row (1-8), 0 means unknown
            nptj:4 ;  // number of rows (1-8), 0 means unknown
+} ieee_prop_p ;
+
+typedef union{    // the union allows to transfer the whole contents in one shot
+  ieee_prop_p p ;
+  uint32_t u ;
 } ieee_prop ;
+
+static ieee_prop ieee_prop_0 = { 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0 } ;
+
+// some properties of a float array, 32 bits total
+typedef struct{
+  uint64_t emax:8 ,  // largest float (absolute value) exponent
+           emin:8 ,  // smallest non zero float (absolute value) exponent
+           bias:16 ,
+           allp:1 ,  // 1 if all non negative numbers (or unsigned if integers)
+           allm:1 ,  // 1 if all negative numbers
+           zero:1 ,  // 1 if zero values detected
+           mima:1 ,  // 1 if same exponent and no zero
+           errf:1 ,  // error flag
+           full:1 ,  // full 64x64 block
+           nbit:5 ,  // number of significant bits
+           ieee:1 ,  // IEEE Float (1) or integer (0)
+           xtra:4 ,  // reserved for future use
+           npti:8 ,  // nuber of points in row (1-63), 0 means unknown or full
+           nptj:8 ;  // number of rows (1-63), 0 means unknown or full
+} ieee_prop_64_p ;
+
+typedef union{    // the union allows to transfer the whole contents in one shot
+  ieee_prop_64_p p ;
+  uint64_t u ;
+} ieee_prop_64 ;
+
+static ieee_prop_64 ieee_prop_64_0 = { 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0 } ;
 
 #endif

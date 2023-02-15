@@ -112,6 +112,21 @@ static inline int32_t float_to_int(float x) {
   return FLOAT_TO_INT(x) ;
 }
 
+// convert a float to 1's complement fake integer representation (apply sign to exponent + mantissa)
+static inline int32_t float_to_int1(float x) {
+  FloatInt xi ;
+  xi.f = x ;
+  xi.i = (xi.i >> 31) ^ (xi.i & 0x7FFFFFFF) ;
+  return xi.i ;
+}
+
+// inverse function of float_to_int1, 1's complement fake integer to float
+static inline float int1_to_float(uint32_t i){
+  FloatInt xi ;
+  xi.i = (i >> 31) ^ i ;
+  return xi.f ;
+}
+
 // divide a signed integer by 2 with rounding toward +-infinity (scalar and X86_64 SIMD versions)
 #define IDIV2R(x) (( (x) + 1 + ((x)>>31) ) >> 1 )
 #define IDIV2R_256(v) _mm256_srai_epi32(_mm256_add_epi32(_mm256_sub_epi32(v, _mm256_cmpeq_epi32(v, v)), _mm256_srai_epi32(v, 31)), 1)

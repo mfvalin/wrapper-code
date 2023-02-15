@@ -14,8 +14,11 @@
 #include <emmintrin.h>
 #endif
 
+#if ! defined(QUIET_SIMD)
 // #pragma message("NOTE: using SIMD intrinsics, use -DNO_SIMD to use pure C code")
 #warning "NOTE: using Intel SIMD intrinsics, use -DNO_SIMD to use pure C code"
+#endif
+
 #endif
 
 #endif
