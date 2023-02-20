@@ -209,7 +209,7 @@ STATIC inline void  LeStreamInit(bitstream *p, uint32_t *buffer, size_t size, in
   if(mode == BIT_INSERT_MODE) p->xtract = -1 ;  // deactivate extract mode
   if(mode == BIT_XTRACT_MODE) p->insert = -1 ;  // deactivate insert mode
   p->start  = buffer ;    // stream storage
-  p->stop   = (void *) buffer + size ;
+  p->stop   = buffer + size / sizeof(uint32_t) ;
   p->stream = buffer ;    // stream is empty and starts at beginning of buffer
 }
 
@@ -223,7 +223,7 @@ STATIC inline void  BeStreamInit(bitstream *p, uint32_t *buffer, size_t size, in
   if(mode == BIT_INSERT_MODE) p->xtract = -1 ;  // deactivate extract mode
   if(mode == BIT_XTRACT_MODE) p->insert = -1 ;  // deactivate insert mode
   p->start  = buffer ;    // stream storage
-  p->stop   = (void *) buffer + size ;
+  p->stop   = buffer + size / sizeof(uint32_t) ;
   p->stream = buffer ;    // stream is empty and starts at beginning of buffer
 }
 

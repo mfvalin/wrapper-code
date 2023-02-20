@@ -218,7 +218,7 @@ int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float 
     vmissing = _mm256_set1_epi32(missing) ;                     // special value & mask
     vmask = _mm256_set1_epi32(spmask) ;                         // mask for special value
     vsign = _mm256_set1_ps(-0.0f) ;
-    vzero = _mm256_xor_ps(vzero, vzero) ;
+    vzero = _mm256_xor_ps(vsign, vsign) ;                       // set to 0
 #endif
     for(j = 0 ; j < nj ; j++){                                  // loop over rows
       incr = (nfold > 0) ? nfold : VL ;                         // first increment is shorter if ni not a multiple of VL

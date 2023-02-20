@@ -30,6 +30,16 @@ Library General Public License for more details.
 
 #define MISC_OPERATORS
 
+// interfaces to block insert/extract functions (move_blocks.c)
+int put_word_block_07(void *restrict f, void *restrict blk, int ni, int lni, int nj) ;
+int get_word_block_07(void *restrict f, void *restrict blk, int ni, int lni, int nj) ;
+int put_word_block_32(void *restrict f, void *restrict blk, int ni, int lni, int nj) ;
+int get_word_block_32(void *restrict f, void *restrict blk, int ni, int lni, int nj) ;
+int put_word_block_64(void *restrict f, void *restrict blk, int ni, int lni, int nj) ;
+int get_word_block_64(void *restrict f, void *restrict blk, int ni, int lni, int nj) ;
+int put_word_block(void *restrict f, void *restrict blk, int ni, int lni, int nj) ;
+int get_word_block(void *restrict f, void *restrict blk, int ni, int lni, int nj) ;
+
 // interfaces to functions in misc_operators.c
 void get_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj);
 void put_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj);

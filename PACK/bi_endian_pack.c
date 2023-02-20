@@ -31,7 +31,7 @@
 int  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
   int i = 0, n = (nw < 0) ? -nw : nw ;
   uint64_t  accum = p->accum ;
-  uint32_t  insert = p->insert ;
+  int32_t  insert = p->insert ;
   uint32_t *stream = p->stream ;
   uint32_t mask = RMask(nbits) ;
 
@@ -63,7 +63,7 @@ int  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
 int  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
   int i = 0, n = (nw < 0) ? -nw : nw ;
   uint64_t  accum = p->accum ;
-  uint32_t  insert = p->insert ;
+  int32_t  insert = p->insert ;
   uint32_t *stream = p->stream ;
 
   if(insert < 0) return 0;      // ERROR: not in insert mode
@@ -94,7 +94,7 @@ int  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
 int  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   int i = 0 ;
   uint64_t  accum = p->accum ;
-  uint32_t  xtract = p->xtract ;
+  int32_t  xtract = p->xtract ;
   uint32_t *stream = p->stream ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
@@ -124,7 +124,7 @@ int  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
 int  LeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
   int i = 0 ;
   int64_t  accum = (int64_t)p->accum ;
-  uint32_t  xtract = p->xtract ;
+  int32_t  xtract = p->xtract ;
   uint32_t *stream = p->stream ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
@@ -155,7 +155,7 @@ int  LeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
 int  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   int i = 0 ;
   uint64_t  accum = p->accum ;
-  uint32_t  xtract = p->xtract ;
+  int32_t  xtract = p->xtract ;
   uint32_t *stream = p->stream ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
@@ -185,7 +185,7 @@ int  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
 int  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
   int i = 0 ;
   int64_t  accum = (int64_t)p->accum ;
-  uint32_t  xtract = p->xtract ;
+  int32_t  xtract = p->xtract ;
   uint32_t *stream = p->stream ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
@@ -218,7 +218,7 @@ int  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
 int  LeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   int i, nw = 0 ;
   uint64_t  accum = p->accum ;
-  uint32_t  insert = p->insert ;
+  int32_t  insert = p->insert ;
   uint32_t *stream = p->stream ;
 
   if(insert < 0) return 0;      // ERROR: not in insert mode
@@ -248,7 +248,7 @@ int  LeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
 int  BeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   int i, nw = 0 ;
   uint64_t  accum = p->accum ;
-  uint32_t  insert = p->insert ;
+  int32_t  insert = p->insert ;
   uint32_t *stream = p->stream ;
 
   if(insert < 0) return 0;      // ERROR: not in insert mode
@@ -278,7 +278,7 @@ int  BeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
 int  LeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   int i, nw = 0 ;
   uint64_t  accum = p->accum ;
-  uint32_t  xtract = p->xtract ;
+  int32_t  xtract = p->xtract ;
   uint32_t *stream = p->stream ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
@@ -307,7 +307,7 @@ int  LeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
 int  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   int i, nw = 0 ;
   uint64_t  accum = p->accum ;
-  uint32_t  xtract = p->xtract ;
+  int32_t  xtract = p->xtract ;
   uint32_t *stream = p->stream ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode

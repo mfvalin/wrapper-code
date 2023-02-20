@@ -471,7 +471,7 @@ void nf16_fp32(void *f32, uint32_t *u16, int32_t n, int nexp){
 //   bf16_fp32(f32, u16, n) ;
 //   return ;
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-  __m256i vi, v8, vs, vt, vn, v1, v32, vm, vu, v1l, v1h, vl, vh, va,vb ;
+  __m256i vi, v8, vs, vn, v1, v32, vm, vu, v1l, v1h, vl, vh, va,vb ;
   __m256  vf, vfl, vfh ;
   __m128i v16 ;
 #endif
@@ -484,7 +484,7 @@ void nf16_fp32(void *f32, uint32_t *u16, int32_t n, int nexp){
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   vs = _mm256_set1_epi32(s8) ;
   vu = _mm256_set1_epi32(0xFFFF0000) ;
-  vt = _mm256_set1_epi32(top) ;
+//   vt = _mm256_set1_epi32(top) ;
   vn = _mm256_set1_epi32(nfac.u) ;
   vm = _mm256_set1_epi32(0x80000000u) ;    // sign mask
   for(    ; i < n-15 ; i += 16){
