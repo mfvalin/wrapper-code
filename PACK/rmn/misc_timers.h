@@ -200,7 +200,7 @@ static uint64_t elapsed_cycles_(void) {
   return elapsed_us() * 1000 ;  // nanoseconds
 #endif
 }
-static void get_cycles_overhead(){
+static inline void get_cycles_overhead(){
   cycles_overhead = elapsed_cycles_() ;
   cycles_overhead = elapsed_cycles_() - cycles_overhead ;
   cycles_overhead = cycles_overhead - (cycles_overhead >> 3) ; // keep 7/8 of value
