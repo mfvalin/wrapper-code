@@ -69,10 +69,11 @@ typedef struct{
            zero:1 ,  // 1 if zero values detected
            mima:1 ,  // 1 if same exponent and no zero
            errf:1 ,  // error flag
-           full:1 ,  // full 64x64 block
+           n_08:1 ,  // full 8x8 block
+           n_64:1 ,  // full 64x64 block
            nbit:5 ,  // number of significant bits
            ieee:1 ,  // IEEE Float (1) or integer (0)
-           xtra:4 ,  // reserved for future use
+           xtra:3 ,  // reserved for future use
            npti:8 ,  // nuber of points in row (1-63), 0 means unknown or full
            nptj:8 ;  // number of rows (1-63), 0 means unknown or full
 } ieee_prop_64_p ;
@@ -82,6 +83,6 @@ typedef union{    // the union allows to transfer the whole contents in one shot
   uint64_t u ;
 } ieee_prop_64 ;
 
-static ieee_prop_64 ieee_prop_64_0 = { 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0 } ;
+static ieee_prop_64 ieee_prop_64_0 = { 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 } ;
 
 #endif
