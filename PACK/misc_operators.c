@@ -310,7 +310,7 @@ ieee_prop ieee_decode_block_16(float xf[64], int ni, int nj, uint16_t *restrict 
 // printf("decode : ni = %d(%d), nj = %d(%d), allm = %d, allp = %d, mima = %d\n", 
 //        pr.p.npti, ni, pr.p.nptj, nj, pr.p.allm, pr.p.allp, prop0.mima) ;
   if(pr.p.mima) {                                                   // same max exponent, same sign
-    if(pr.p.allm) sign = 1 << 31 ;
+    if(pr.p.allm) sign = 1u << 31 ;
     uint32_t ncbits = (n == 64) ? (pr.p.emin >> 4) : 0 ;
     uint32_t cbits  = (n == 64) ? (pr.p.emin &  7) : 0 ;
 // printf("decode mima sign = %8.8x, emin = %2.2x, ncbits = %d, cbits = %4.4x\n", sign, pr.p.emin, ncbits, cbits) ;
@@ -415,7 +415,7 @@ ieee_prop get_ieee32_block(void *restrict f, void *restrict blk, int ni, int lni
   }else{           //  ni < 8
     ni &= 7 ;      // make sure this is true
     vm   = _mm256_memmask_si256(ni) ;          // mask for load and store operations
-    v000 = _mm256_xor_si256(v000, v000) ;      // all 0s
+    v000 = _mm256_xor_si256(vm, vm) ;          // all 0s
     v111 = _mm256_cmpeq_epi32(v000, v000) ;    // all 1s
     vo0  = _mm256_maskload_epi32 ((int const *) s, vm) ; s += lni ;   // get row
   }
@@ -659,7 +659,7 @@ uint32_t ieee_max_exponent(float *f, int n){
 uint32_t ieee_min_exponent(float *f, int n){
   int i ;
   uint32_t *uf = (uint32_t *) f ;
-  uint32_t t, emin = 0xFF << 24 ;     // largest possible exponent
+  uint32_t t, emin = 0xFFu << 24 ;     // largest possible exponent
 
   for(i=0 ; i<n ; i++){
     t = uf[i] << 1 ;                  // get rid of sign, exponent in upper 8 bits
