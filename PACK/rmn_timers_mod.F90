@@ -35,6 +35,11 @@ module rmn_timers
       implicit none
       integer(C_INT64_T) :: t
     end function
+    function elapsed_cycles_raw() result(t) bind(C,name='elapsed_cycles_raw')  ! elapsed timer ticks, no fencing
+      import C_INT64_T
+      implicit none
+      integer(C_INT64_T) :: t
+    end function
     function cycles_counter_freq() result(t) bind(C,name='cycles_counter_freq')  ! timer tick frequency
       import C_INT64_T
       implicit none
@@ -70,6 +75,11 @@ contains
     implicit none
     integer(C_INT64_T) :: cycles
     cycles = elapsed_cycles()
+  end function
+  function timer_cycles_raw() result(cycles)   ! read time base counter in ticks (no fencing)
+    implicit none
+    integer(C_INT64_T) :: cycles
+    cycles = elapsed_cycles_raw()
   end function
   function timer_us() result(us)               ! read wall clock time in microseconds
     implicit none

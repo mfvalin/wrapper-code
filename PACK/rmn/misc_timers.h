@@ -138,7 +138,7 @@ STATIC inline uint64_t elapsed_us(void){
 }
 
 // elapsed timer ticks, NO serializing, NO fencing
-static inline uint64_t elapsed_cycles_fast(void) {
+STATIC inline uint64_t elapsed_cycles_fast(void) {
 #if defined(__x86_64__)
   uint64_t lo, hi ;
   __asm__ volatile ("rdtsc" : /* outputs   */ "=a" (lo), "=d" (hi) );
@@ -185,8 +185,9 @@ static inline uint64_t elapsed_cycles_fenced(void) {
 
 // elapsed timer ticks, NO serializing, LOCAL fencing before
 // default version
+// elapsed_cycles_fast is used by get_cycles_overhead
 static uint64_t cycles_overhead = 0 ;
-static uint64_t elapsed_cycles_(void) {
+STATIC uint64_t elapsed_cycles_raw(void) {
 #if defined(__x86_64__)
   uint64_t lo, hi ;
   __asm__ volatile ("lfence");
@@ -200,13 +201,19 @@ static uint64_t elapsed_cycles_(void) {
   return elapsed_us() * 1000 ;  // nanoseconds
 #endif
 }
-static inline void get_cycles_overhead(){
-  cycles_overhead = elapsed_cycles_() ;
-  cycles_overhead = elapsed_cycles_() - cycles_overhead ;
-  cycles_overhead = cycles_overhead - (cycles_overhead >> 3) ; // keep 7/8 of value
+STATIC inline uint64_t get_cycles_overhead(){
+  uint64_t t0, t1, overhead ;
+  int i ;
+  t0 = elapsed_cycles_fast() ;
+  for(i=0 ; i<32 ; i++){
+    t1 = elapsed_cycles_raw() ;
+  }
+  overhead = (t1 - t0) >> 5 ;             // (t1 - t0) / 32
+  overhead = overhead - (overhead >> 3) ; // keep 7/8 of value
+  return overhead ;
 }
 STATIC inline uint64_t elapsed_cycles(void) {
-  if(cycles_overhead == 0) get_cycles_overhead() ;
+  if(cycles_overhead == 0) cycles_overhead = get_cycles_overhead() ;
 #if defined(__x86_64__)
   uint64_t lo, hi, t ;
   __asm__ volatile ("lfence");
