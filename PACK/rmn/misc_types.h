@@ -59,7 +59,7 @@ typedef union{    // the union allows to transfer the whole contents in one shot
 
 static ieee_prop ieee_prop_0 = { 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0 } ;
 
-// some properties of a float array, 32 bits total
+// some properties of a float array, 64 bits total
 typedef struct{
   uint64_t emax:8 ,  // largest float (absolute value) exponent
            emin:8 ,  // smallest non zero float (absolute value) exponent
