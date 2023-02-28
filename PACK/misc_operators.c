@@ -176,28 +176,6 @@ ieee_prop ieee_properties(float *f, int n){
   return pr ;
 }
 
-// ieee_prop ieee_properties_64(float *f){  // special case (frequent occurrance) used for 8x8 blocks
-//   int i ;
-//   uint32_t *uf = (uint32_t *) f ;
-//   uint32_t t, emax = 0 , emin = 0xFFu << 24, zero = 0xFFu << 24 ;
-//   uint32_t allp = 0, allm = 0xFFFFFFFFu ;
-//   ieee_prop pr;
-// 
-//   for(i=0 ; i<64 ; i++){
-//     allp |= uf[i] ;                   // upper bit will remain 0 if >= 0 floats only
-//     allm &= uf[i] ;                   // upper bit will remain 1 if < 0 floats only
-//     t = uf[i] << 1 ;                  // get rid of sign, exponent in upper 8 bits
-//     zero = (t < zero) ? t : zero ;    // smallest absolute value, including zero
-//     emax = (t > emax) ? t : emax ;    // largest absolute value
-//     t = (t == 0) ? (0xFFu << 24) : t ;         // ignore values of 0 for emin
-//     emin = (t < emin) ? t : emin ;    // smallest absolute value (larger than 0)
-//   }
-//   pr = make_ieee_prop(allp, allm, emin, emax, zero, 64) ;
-//   pr.p.npti = pr.p.nptj = 8 ;         // full 8x8 block
-// // printf("ieee_properties_64 mima = %d, allp = %d, allm = %d\n", pr.p.mima, pr.p.allp, pr.p.allm) ;
-//   return pr ;
-// }
-
 // encode IEEE float block as a sequence of 16 bit tokens
 // if pr is filled, use it instead of calling ieee_properties
 ieee_prop ieee_encode_block_16(float xf[64], int ni, int nj, uint16_t *restrict stream, ieee_prop pr){
