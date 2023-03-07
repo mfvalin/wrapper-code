@@ -26,18 +26,18 @@
 // s0 and d0 MUST NOT OVERLAP
 // should be faster than memcpy for small to medium lengths
 // n MUST BE >= 8
-static inline void mem_cpy_w32(void * restrict d0, void * restrict s0, int n){
-  int32_t * restrict s = (int32_t *)s0, * restrict d = (int32_t *)d0 ;
-  int i, ni7, i0 ;
-  if(n < 8) {   // less thatn SIMD vector length
-    for(i = 0 ; i < (n & 7) ; i++) d[i] = s[i] ;
-  }else{
-    ni7 = (n & 7) ? (n & 7) : 8 ;
-    for(i0=0 ; i0<n ; i0+=ni7 , ni7 = 8){
-      for(i=0 ; i<8 ; i++) d[i0+i] = s[i0+i] ;  // 8 element SIMD hint
-    }
-  }
-}
+// static inline void mem_cpy_w32(void * restrict d0, void * restrict s0, int n){
+//   int32_t * restrict s = (int32_t *)s0, * restrict d = (int32_t *)d0 ;
+//   int i, ni7, i0 ;
+//   if(n < 8) {   // less than SIMD vector length
+//     for(i = 0 ; i < (n & 7) ; i++) d[i] = s[i] ;
+//   }else{
+//     ni7 = (n & 7) ? (n & 7) : 8 ;
+//     for(i0=0 ; i0<n ; i0+=ni7 , ni7 = 8){
+//       for(i=0 ; i<8 ; i++) d[i0+i] = s[i0+i] ;  // 8 element SIMD hint
+//     }
+//   }
+// }
 
 #include <rmn/lorenzo.h>
 
@@ -82,6 +82,85 @@ STATIC inline void LorenzoPredictRow0(int32_t * restrict row, int32_t * restrict
 #endif
 }
 
+// bottom row, n < 8, in place transform
+static inline void LorenzoPredictRow0_inplace_07(int32_t * restrict row, int n){
+  int i, n7 = (n & 7) ;
+  int32_t r[7] ;
+  r[0] = row[0] ;
+  for(i=1 ; i<n7 ; i++) r[i] = row[i] - row[i-1] ;
+  for(i=0 ; i<n7 ; i++) row[i] = r[i] ;
+}
+
+// bottom row, in place transform
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+
+STATIC inline void LorenzoPredictRow0_inplace(int32_t * restrict row, int n){
+  int i, i0, j0, n7 = (n & 7) ;
+  __m256i vi, vi1, vt, vr, v0, vs ;
+
+  if(n < 8) {
+    LorenzoPredictRow0_inplace_07(row, n) ;
+    return ;
+  }
+
+  n7 = n7 ? n7 : 8 ;
+  v0   = _mm256_setzero_si256() ;                         // 0s
+  vs   = _mm256_cvtepi8_epi32( _mm_set1_epi64x(0x0605040302010000lu) ) ;  // shuffle patterm
+  // first 8 elements
+  vi   = _mm256_loadu_si256((__m256i *) (row)  ) ;        // row[0:7]
+  vi1  = _mm256_permutevar8x32_epi32(vi, vs) ;            // 0, 0, 1, 2, 3, 4, 5, 6  permutation
+  vi1  = _mm256_blend_epi32(vi1, v0, 1) ;                 // first element set to 0 (row[-1])
+  // row[i] - row[i-1]
+  vt   = _mm256_sub_epi32( vi, vi1 ) ;
+  vr   = vt ;
+  j0 = 0 ;
+  // chunks of 8 elements (second chunk may overlap first chunk)
+  for(i0=n7 ; i0<n ; i0+=8){
+    vi   = _mm256_loadu_si256((__m256i *) (row+i0)  ) ;   // row[i0:i0+7]
+#if defined(WITH_FETCH)
+    vi1  = _mm256_loadu_si256((__m256i *) (row+i0-1)) ;   // row[i0-1:i0+6]
+#else
+    v0   = _mm256_set1_epi32(row[i0-1]) ;                 // row[i0-1]
+    vi1  = _mm256_permutevar8x32_epi32(vi, vs) ;          // 0, 0, 1, 2, 3, 4, 5, 6  permutation
+    vi1  = _mm256_blend_epi32(vi1, v0, 1) ;               // first element set to row[i0-1]
+#endif
+    // row[i0+i] - row[i0+i-1]
+    vt   = _mm256_sub_epi32( vi, vi1 ) ;
+    _mm256_storeu_si256( (__m256i *) (row+j0), vr) ;      // delayed store, result of previous pass
+    vr = vt ;
+    j0 = i0 ;
+  }
+  _mm256_storeu_si256( (__m256i *) (row+j0), vr) ;        // delayed store, result of previous pass
+}
+
+#else
+
+STATIC inline void LorenzoPredictRow0_inplace(int32_t * restrict row, int n){
+  int i, i0, j0, n7 = (n & 7) ;
+  int32_t t[8], r[8], r0 ;
+
+  if(n < 8) {
+    LorenzoPredictRow0_inplace_07(row, n) ;
+    return ;
+  }
+  r0 = row[0] ;
+  n7 = n7 ? n7 : 8 ;
+  // first 8 elements
+  for(i=0 ; i<8 ; i++) r[i] = row[i] - row[i-1] ;
+  j0 = 0 ;
+  // chunks of 8 elements (second chunk may overlap first chunk)
+  for(i0=n7 ; i0<n ; i0+=8){
+    for(i=0 ; i<8 ; i++) t[i] = row[i0+i] - row[i0+i-1] ;
+    for(i=0 ; i<8 ; i++) row[j0+i] = r[i] ;
+    for(i=0 ; i<8 ; i++) r[i] = t[i] ;
+    j0 = i0 ;
+  }
+  for(i=0 ; i<8 ; i++) row[j0+i] = r[i] ;
+  row[0] = r0 ;
+}
+
+#endif
+
 // predict row j where j > 0 (2D prediction)
 // top  : row j
 // bot  : row (j - 1)
@@ -115,6 +194,94 @@ STATIC inline void LorenzoPredictRowJ(int32_t * restrict top, int32_t * restrict
 #endif
 }
 
+// all rows but bottom row, n < 8, in place transform
+static void LorenzoPredictRowJ_inplace_07(int32_t * restrict top, int32_t * restrict bot, int n){
+  int i, n7 = (n & 7) ;
+  int32_t r[7] ;
+  r[0] = top[0] - bot[0] ;
+  for(i=1 ; i<n7 ; i++) r[i] = top[i] - ( top[i-1] + bot[i] - bot[i-1] ) ;
+  for(i=0 ; i<n7 ; i++) top[i] = r[i] ;
+}
+
+// all rows but bottom row, in place transform
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+
+STATIC inline void LorenzoPredictRowJ_inplace(int32_t * restrict top, int32_t * restrict bot, int n){
+  int i, i0, j0, n7 = (n & 7) ;
+  __m256i vi, vi1, vj1, vij1, vt, vr, v0, vs ;
+
+  if(n < 8) {
+    LorenzoPredictRowJ_inplace_07(top, bot, n) ;
+    return ;
+  }
+  n7 = n7 ? n7 : 8 ;
+  v0   = _mm256_setzero_si256() ;                         // 0s
+  vs   = _mm256_cvtepi8_epi32( _mm_set1_epi64x(0x0605040302010000lu) ) ;  // shuffle patterm
+  // first 8 elements
+  vi   = _mm256_loadu_si256((__m256i *) (top)  ) ;        // top[0:7]
+  vj1  = _mm256_loadu_si256((__m256i *) (bot)  ) ;        // bot[0:7]
+//   vi1  = _mm256_loadu_si256((__m256i *) (top-1)) ;        // top[-1:6]
+  vi1  = _mm256_permutevar8x32_epi32(vi, vs) ;            // 0, 0, 1, 2, 3, 4, 5, 6  permutation
+  vi1  = _mm256_blend_epi32(vi1, v0, 1) ;                 // first element set to 0 (top[-1])
+//   vij1 = _mm256_loadu_si256((__m256i *) (bot-1)) ;        // bot[-1:6]
+  vij1 = _mm256_permutevar8x32_epi32(vj1, vs) ;            // 0, 0, 1, 2, 3, 4, 5, 6  permutation
+  vij1 = _mm256_blend_epi32(vij1, v0, 1) ;                 // first element set to 0 (bot[-1])
+  // top[i] - ( top[i-1] + bot[i] - bot[i-1] )
+  vt   = _mm256_sub_epi32( vi, _mm256_sub_epi32( _mm256_add_epi32(vi1, vj1) , vij1 ) ) ;
+//   vr   =  _mm256_xor_si256( _mm256_slli_epi32(vt, 1) , _mm256_srai_epi32(vt, 31) ) ;
+  vr   = vt ;
+  j0 = 0 ;
+  // chunks of 8 elements (second chunk may overlap first chunk)
+  for(i0=n7 ; i0<n ; i0+=8){
+    vi   = _mm256_loadu_si256((__m256i *) (top+i0)  ) ;   // top[i0:i0+7]
+    vj1  = _mm256_loadu_si256((__m256i *) (bot+i0)  ) ;   // bot[i0:i0+7]
+#if defined(WITH_FETCH)
+    vi1  = _mm256_loadu_si256((__m256i *) (top+i0-1)) ;   // top[i0-1:i0+6]
+    vij1 = _mm256_loadu_si256((__m256i *) (bot+i0-1)) ;   // bot[i0-1:i0+6]
+#else
+    v0   = _mm256_set1_epi32(top[i0-1]) ;                 // top[i0-1]
+    vi1  = _mm256_permutevar8x32_epi32(vi, vs) ;          // 0, 0, 1, 2, 3, 4, 5, 6  permutation
+    vi1  = _mm256_blend_epi32(vi1, v0, 1) ;               // first element set to top[i0-1]
+    v0   = _mm256_set1_epi32(bot[i0-1]) ;                 // bot[i0-1]
+    vij1 = _mm256_permutevar8x32_epi32(vj1, vs) ;         // 0, 0, 1, 2, 3, 4, 5, 6  permutation
+    vij1 = _mm256_blend_epi32(vij1, v0, 1) ;              // first element set to bot[i0-1]
+#endif
+    // top[i0+i] - ( top[i0+i-1] + bot[i0+i] - bot[i0+i-1] )
+    vt   = _mm256_sub_epi32( vi, _mm256_sub_epi32( _mm256_add_epi32(vi1, vj1) , vij1 ) ) ;
+    _mm256_storeu_si256( (__m256i *) (top+j0), vr) ;      // delayed store, result of previous pass
+//     vr =  _mm256_xor_si256( _mm256_slli_epi32(vt, 1) , _mm256_srai_epi32(vt, 31) ) ;
+    vr = vt ;
+    j0 = i0 ;
+  }
+  _mm256_storeu_si256( (__m256i *) (top+j0), vr) ;        // delayed store, result of previous pass
+}
+#else
+
+STATIC inline void LorenzoPredictRowJ_inplace(int32_t * restrict top, int32_t * restrict bot, int n){
+  int i, i0, j0, n7 = (n & 7) ;
+  int32_t t[8], r[8], r0 ;
+
+  if(n < 8) {
+    LorenzoPredictRowJ_inplace_07(top, bot, n) ;
+    return ;
+  }
+  r0 = top[0] - bot[0] ;
+  n7 = n7 ? n7 : 8 ;
+  // first 8 elements
+  for(i=0 ; i<8 ; i++) r[i] = top[i] - ( top[i-1] + bot[i] - bot[i-1] ) ;
+  j0 = 0 ;
+  // chunks of 8 elements (second chunk may overlap first chunk)
+  for(i0=n7 ; i0<n ; i0+=8){
+    for(i=0 ; i<8 ; i++) t[i] = top[i0+i] - ( top[i0+i-1] + bot[i0+i] - bot[i0+i-1] ) ;
+    for(i=0 ; i<8 ; i++) top[j0+i] = r[i] ;
+    for(i=0 ; i<8 ; i++) r[i] = t[i] ;
+    j0 = i0 ;
+  }
+  for(i=0 ; i<8 ; i++) top[j0+i] = r[i] ;
+  top[0] = r0 ;
+}
+#endif
+
 // 2D lorenzo prediction (32 bit signed integers)
 // orig : input : original values (32 bit signed integers)
 // diff : output : original value - predicted value (using 2D Lorenzo predictor) (32 bit signed integers)
@@ -143,14 +310,16 @@ void LorenzoPredictInplace_c(int32_t * restrict orig, int ni, int lnio, int nj){
   int32_t diff[ni] ;
   orig += (lnio * (nj - 1)) ;
   while(--nj > 0){                                    // all rows other than bottom row
-    LorenzoPredictRowJ(orig, orig-lnio, diff, ni) ;   // predict upper row in row pair -> diff
+    LorenzoPredictRowJ_inplace(orig, orig-lnio, ni) ;
+//     LorenzoPredictRowJ(orig, orig-lnio, diff, ni) ;   // predict upper row in row pair -> diff
+//     mem_cpy_w32(orig, diff, ni) ;                     // copy predicted row back into orig
 //     memcpy(orig, diff, sizeof(diff)) ;                // copy predicted row back into orig
-    mem_cpy_w32(orig, diff, ni) ;
     orig -= lnio ;                                    // next row
   }
-  LorenzoPredictRow0(orig, diff, ni) ;                // bottom row
-//   memcpy(orig, diff, sizeof(diff)) ;
-  mem_cpy_w32(orig, diff, ni) ;
+  LorenzoPredictRow0_inplace(orig, ni) ;
+//   LorenzoPredictRow0(orig, diff, ni) ;                // bottom row
+//   mem_cpy_w32(orig, diff, ni) ;                       // copy predicted row back into orig
+//   memcpy(orig, diff, sizeof(diff)) ;                  // copy predicted row back into orig
 }
 
 // restore ogiginal from 2D lorenzo prediction (32 bit signed integers)
