@@ -67,14 +67,6 @@ static inline __m128i _mm_memmask_si128(int n){
   i32 = n ? i32 >> ( 8 * (4 - (n&3)) ) : 0 ;     // shift right to eliminate unneeded elements
   vm = _mm_set1_epi32(i32) ;                     // load into 128 bit register
   return _mm_cvtepi8_epi32(vm) ;                 // convert from 8 bit t0 32 bit mask (4 elements)
-//   __m128i vm = _mm_xor_si128(vm, vm) ;
-//   vm = _mm_cmpeq_epi32(vm, vm) ;
-//   if(n == 4) return vm ;                   // full 4 element mask
-//   if(n == 0) return _mm_xor_si128(vm, vm) ;  // mask is all zeros
-//   n = 4 - (n & 3) ;                        // number of elements to suppress on the left (none if 4)
-//   if(n & 2) vm = _mm_bsrli_si128(vm, 8) ;  // suppress 2 elements
-//   if(n & 1) vm = _mm_bsrli_si128(vm, 4) ;  // suppress 1 element
-//   return vm ;
 }
 // build a 256 bit mask (8 x 32 bits) to keep n (0-8) elements in masked operations
 // mask is built as a 64 bit mask (8x8bit), then expanded to 256 bits (8x32bit)
@@ -84,18 +76,6 @@ static inline __m256i _mm256_memmask_si256(int n){
   i64 = n ? i64 >> ( 8 * (8 - (n&7)) ) : 0 ;      // shift right to eliminate unneeded elements
   vm = _mm_set1_epi64x(i64) ;                     // load into 128 bit register
   return _mm256_cvtepi8_epi32(vm) ;               // convert from 8 bit t0 32 bit mask (8 elements)
-//   __m128i vm = _mm_xor_si128(vm, vm) ;
-//   vm = _mm_cmpeq_epi32(vm, vm) ;
-//   __m256i v0 = _mm256_xor_si256(v0, v0) ;
-//   v0 = _mm256_cmpeq_epi32(v0, v0) ;
-//   if(n == 8) return v0 ;                   // full 8 element mask
-//   if(n == 0) return _mm256_xor_si256(v0, v0) ;  // mask is all zeros
-//   n = 8 - (n & 7) ;                        // number of elements to suppress on the left (none if 8)
-//   // build 16 bit mask (8 elements)
-//   if(n & 4) vm = _mm_bsrli_si128(vm, 8) ;  // suppress 4 elements
-//   if(n & 2) vm = _mm_bsrli_si128(vm, 4) ;  // suppress 2 elements
-//   if(n & 1) vm = _mm_bsrli_si128(vm, 2) ;  // suppress 1 element
-//   return _mm256_cvtepi16_epi32(vm) ;       // convert from 16 bit t0 32 bit mask (8 elements)
 }
 #endif
 
@@ -349,6 +329,17 @@ STATIC inline int32_t isign_32(int32_t what){
 #define TO_ZIGZAG(x)   ( ((int32_t)(x) << 1) ^ ((int32_t)(x) >> 31) )
 #define FROM_ZIGZAG(x) ( ((uint32_t)(x) >> 1) ^ (-((uint32_t)(x) & 1)) )
 
+// convert to/from sign and magnitude form, sign is Least Significant Bit
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+inline __m256i _mm256_tozigzag_epi32(__m256i v0){
+  return _mm256_xor_si256( _mm256_add_epi32(v0, v0) , _mm256_srai_epi32(v0, 31) ) ;
+}
+inline __m256i _mm256_fromzigzag_epi32(__m256i v0){
+  __m256i t = _mm256_slli_epi32(v0, 31) ;
+  return _mm256_xor_si256( _mm256_srli_epi32(v0, 1) , _mm256_srai_epi32(t, 31) ) ;
+}
+#endif
+
 // convert to sign and magnitude form, sign is Least Significant Bit
 STATIC inline uint32_t to_zigzag_32(int32_t what){
   return (what << 1) ^ (what >> 31) ;
@@ -360,6 +351,52 @@ STATIC inline int32_t from_zigzag_32(uint32_t what){
   return ((what >> 1) ^ sign) ;
 }
 
+// convert array to sign and magnitude form, sign is Least Significant Bit (in place)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+STATIC inline uint32_t v_to_zigzag_32_inplace(int32_t * restrict src, int ni){
+  int i0, n7 = (ni & 7) ;
+  int32_t *dst = src ;
+  __m256i v0, vr, vma ;
+  __m128i vt ;
+  uint32_t max = 0 ;
+
+  if(ni < 8){
+    for(i0=0 ; i0<n7 ; i0++){ src[i0] = to_zigzag_32(src[i0]) ; max = (src[i0] > max) ? src[i0] : max ; }
+    return max ;
+  }
+  n7 = n7 ? n7 : 8 ;
+  // first 8 elements
+  v0  = _mm256_loadu_si256((__m256i *) src) ; dst = src ; src += n7 ;
+  vr  = _mm256_tozigzag_epi32(v0) ;
+  vma = vr ;
+  // chunks of 8 elements (the first two chunks will overlap if ni is not a multiple of 8)
+  for(i0=n7 ; i0<ni ; i0+=8){
+    v0  = _mm256_loadu_si256((__m256i *) src) ;
+    _mm256_storeu_si256((__m256i *) dst, vr) ;            // delayed store
+    vr  = _mm256_tozigzag_epi32(v0) ;
+    vma = _mm256_max_epu32(vma, vr) ;                     // running max
+    dst = src ; src += 8 ;
+  }
+  _mm256_storeu_si256((__m256i *) dst, vr) ;              // delayed store
+  vt = _mm_max_epu32( _mm256_extractf128_si256 (vma,0) , _mm256_extractf128_si256 (vma,1) ) ;  // 4 values
+  vt = _mm_max_epu32( vt , _mm_shuffle_epi32(vt, 0b11101110) ) ;     // 2 values max( [0,1,2,3] , [2,3,2,3])
+  vt = _mm_max_epu32( vt , _mm_shuffle_epi32(vt, 0b01010101) ) ;     // 1 value  max( [0,1,2,3] . [1,1,1,1])
+  _mm_storeu_si32(&max, vt) ;                                        // store reduced max
+  return max ;
+}
+#else
+STATIC inline uint32_t v_to_zigzag_32_inplace(int32_t * restrict src, int ni){
+  int i ;
+  uint32_t max = 0 ;
+  for(i=0 ; i<ni ; i++){
+    src[i] = to_zigzag_32(src[i]) ;
+    max = (src[i] > max) ? src[i] : max ;
+  }
+  return max ;
+}
+#endif
+
+// convert array to sign and magnitude form, sign is Least Significant Bit
 STATIC inline int32_t v_to_zigzag_32(int32_t * restrict src, uint32_t * restrict dst, int ni){
   int i ;
   uint32_t max=0 ;
@@ -370,6 +407,52 @@ STATIC inline int32_t v_to_zigzag_32(int32_t * restrict src, uint32_t * restrict
   return max ;
 }
 
+// convert array from sign and magnitude form, sign is Least Significant Bit (in place)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+STATIC inline int32_t v_from_zigzag_32_inplace(int32_t * restrict src, int ni){
+  int i0, n7 = (ni & 7) ;
+  int32_t *dst = src ;
+  __m256i v0, vr, vma ;
+  __m128i vt ;
+  uint32_t max = 0 ;
+
+  if(ni < 8){
+    for(i0=0 ; i0<n7 ; i0++){ src[i0] = from_zigzag_32(src[i0]) ; max = (src[i0] > max) ? src[i0] : max ; }
+    return max ;
+  }
+  n7 = n7 ? n7 : 8 ;
+  // first 8 elements
+  v0  = _mm256_loadu_si256((__m256i *) src) ; dst = src ; src += n7 ;
+  vr  = _mm256_fromzigzag_epi32(v0) ;
+  vma = vr ;
+  // chunks of 8 elements (the first two chunks will overlap if ni is not a multiple of 8)
+  for(i0=n7 ; i0<ni ; i0+=8){
+    v0  = _mm256_loadu_si256((__m256i *) src) ;
+    _mm256_storeu_si256((__m256i *) dst, vr) ;            // delayed store
+    vr  = _mm256_fromzigzag_epi32(v0) ;
+    vma = _mm256_max_epu32(vma, vr) ;                     // running max
+    dst = src ; src += 8 ;
+  }
+  _mm256_storeu_si256((__m256i *) dst, vr) ;              // delayed store
+  vt = _mm_max_epu32( _mm256_extractf128_si256 (vma,0) , _mm256_extractf128_si256 (vma,1) ) ;  // 4 values
+  vt = _mm_max_epu32( vt , _mm_shuffle_epi32(vt, 0b11101110) ) ;     // 2 values max( [0,1,2,3] , [2,3,2,3])
+  vt = _mm_max_epu32( vt , _mm_shuffle_epi32(vt, 0b01010101) ) ;     // 1 value  max( [0,1,2,3] . [1,1,1,1])
+  _mm_storeu_si32(&max, vt) ;                                        // store reduced max
+  return max ;
+}
+#else
+STATIC inline int32_t v_from_zigzag_32_inplace(int32_t * restrict src, int ni){
+  int i ;
+  uint32_t max=0 ;
+  for(i=0 ; i<ni ; i++){
+    src[i] = from_zigzag_32(src[i]) ;
+    max = (src[i] > max) ? src[i] : max ;
+  }
+  return max ;
+}
+#endif
+
+// convert array from sign and magnitude form, sign is Least Significant Bit
 STATIC inline int32_t v_from_zigzag_32(uint32_t * restrict src, int32_t * restrict dst, int ni){
   int32_t i, max=0 ;
   for(i=0 ; i<ni ; i++){

@@ -189,7 +189,49 @@ int main(int argc, char **argv){
   t = t2;
   t /= (NI*NJ) ;
   printf("insert %d words in %6.2f cycles/word\n", NI*NJ, t);
-// return 0 ;
+  printf("=======================================================================================\n") ;
+
+// test array zigzag
+  printf("array zigzag test : ") ;
+  int32_t whatplus[8] , whatminus[8] ;
+  int32_t zigplus[8] , zigminus[8] ;
+  for(i=-1 ; i<0x7FFFFFF8 ; i+=8*128){
+    for(j=0 ; j<8 ; j++) { whatplus[j] = i+1+j ; whatminus[j] = -whatplus[j] - 1 ; }
+    for(j=0 ; j<8 ; j++) { zigplus[j] = whatplus[j] ; zigminus[j] = whatminus[j] ; }
+    v_to_zigzag_32_inplace(zigplus, 8) ; v_to_zigzag_32_inplace(zigminus, 8) ; 
+    v_from_zigzag_32_inplace(zigplus, 8) ; v_from_zigzag_32_inplace(zigminus, 8) ;
+    for(j=0 ; j<8 ; j++){
+      if(whatplus[j] != zigplus[j] || whatminus[j] != zigminus[j] ){
+        printf("ZIGZAG expected (%8.8x %8.8x), got (%8.8x %8.8x)\n", whatplus[j], whatminus[j], zigplus[j], zigminus[j]) ;
+        e_exit(1) ;
+      }
+    }
+//     lasti = whatp ;
+  }
+  printf("last values = %8.8x, %8.8x, Success\n", whatplus[7], whatminus[7]) ;
+  printf("=======================================================================================\n") ;
+  {
+    int32_t temp[64*64] ; int64_t t0 ;
+    for(i=0 ; i<64*64 ; i++) temp[i] = i ;
+    printf("v_to_zigzag_32_inplace timing : ") ;
+    for(j=0 ; j<16 ; j++){
+      t0 = elapsed_cycles();
+      v_to_zigzag_32_inplace(temp, 64*64) ;
+      t0 = elapsed_cycles() -t0;
+      printf("%ld ", t0);
+    }
+    printf("\n");
+    printf("v_from_zigzag_32_inplace timing : ") ;
+    for(j=0 ; j<16 ; j++){
+      t0 = elapsed_cycles();
+      v_from_zigzag_32_inplace(temp, 64*64) ;
+      t0 = elapsed_cycles() -t0;
+      printf("%ld ", t0);
+    }
+    printf("\n");
+  }
+  printf("=======================================================================================\n") ;
+return 0 ;
   ieee_prop prop0 = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } ;
   init_floats() ;
   printf("\n") ;
