@@ -875,9 +875,9 @@ void zfpx_bit_plane_32_16(uint32_t *src, uint64_t *planes){
 }
 
 // 64 32 bit integers -> 32 bit planes (64 bits)
-// the first element of src ( 0) will end up in the LSB column in plabes (bit 0)
-// element N will end up in column N                                     (bit N)
-// the last  element of src (63) will end up in the MSB column in planes (bit 63)
+// the first element of src (index  0) will end up in the LSB column in planes (bit 0)
+// element N (index N) will end up in column N                                     (bit N)
+// the last  element of src (index 63) will end up in the MSB column in planes (bit 63)
 // planes[0 ] is the Most  Significant Bit Plane
 // planes[31] is the Least Significant Bit Plane
 // bits are numbered right to left
