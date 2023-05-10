@@ -131,13 +131,19 @@ interface
     import :: C_INT32_T
     implicit none
     integer(C_INT32_T), dimension(*), intent(IN)   :: src
+    integer(C_INT16_T), dimension(*), intent(OUT)  :: planes
+  end subroutine
+  subroutine zfpx_bit_plane_32_32(src, planes) bind(C, name='zfpx_bit_plane_32_32')
+    import :: C_INT32_T
+    implicit none
+    integer(C_INT32_T), dimension(*), intent(IN)   :: src
     integer(C_INT32_T), dimension(*), intent(OUT)  :: planes
   end subroutine
   subroutine zfpx_bit_plane_32_64(src, planes) bind(C, name='zfpx_bit_plane_32_64')
     import :: C_INT32_T
     implicit none
     integer(C_INT32_T), dimension(*), intent(IN)   :: src
-    integer(C_INT32_T), dimension(*), intent(OUT)  :: planes
+    integer(C_INT64_T), dimension(*), intent(OUT)  :: planes
   end subroutine
   subroutine zfpx_gather_64_64(f, lni, blocks, transform) bind(C, name='zfpx_gather_64_64')
     import :: C_INT32_T
@@ -201,8 +207,10 @@ uint32_t get_ieee_emax(float *f, int n);
 // quantize float array f by normalizing all exponents to the largest exponent emax
 float zfpx_quantize(float *f, int32_t *fi, int n, uint32_t emax);
 
-// 16 32 bit integers -> 32 bit planes (lower 16 bits in 64)
-void zfpx_bit_plane_32_16(uint32_t *src, uint64_t *planes);
+// 16 32 bit integers -> 32 bit planes (16 bits)
+void zfpx_bit_plane_32_16(uint32_t *src, uint16_t *planes);
+// 32 32 bit integers -> 32 bit planes (32 bits)
+void zfpx_bit_plane_32_32(uint32_t *src, uint32_t *planes);
 // 64 32 bit integers -> 32 bit planes (64 bits)
 void zfpx_bit_plane_32_64(uint32_t *src, uint64_t *planes);
 

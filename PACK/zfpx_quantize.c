@@ -847,7 +847,7 @@ void zfpx_scatter_64_64(int32_t *f, int32_t lni, int32_t *blocks, int transform)
 // planes[0 ] is the Most  Significant Bit Plane
 // planes[31] is the Least Significant Bit Plane
 // bits are numbered right to left
-void zfpx_bit_plane_32_16(uint32_t *src, uint64_t *planes){
+void zfpx_bit_plane_32_16(uint32_t *src, uint16_t *planes){
   int i ;
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   uint64_t plane ;
@@ -874,12 +874,50 @@ void zfpx_bit_plane_32_16(uint32_t *src, uint64_t *planes){
 #endif
 }
 
-// 64 32 bit integers -> 32 bit planes (64 bits)
-// the first element of src (index  0) will end up in the LSB column in planes (bit 0)
-// element N (index N) will end up in column N                                     (bit N)
-// the last  element of src (index 63) will end up in the MSB column in planes (bit 63)
+// 32 32 bit integers -> 32 bit planes
+// the first element of src ( 0) will end up in the LSB column in plabes (bit 0)
+// element N will end up in column N                                     (bit N)
+// the last  element of src (31) will end up in the MSB column in planes (bit 31)
 // planes[0 ] is the Most  Significant Bit Plane
 // planes[31] is the Least Significant Bit Plane
+// bits are numbered right to left
+void zfpx_bit_plane_32_32(uint32_t *src, uint32_t *planes){
+  int i ;
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+  uint64_t plane ;
+  __m256i v0, v1 ;
+  v0 = _mm256_loadu_si256((__m256i const *)(src   )) ; // load 16 values
+  v1 = _mm256_loadu_si256((__m256i const *)(src+ 8)) ;
+  v2 = _mm256_loadu_si256((__m256i const *)(src+16)) ;
+  v3 = _mm256_loadu_si256((__m256i const *)(src+24)) ;
+  for(i=0 ; i<32 ; i++){
+    plane = 0 ;
+    plane <<= 8 ; plane |= _mm256_movemask_ps((__m256) v3) ; v3 = _mm256_slli_epi32(v3, 1) ;
+    plane <<= 8 ; plane |= _mm256_movemask_ps((__m256) v2) ; v2 = _mm256_slli_epi32(v2, 1) ;
+    plane <<= 8 ; plane |= _mm256_movemask_ps((__m256) v1) ; v1 = _mm256_slli_epi32(v1, 1) ;
+    plane <<= 8 ; plane |= _mm256_movemask_ps((__m256) v0) ; v0 = _mm256_slli_epi32(v0, 1) ;
+    planes[i] = plane ;
+  }
+#else
+  int j ;
+  uint32_t bits ;
+  for(i=0 ; i<32 ; i++) planes[i] = 0l ;
+  for(j=31 ; j>=0 ; j--){
+    bits = src[j] ;
+    for(i=31 ; i>=0 ; i--){
+      planes[i] = (planes[i] << 1) | (bits & 1) ; bits >>= 1 ;
+    }
+  }
+//   printf("BEEP16 !!\n");
+#endif
+}
+
+// 64 32 bit integers -> 32 bit planes (64 bits)
+// the first element of src (index  0) will end up in the LSB column in planes (bit 0)
+// element N (index N) will end up in column N                                 (bit N)
+// the last  element of src (index 63) will end up in the MSB column in planes (bit 63)
+// planes[0 ] is the Most  Significant Bit Plane
+// planes[63] is the Least Significant Bit Plane
 // bits are numbered right to left
 void zfpx_bit_plane_32_64(uint32_t *src, uint64_t *planes){
   int i ;
@@ -934,7 +972,7 @@ int main(int argc, char **argv){
   int32_t t2d[16] ;
   int32_t t3d[64] ;
   uint32_t stream[64], stream0 ;
-  uint64_t planes[32], planes16[32] ;
+  uint16_t planes[32], planes16[32] ;
   char string[65] ;
   int32_t coord[32][32] ;
   int32_t *coord1 = &coord[0][0] ;
@@ -1158,8 +1196,8 @@ return 0 ;
     }
     if(i<32){
       printf(" |");
-      string[64] = 0;
-      for(j=0 ; j<64 ; j++) string[63-j] = (planes16[i] & (1l << j)) ? '1' : '0' ;
+      string[16] = 0;
+      for(j=0 ; j<16 ; j++) string[63-j] = (planes16[i] & (1l << j)) ? '1' : '0' ;
       printf(" %s", string) ;
     }
     printf("\n") ;
