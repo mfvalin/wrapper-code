@@ -24,6 +24,14 @@
 #include <misc_zfp.h>
 #include <misc_analyze.h>
 
+// 16 32 bit integers -> 32 bit planes (16 bits)
+void zfpx_bit_plane_32_16(uint32_t *src, uint16_t *planes);
+// 32 32 bit integers -> 32 bit planes (32 bits)
+void zfpx_bit_plane_32_32(uint32_t *src, uint32_t *planes);
+// 64 32 bit integers -> 32 bit planes (64 bits)
+void zfpx_bit_plane_32_64(uint32_t *src, uint64_t *planes);
+
+
 static inline uint32_t index2(uint32_t i, uint32_t j, uint32_t ni, uint32_t nj){
   return i + ni * j ;
 }
@@ -222,4 +230,38 @@ if(toler <0) {
 //   float_unquantize_simple(float * restrict z, int32_t * restrict q, int ni, int lniz, int lniq, int nj, float quantum, FloatPair *t);
   float_unquantize_simple(brray, qarray, nx, nx, nx, ny, quantum, &tf);
   AnalyzeCompressionErrors(array, brray, nx*ny*nz, epsilon, "lin+lorenzo");
+
+  fprintf(stderr,"========== zfp bit planes tests ============\n");
+  uint32_t stream[64], stream0 ;
+  uint16_t planes16[32] ;
+  uint64_t planes[32] ;
+  char string[65] ;
+
+  stream0 = 0xCC000000u ;
+  for(i=0 ; i<32 ; i++){
+    stream[i] = stream0 ; stream[63-i] = stream0 ; stream0 >>= 1 ;
+  }
+  stream[15] = 0x55555555 ;
+  stream[63] = 0xAAAAAAAA ;
+  for(i=0 ; i<31 ; i++) {planes[i] = 0 ; planes16[i] = 0 ; } ;
+  zfpx_bit_plane_32_64(stream, planes) ;    // 4x4x4 array
+  zfpx_bit_plane_32_16(stream, planes16) ;  // 4x4 array
+  for(i=0 ; i< 64 ; i++) {
+    string[32] = 0;
+    for(j=0 ; j<32 ; j++) string[31-j] = (stream[i] & (1 << j)) ? '1' : '0' ;
+    printf(" %8.8x %s", stream[i], string) ;
+    if(i<32){
+      printf(" |");
+      string[64] = 0;
+      for(j=0 ; j<64 ; j++) string[63-j] = (planes[i] & (1l << j)) ? '1' : '0' ;
+      printf(" %s", string) ;
+    }
+    if(i<32){
+      printf(" |");
+      string[16] = 0;
+      for(j=0 ; j<16 ; j++) string[63-j] = (planes16[i] & (1l << j)) ? '1' : '0' ;
+      printf(" %s", string) ;
+    }
+    printf("\n") ;
+  }
 }

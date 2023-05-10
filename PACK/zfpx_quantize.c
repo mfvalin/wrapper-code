@@ -618,6 +618,7 @@ void zfpx_fwd_xform_3d(int32_t *t){
 //   for(i=0 ; i<64 ; i++) t[i] = t1[zfpx_perm_3[i]] ; // shuffle output
 }
 
+#if 0
 #define NBMASK 0xaaaaaaaau /* negabinary<-> 2's complement binary conversion mask */
 
 // signed integer (2's complement) to negabinary (base -2) conversion
@@ -643,6 +644,7 @@ void v_negabinary_to_int(uint32_t x, int32_t n)
   int i ;
   for(i=0 ; i<n ; i++) x = negabinary_to_int(x) ;
 }
+#endif
 
 // get the IEEE exponent of the largest float (absolute value) in float array f
 uint32_t get_ieee_emax(float *f, int n){
@@ -1174,7 +1176,7 @@ return 0 ;
     }
     printf("\n");
   }
-#if 0
+#if 1
   stream0 = 0xCC000000u ;
   for(i=0 ; i<32 ; i++){
     stream[i] = stream0 ; stream[63-i] = stream0 ; stream0 >>= 1 ;

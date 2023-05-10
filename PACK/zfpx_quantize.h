@@ -128,7 +128,7 @@ interface
     real(C_FLOAT) :: factor
   end function
   subroutine zfpx_bit_plane_32_16(src, planes) bind(C, name='zfpx_bit_plane_32_16')
-    import :: C_INT32_T
+    import :: C_INT16_T, C_INT32_T
     implicit none
     integer(C_INT32_T), dimension(*), intent(IN)   :: src
     integer(C_INT16_T), dimension(*), intent(OUT)  :: planes
@@ -140,7 +140,7 @@ interface
     integer(C_INT32_T), dimension(*), intent(OUT)  :: planes
   end subroutine
   subroutine zfpx_bit_plane_32_64(src, planes) bind(C, name='zfpx_bit_plane_32_64')
-    import :: C_INT32_T
+    import :: C_INT32_T, C_INT64_T
     implicit none
     integer(C_INT32_T), dimension(*), intent(IN)   :: src
     integer(C_INT64_T), dimension(*), intent(OUT)  :: planes
