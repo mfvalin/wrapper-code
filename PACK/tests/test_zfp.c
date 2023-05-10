@@ -234,6 +234,7 @@ if(toler <0) {
   fprintf(stderr,"========== zfp bit planes tests ============\n");
   uint32_t stream[64], stream0 ;
   uint16_t planes16[32] ;
+  uint32_t planes32[32] ;
   uint64_t planes[32] ;
   char string[65] ;
 
@@ -241,10 +242,13 @@ if(toler <0) {
   for(i=0 ; i<32 ; i++){
     stream[i] = stream0 ; stream[63-i] = stream0 ; stream0 >>= 1 ;
   }
-  stream[15] = 0x55555555 ;
-  stream[63] = 0xAAAAAAAA ;
+  stream[15] = 0x99999999 ;
+  stream[31] = 0x55555555 ;
+  stream[47] = 0xAAAAAAAA ;
+  stream[63] = 0x66666666 ;
   for(i=0 ; i<31 ; i++) {planes[i] = 0 ; planes16[i] = 0 ; } ;
   zfpx_bit_plane_32_64(stream, planes) ;    // 4x4x4 array
+  zfpx_bit_plane_32_32(stream, planes32) ;  // 8x4 or 4x8 array
   zfpx_bit_plane_32_16(stream, planes16) ;  // 4x4 array
   for(i=0 ; i< 64 ; i++) {
     string[32] = 0;
@@ -254,12 +258,21 @@ if(toler <0) {
       printf(" |");
       string[64] = 0;
       for(j=0 ; j<64 ; j++) string[63-j] = (planes[i] & (1l << j)) ? '1' : '0' ;
+//       for(j=0 ; j<64 ; j++) string[63-j] = (planes[31-i] & (1l << j)) ? '1' : '0' ;
+      printf(" %s", string) ;
+    }
+    if(i<32){
+      printf(" |");
+      string[32] = 0;
+      for(j=0 ; j<32 ; j++) string[31-j] = (planes32[i] & (1l << j)) ? '1' : '0' ;
+//       for(j=0 ; j<32 ; j++) string[31-j] = (planes32[31-i] & (1l << j)) ? '1' : '0' ;
       printf(" %s", string) ;
     }
     if(i<32){
       printf(" |");
       string[16] = 0;
-      for(j=0 ; j<16 ; j++) string[63-j] = (planes16[i] & (1l << j)) ? '1' : '0' ;
+      for(j=0 ; j<16 ; j++) string[15-j] = (planes16[i] & (1l << j)) ? '1' : '0' ;
+//       for(j=0 ; j<16 ; j++) string[15-j] = (planes16[31-i] & (1l << j)) ? '1' : '0' ;
       printf(" %s", string) ;
     }
     printf("\n") ;
